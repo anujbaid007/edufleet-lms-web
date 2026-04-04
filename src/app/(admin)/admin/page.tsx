@@ -34,6 +34,8 @@ export default async function AdminOverviewPage() {
     { count: platformAdminCount },
     { count: subjectCount },
     { count: chapterCount },
+    { count: engChapterCount },
+    { count: hinChapterCount },
     { count: videoCount },
     { count: completedCount },
   ] = await Promise.all([
@@ -49,6 +51,8 @@ export default async function AdminOverviewPage() {
     supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role", "platform_admin").eq("is_active", true),
     supabase.from("subjects").select("id", { count: "exact", head: true }),
     supabase.from("chapters").select("id", { count: "exact", head: true }),
+    supabase.from("chapters").select("id", { count: "exact", head: true }).eq("medium", "English"),
+    supabase.from("chapters").select("id", { count: "exact", head: true }).eq("medium", "Hindi"),
     supabase.from("videos").select("id", { count: "exact", head: true }),
     supabase.from("video_progress").select("id", { count: "exact", head: true }).eq("completed", true),
   ]);
@@ -151,7 +155,7 @@ export default async function AdminOverviewPage() {
 
         <ClayCard hover={false} className="!p-6">
           <h3 className="font-poppins font-bold text-heading mb-4">Content Library</h3>
-          <div className="grid grid-cols-3 gap-4 text-center">
+          <div className="grid grid-cols-2 gap-4 text-center">
             <div>
               <BookOpen className="w-6 h-6 text-orange-primary mx-auto mb-2" />
               <p className="text-xl font-bold text-heading">{subjectCount ?? 0}</p>
@@ -159,13 +163,25 @@ export default async function AdminOverviewPage() {
             </div>
             <div>
               <Play className="w-6 h-6 text-orange-primary mx-auto mb-2" />
-              <p className="text-xl font-bold text-heading">{chapterCount ?? 0}</p>
-              <p className="text-xs text-muted">Chapters</p>
-            </div>
-            <div>
-              <Play className="w-6 h-6 text-orange-primary mx-auto mb-2" />
               <p className="text-xl font-bold text-heading">{videoCount ?? 0}</p>
               <p className="text-xs text-muted">Videos</p>
+            </div>
+          </div>
+          <div className="mt-4 pt-4 border-t border-orange-primary/10">
+            <p className="text-xs font-semibold text-heading mb-2">Chapters</p>
+            <div className="grid grid-cols-3 gap-3 text-center">
+              <div className="clay-surface rounded-lg py-2 shadow-clay-pill">
+                <p className="text-lg font-bold text-heading">{chapterCount ?? 0}</p>
+                <p className="text-[10px] text-muted">Total</p>
+              </div>
+              <div className="clay-surface rounded-lg py-2 shadow-clay-pill">
+                <p className="text-lg font-bold text-heading">{engChapterCount ?? 0}</p>
+                <p className="text-[10px] text-muted">English</p>
+              </div>
+              <div className="clay-surface rounded-lg py-2 shadow-clay-pill">
+                <p className="text-lg font-bold text-heading">{hinChapterCount ?? 0}</p>
+                <p className="text-[10px] text-muted">Hindi</p>
+              </div>
             </div>
           </div>
         </ClayCard>
