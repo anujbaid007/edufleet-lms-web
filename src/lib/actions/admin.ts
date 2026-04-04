@@ -120,6 +120,10 @@ export async function createUser(formData: FormData) {
     return { error: "Email, password, name, and role are required" };
   }
 
+  if (!orgId || !centreId) {
+    return { error: "Organization and centre are required" };
+  }
+
   // Create auth user via admin API
   const { data: authData, error: authError } = await admin.auth.admin.createUser({
     email,
@@ -183,15 +187,21 @@ export async function updateUser(id: string, formData: FormData) {
   return { success: true };
 }
 
-export async function deactivateUser(id: string) {
+export async function deleteUser(id: string) {
   const admin = createAdminClient();
 
-  const { error } = await admin
+  // Delete profile first (may have FK constraints)
+  const { error: profileError } = await admin
     .from("profiles")
-    .update({ is_active: false })
+    .delete()
     .eq("id", id);
 
-  if (error) return { error: error.message };
+  if (profileError) return { error: profileError.message };
+
+  // Delete from Supabase auth
+  const { error: authError } = await admin.auth.admin.deleteUser(id);
+  if (authError) return { error: authError.message };
+
   revalidatePath("/admin/users");
   return { success: true };
 }

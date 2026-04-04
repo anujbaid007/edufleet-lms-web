@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Pencil, Trash2, X, Check, Loader2 } from "lucide-react";
-import { updateUser, deactivateUser } from "@/lib/actions/admin";
+import { updateUser, deleteUser } from "@/lib/actions/admin";
 import { useRouter } from "next/navigation";
 
 interface Props {
@@ -57,15 +57,15 @@ export function EditUserRow({ user, organizations, centres, teachers }: Props) {
     router.refresh();
   }
 
-  async function handleDeactivate() {
+  async function handleDelete() {
     setLoading(true);
-    const result = await deactivateUser(user.id);
+    const result = await deleteUser(user.id);
     setLoading(false);
     if (result?.error) {
       alert(result.error);
+    } else {
+      router.refresh();
     }
-    setMode("view");
-    router.refresh();
   }
 
   function resetFields() {
@@ -90,15 +90,13 @@ export function EditUserRow({ user, organizations, centres, teachers }: Props) {
         >
           <Pencil className="w-4 h-4" />
         </button>
-        {user.is_active && (
-          <button
-            onClick={() => setMode("confirmDelete")}
-            className="p-2 rounded-lg text-muted hover:text-red-500 hover:bg-red-50 transition-all"
-            title="Deactivate"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
-        )}
+        <button
+          onClick={() => setMode("confirmDelete")}
+          className="p-2 rounded-lg text-muted hover:text-red-500 hover:bg-red-50 transition-all"
+          title="Delete"
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
       </div>
     );
   }
@@ -106,9 +104,9 @@ export function EditUserRow({ user, organizations, centres, teachers }: Props) {
   if (mode === "confirmDelete") {
     return (
       <div className="flex items-center gap-2 shrink-0">
-        <span className="text-xs text-red-600 font-medium">Deactivate?</span>
+        <span className="text-xs text-red-600 font-medium">Delete permanently?</span>
         <button
-          onClick={handleDeactivate}
+          onClick={handleDelete}
           disabled={loading}
           className="px-3 py-1.5 text-xs font-medium bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
         >

@@ -107,15 +107,16 @@ export function CreateUserForm({
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-heading font-poppins mb-2">Organization</label>
+            <label className="block text-sm font-semibold text-heading font-poppins mb-2">Organization *</label>
             <select
               name="org_id"
+              required
               className="clay-input w-full"
               value={selectedOrgId}
               onChange={(e) => { setSelectedOrgId(e.target.value); setSelectedCentreId(""); }}
               disabled={currentUserRole !== "platform_admin"}
             >
-              <option value="">None</option>
+              <option value="">Select organization</option>
               {organizations.map((o) => (
                 <option key={o.id} value={o.id}>{o.name}</option>
               ))}
@@ -123,15 +124,16 @@ export function CreateUserForm({
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-heading font-poppins mb-2">Centre</label>
+            <label className="block text-sm font-semibold text-heading font-poppins mb-2">Centre *</label>
             <select
               name="centre_id"
+              required
               className="clay-input w-full"
               value={selectedCentreId}
               onChange={(e) => setSelectedCentreId(e.target.value)}
               disabled={currentUserRole === "centre_admin"}
             >
-              <option value="">None</option>
+              <option value="">Select centre</option>
               {filteredCentres.map((c) => (
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}

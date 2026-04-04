@@ -31,6 +31,7 @@ export default async function AdminOverviewPage() {
     { count: teacherCount },
     { count: orgAdminCount },
     { count: centreAdminCount },
+    { count: platformAdminCount },
     { count: subjectCount },
     { count: chapterCount },
     { count: videoCount },
@@ -45,6 +46,7 @@ export default async function AdminOverviewPage() {
     supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role", "teacher").eq("is_active", true),
     supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role", "org_admin").eq("is_active", true),
     supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role", "centre_admin").eq("is_active", true),
+    supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role", "platform_admin").eq("is_active", true),
     supabase.from("subjects").select("id", { count: "exact", head: true }),
     supabase.from("chapters").select("id", { count: "exact", head: true }),
     supabase.from("videos").select("id", { count: "exact", head: true }),
@@ -125,6 +127,7 @@ export default async function AdminOverviewPage() {
           <h3 className="font-poppins font-bold text-heading mb-4">Users Breakdown</h3>
           <div className="space-y-3">
             {[
+              { label: "Platform Admins", count: platformAdminCount ?? 0, color: "bg-red-500", bg: "bg-red-100" },
               { label: "Org Admins", count: orgAdminCount ?? 0, color: "bg-purple-500", bg: "bg-purple-100" },
               { label: "Centre Admins", count: centreAdminCount ?? 0, color: "bg-emerald-500", bg: "bg-emerald-100" },
               { label: "Teachers", count: teacherCount ?? 0, color: "bg-blue-500", bg: "bg-blue-100" },
