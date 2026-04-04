@@ -25,16 +25,20 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  // Refresh session — important for Server Components
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  // Redirect unauthenticated users to login
   const isAuthPage = request.nextUrl.pathname === "/login";
   const isProtectedRoute =
     request.nextUrl.pathname.startsWith("/dashboard") ||
     request.nextUrl.pathname.startsWith("/admin");
+
+  // Fast path: skip auth check for non-protected, non-auth pages
+  if (!isAuthPage && !isProtectedRoute) {
+    return supabaseResponse;
+  }
+
+  // Use getUser() only when we need auth — this refreshes the session
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   if (!user && isProtectedRoute) {
     const url = request.nextUrl.clone();
@@ -45,7 +49,6 @@ export async function updateSession(request: NextRequest) {
   // Redirect authenticated users away from login
   if (user && isAuthPage) {
     const url = request.nextUrl.clone();
-    // Fetch profile to determine redirect
     const { data: profile } = await supabase
       .from("profiles")
       .select("role")
