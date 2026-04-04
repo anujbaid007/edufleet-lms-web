@@ -79,8 +79,7 @@ export default async function CentresPage() {
               </div>
               {canCreate && (
                 <EditCentreRow
-                  centre={{ id: centre.id, name: centre.name, location: centre.location, is_active: centre.is_active, org_id: centre.org_id }}
-                  organizations={orgs ?? []}
+                  centre={{ id: centre.id, name: centre.name, location: centre.location, is_active: centre.is_active }}
                 />
               )}
             </div>

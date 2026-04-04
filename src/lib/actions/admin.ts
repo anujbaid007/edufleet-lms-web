@@ -41,6 +41,18 @@ export async function updateOrganization(id: string, formData: FormData) {
   return { success: true };
 }
 
+export async function deleteOrganization(id: string) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("organizations")
+    .delete()
+    .eq("id", id);
+
+  if (error) return { error: error.message };
+  revalidatePath("/admin/orgs");
+  return { success: true };
+}
+
 // ─── Centres ───
 
 export async function createCentre(formData: FormData) {
@@ -69,6 +81,18 @@ export async function updateCentre(id: string, formData: FormData) {
   const { error } = await supabase
     .from("centres")
     .update({ name, location, is_active: isActive })
+    .eq("id", id);
+
+  if (error) return { error: error.message };
+  revalidatePath("/admin/centres");
+  return { success: true };
+}
+
+export async function deleteCentre(id: string) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("centres")
+    .delete()
     .eq("id", id);
 
   if (error) return { error: error.message };
