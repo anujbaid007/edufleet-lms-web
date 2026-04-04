@@ -41,7 +41,7 @@ export default function LoginPage() {
             alt="EduFleet"
             width={80}
             height={80}
-            className="mx-auto mb-4 rounded-clay"
+            className="mx-auto mt-4 mb-4 rounded-clay"
             priority
           />
           <Image
