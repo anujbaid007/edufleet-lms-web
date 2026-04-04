@@ -22,7 +22,7 @@ export default async function AccessPage() {
 
   const [{ data: orgs }, { data: chapters }, { data: restrictions }] = await Promise.all([
     supabase.from("organizations").select("id, name").eq("is_active", true).order("name"),
-    supabase.from("chapters").select("id, class, medium, subject_id, subjects(name)").order("class").order("chapter_no"),
+    supabase.from("chapters").select("id, class, medium, subject_id, subjects(name)").order("class").order("chapter_no").limit(5000),
     supabase.from("content_restrictions").select("id, org_id, chapter_id"),
   ]);
 

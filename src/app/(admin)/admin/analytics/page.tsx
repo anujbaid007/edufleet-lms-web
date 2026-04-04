@@ -87,11 +87,13 @@ export default async function AnalyticsPage() {
   // Subject-wise completion (for heatmap-style view)
   const { data: chapters } = await supabase
     .from("chapters")
-    .select("id, subject_id, subjects(name)");
+    .select("id, subject_id, subjects(name)")
+    .limit(5000);
 
   const { data: videos } = await supabase
     .from("videos")
-    .select("id, chapter_id");
+    .select("id, chapter_id")
+    .limit(10000);
 
   const subjectMap = new Map<string, { name: string; totalVideos: number; completions: number }>();
   chapters?.forEach((ch) => {
