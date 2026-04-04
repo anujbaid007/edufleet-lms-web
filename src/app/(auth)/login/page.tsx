@@ -39,19 +39,19 @@ export default function LoginPage() {
           <Image
             src="/logo-icon.png"
             alt="EduFleet"
-            width={80}
-            height={80}
-            className="mx-auto mt-4 mb-4 rounded-clay"
+            width={72}
+            height={72}
+            className="mx-auto rounded-clay"
             priority
           />
           <Image
             src="/logo.png"
             alt="EduFleet"
-            width={200}
-            height={55}
-            className="mx-auto"
+            width={180}
+            height={50}
+            className="mx-auto mt-3"
           />
-          <p className="text-muted mt-2">Learning Management System</p>
+          <p className="text-muted text-sm mt-1">Learning Management System</p>
         </div>
 
         {/* Login Card */}

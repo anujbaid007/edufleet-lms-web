@@ -70,23 +70,33 @@ export function AdminSidebar({ userRole, userName }: AdminSidebarProps) {
         boxShadow: "8px 0 32px rgba(200,160,120,0.08), inset -1px 0 0 rgba(255,255,255,0.8)",
       }}
     >
-      {/* Logo */}
-      <div className="px-5 py-6 flex items-center gap-3 border-b border-orange-primary/10">
+      {/* Logo + Collapse */}
+      <div className="px-5 py-5 flex items-center gap-3 border-b border-orange-primary/10 relative">
         <Image
           src="/logo-icon.png"
           alt="EduFleet"
           width={40}
           height={40}
-          className="shrink-0 rounded-clay-sm"
+          className="shrink-0 rounded-lg shadow-md"
         />
         {!collapsed && (
           <div>
-            <span className="font-poppins font-bold text-heading text-lg">
-              Edu<span className="text-gradient-orange">Fleet</span>
-            </span>
-            <p className="text-[10px] text-orange-primary font-semibold -mt-0.5">ADMIN</p>
+            <Image
+              src="/logo.png"
+              alt="EduFleet"
+              width={120}
+              height={33}
+              className="brightness-90 contrast-125"
+            />
+            <p className="text-[10px] text-orange-primary font-bold -mt-0.5 tracking-wide">ADMIN</p>
           </div>
         )}
+        <button
+          onClick={() => setCollapsed(!collapsed)}
+          className="absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-white shadow-md border border-orange-primary/20 flex items-center justify-center text-muted hover:text-orange-primary transition-colors z-50"
+        >
+          {collapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
+        </button>
       </div>
 
       {/* Nav Links */}
@@ -112,7 +122,7 @@ export function AdminSidebar({ userRole, userName }: AdminSidebarProps) {
         })}
       </nav>
 
-      {/* User + Collapse */}
+      {/* User */}
       <div className="px-3 py-4 border-t border-orange-primary/10 space-y-2">
         {!collapsed && (
           <div className="px-4 py-2">
@@ -129,12 +139,6 @@ export function AdminSidebar({ userRole, userName }: AdminSidebarProps) {
             {!collapsed && <span>Sign Out</span>}
           </button>
         </form>
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="flex items-center justify-center w-full py-2 text-muted hover:text-heading transition-colors"
-        >
-          {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-        </button>
       </div>
     </aside>
   );

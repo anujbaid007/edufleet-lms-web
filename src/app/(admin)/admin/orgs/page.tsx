@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Header } from "@/components/dashboard/header";
 import { ClayCard } from "@/components/ui/clay-card";
 import { CreateOrgForm } from "@/components/admin/create-org-form";
+import { EditOrgRow } from "@/components/admin/edit-org-row";
 import { Building2 } from "lucide-react";
 
 export const metadata = { title: "Organizations" };
@@ -60,6 +61,7 @@ export default async function OrgsPage() {
                   {org.centreCount} centres · {org.userCount} users
                 </p>
               </div>
+              {isPlatform && <EditOrgRow org={org} />}
             </div>
           </ClayCard>
         ))}

@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Header } from "@/components/dashboard/header";
 import { ClayCard } from "@/components/ui/clay-card";
 import { CreateUserForm } from "@/components/admin/create-user-form";
+import { EditUserRow } from "@/components/admin/edit-user-row";
 import { User, Users } from "lucide-react";
 
 export const metadata = { title: "Users" };
@@ -96,6 +97,12 @@ export default async function UsersPage() {
                   {u.medium ? ` · ${u.medium}` : ""}
                 </p>
               </div>
+              <EditUserRow
+                user={u}
+                organizations={orgs ?? []}
+                centres={centres ?? []}
+                teachers={teacherProfiles ?? []}
+              />
             </div>
           </ClayCard>
         ))}

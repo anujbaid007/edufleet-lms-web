@@ -155,10 +155,10 @@ export default async function AdminOverviewPage() {
           <h3 className="font-poppins font-bold text-heading mb-4">Users Breakdown</h3>
           <div className="space-y-3">
             {[
-              { label: "Students", count: studentCount ?? 0, color: "bg-orange-primary", bg: "bg-orange-primary/10" },
-              { label: "Teachers", count: teacherCount ?? 0, color: "bg-blue-500", bg: "bg-blue-100" },
               { label: "Org Admins", count: orgAdminCount ?? 0, color: "bg-purple-500", bg: "bg-purple-100" },
               { label: "Centre Admins", count: centreAdminCount ?? 0, color: "bg-emerald-500", bg: "bg-emerald-100" },
+              { label: "Teachers", count: teacherCount ?? 0, color: "bg-blue-500", bg: "bg-blue-100" },
+              { label: "Students", count: studentCount ?? 0, color: "bg-orange-primary", bg: "bg-orange-primary/10" },
             ].map((row) => (
               <div key={row.label}>
                 <div className="flex justify-between items-center">

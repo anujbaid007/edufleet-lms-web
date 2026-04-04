@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Header } from "@/components/dashboard/header";
 import { ClayCard } from "@/components/ui/clay-card";
 import { CreateCentreForm } from "@/components/admin/create-centre-form";
+import { EditCentreRow } from "@/components/admin/edit-centre-row";
 import { MapPin } from "lucide-react";
 
 export const metadata = { title: "Centres" };
@@ -76,6 +77,12 @@ export default async function CentresPage() {
                   {centre.orgName} · {centre.location || "No location"} · {centre.userCount} users
                 </p>
               </div>
+              {canCreate && (
+                <EditCentreRow
+                  centre={{ id: centre.id, name: centre.name, location: centre.location, is_active: centre.is_active, org_id: centre.org_id }}
+                  organizations={orgs ?? []}
+                />
+              )}
             </div>
           </ClayCard>
         ))}
