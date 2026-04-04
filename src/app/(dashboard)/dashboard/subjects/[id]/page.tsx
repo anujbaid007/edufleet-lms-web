@@ -85,7 +85,7 @@ export default async function SubjectPage({ params }: { params: { id: string } }
     <div>
       <Header
         title={subject.name}
-        subtitle={`${chapters?.length ?? 0} chapters · Class ${profile.class}`}
+        subtitle={`${chapters?.length ?? 0} chapters · ${profile.class === 0 ? "KG" : profile.class === 99 ? "General" : `Class ${profile.class}`}`}
       />
 
       <div className="space-y-3">

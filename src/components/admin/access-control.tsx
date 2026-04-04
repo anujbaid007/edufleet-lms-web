@@ -132,11 +132,11 @@ export function AccessControl({ organizations, byClass, restrictions, defaultOrg
           <div className="flex items-center gap-3 mb-4">
             <div className="w-9 h-9 rounded-lg clay-surface-orange flex items-center justify-center shadow-clay-orange">
               <span className="text-xs font-bold text-white">
-                {cls.class === 0 ? "KG" : cls.class}
+                {cls.class === 0 ? "KG" : cls.class === 99 ? "G" : cls.class}
               </span>
             </div>
             <h3 className="text-sm font-bold text-heading">
-              {cls.class === 0 ? "Kindergarten" : `Class ${cls.class}`}
+              {cls.class === 0 ? "Kindergarten" : cls.class === 99 ? "General" : `Class ${cls.class}`}
             </h3>
           </div>
 

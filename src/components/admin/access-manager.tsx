@@ -68,7 +68,7 @@ export function AccessManager({ orgId, orgName, restrictions, availableChapters 
           <option value="">Select chapter to restrict...</option>
           {unrestricted.map((ch) => (
             <option key={ch.id} value={ch.id}>
-              Class {ch.class === 0 ? "KG" : ch.class} · {ch.subjectName} · Ch.{ch.chapter_no}: {ch.title}
+              {ch.class === 0 ? "KG" : ch.class === 99 ? "General" : `Class ${ch.class}`} · {ch.subjectName} · Ch.{ch.chapter_no}: {ch.title}
             </option>
           ))}
         </select>

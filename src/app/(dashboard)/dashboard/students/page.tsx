@@ -105,7 +105,7 @@ export default async function MyStudentsPage() {
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-bold text-heading">{student.name}</p>
                 <p className="text-xs text-muted">
-                  Class {student.class} · {student.board} · {student.medium}
+                  {student.class === 0 ? "KG" : student.class === 99 ? "General" : `Class ${student.class}`} · {student.board} · {student.medium}
                 </p>
               </div>
               <div className="text-right">

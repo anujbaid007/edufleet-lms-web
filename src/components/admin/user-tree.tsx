@@ -72,7 +72,7 @@ function UserRow({
         </div>
         {(u.class !== null || u.board || u.medium) && (
           <p className="text-xs text-muted mt-0.5">
-            {u.class !== null ? `Class ${u.class === 0 ? "KG" : u.class}` : ""}
+            {u.class !== null ? (u.class === 0 ? "KG" : u.class === 99 ? "General" : `Class ${u.class}`) : ""}
             {u.board ? ` · ${u.board}` : ""}
             {u.medium ? ` · ${u.medium}` : ""}
           </p>
