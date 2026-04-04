@@ -10,13 +10,14 @@ export const metadata = { title: "Dashboard" };
 
 export default async function DashboardPage() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) redirect("/login");
+  const userId = session.user.id;
 
   const { data: profile } = await supabase
     .from("profiles")
     .select("name, role, class, board, medium, org_id")
-    .eq("id", user.id)
+    .eq("id", userId)
     .single();
 
   if (!profile) redirect("/login");
@@ -59,7 +60,7 @@ export default async function DashboardPage() {
     ? await supabase
         .from("video_progress")
         .select("video_id, watched_percentage, completed, last_position, last_watched_at")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .in("video_id", videoIds)
     : { data: [] };
 

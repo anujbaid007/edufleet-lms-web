@@ -8,8 +8,9 @@ import { formatDuration } from "@/lib/utils";
 
 export default async function ChapterPage({ params }: { params: { id: string } }) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) redirect("/login");
+  const userId = session.user.id;
 
   const { data: chapter } = await supabase
     .from("chapters")
@@ -30,7 +31,7 @@ export default async function ChapterPage({ params }: { params: { id: string } }
     ? await supabase
         .from("video_progress")
         .select("video_id, watched_percentage, completed")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .in("video_id", videoIds)
     : { data: [] };
 

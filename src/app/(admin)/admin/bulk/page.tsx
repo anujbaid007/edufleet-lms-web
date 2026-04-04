@@ -7,13 +7,13 @@ export const metadata = { title: "Bulk Upload" };
 
 export default async function BulkUploadPage() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) redirect("/login");
 
   const { data: profile } = await supabase
     .from("profiles")
     .select("role, org_id, centre_id")
-    .eq("id", user.id)
+    .eq("id", session.user.id)
     .single();
 
   if (!profile) redirect("/login");

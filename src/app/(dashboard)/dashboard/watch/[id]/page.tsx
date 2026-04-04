@@ -5,14 +5,15 @@ import { ChapterPlaylist } from "@/components/video/chapter-playlist";
 
 export default async function WatchPage({ params }: { params: { id: string } }) {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) redirect("/login");
+  const userId = session.user.id;
 
   // Get user's medium preference
   const { data: profile } = await supabase
     .from("profiles")
     .select("medium")
-    .eq("id", user.id)
+    .eq("id", userId)
     .single();
 
   const isHindi = profile?.medium === "Hindi";
@@ -53,7 +54,7 @@ export default async function WatchPage({ params }: { params: { id: string } }) 
     ? await supabase
         .from("video_progress")
         .select("video_id, watched_percentage, completed, last_position")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .in("video_id", chapterVideoIds)
     : { data: [] };
 

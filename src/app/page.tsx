@@ -3,9 +3,10 @@ import { createClient } from "@/lib/supabase/server";
 
 export default async function Home() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { session } } = await supabase.auth.getSession();
 
-  if (user) {
+  if (session) {
+    const user = session.user;
     const { data: profile } = await supabase
       .from("profiles")
       .select("role")

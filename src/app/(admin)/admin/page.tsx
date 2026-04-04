@@ -8,13 +8,13 @@ export const metadata = { title: "Admin Overview" };
 
 export default async function AdminOverviewPage() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) redirect("/login");
 
   const { data: profile } = await supabase
     .from("profiles")
     .select("role, org_id, centre_id, name")
-    .eq("id", user.id)
+    .eq("id", session.user.id)
     .single();
 
   if (!profile) redirect("/login");

@@ -11,13 +11,14 @@ export const metadata = { title: "My Progress" };
 
 export default async function ProgressPage() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) redirect("/login");
+  const userId = session.user.id;
 
   const { data: profile } = await supabase
     .from("profiles")
     .select("class, board, medium")
-    .eq("id", user.id)
+    .eq("id", userId)
     .single();
   if (!profile) redirect("/login");
 
@@ -42,7 +43,7 @@ export default async function ProgressPage() {
     ? await supabase
         .from("video_progress")
         .select("video_id, watched_percentage, completed, last_position, last_watched_at")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .in("video_id", videoIds)
     : { data: [] };
 

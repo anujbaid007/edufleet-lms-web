@@ -8,13 +8,14 @@ export const metadata = { title: "My Students" };
 
 export default async function MyStudentsPage() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) redirect("/login");
+  const userId = session.user.id;
 
   const { data: profile } = await supabase
     .from("profiles")
     .select("role")
-    .eq("id", user.id)
+    .eq("id", userId)
     .single();
 
   if (!profile || profile.role !== "teacher") redirect("/dashboard");
@@ -23,7 +24,7 @@ export default async function MyStudentsPage() {
   const { data: students } = await supabase
     .from("profiles")
     .select("id, name, class, board, medium")
-    .eq("teacher_id", user.id)
+    .eq("teacher_id", userId)
     .eq("is_active", true)
     .order("name");
 
