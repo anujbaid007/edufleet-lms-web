@@ -19,69 +19,39 @@ export default async function AdminOverviewPage() {
 
   if (!profile) redirect("/login");
 
-  // Fetch counts based on role
+  // Fetch all counts in parallel
   const isPlatform = profile.role === "platform_admin";
   const isOrg = profile.role === "org_admin";
 
-  // Organizations count
-  const { count: orgCount } = isPlatform
-    ? await supabase.from("organizations").select("id", { count: "exact", head: true })
-    : { count: isOrg ? 1 : 0 };
+  const [
+    orgResult,
+    { count: centreCount },
+    { count: userCount },
+    { count: studentCount },
+    { count: teacherCount },
+    { count: orgAdminCount },
+    { count: centreAdminCount },
+    { count: subjectCount },
+    { count: chapterCount },
+    { count: videoCount },
+    { count: completedCount },
+  ] = await Promise.all([
+    isPlatform
+      ? supabase.from("organizations").select("id", { count: "exact", head: true })
+      : Promise.resolve({ count: isOrg ? 1 : 0 }),
+    supabase.from("centres").select("id", { count: "exact", head: true }),
+    supabase.from("profiles").select("id", { count: "exact", head: true }).eq("is_active", true),
+    supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role", "student").eq("is_active", true),
+    supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role", "teacher").eq("is_active", true),
+    supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role", "org_admin").eq("is_active", true),
+    supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role", "centre_admin").eq("is_active", true),
+    supabase.from("subjects").select("id", { count: "exact", head: true }),
+    supabase.from("chapters").select("id", { count: "exact", head: true }),
+    supabase.from("videos").select("id", { count: "exact", head: true }),
+    supabase.from("video_progress").select("id", { count: "exact", head: true }).eq("completed", true),
+  ]);
 
-  // Centres count
-  const { count: centreCount } = await supabase
-    .from("centres")
-    .select("id", { count: "exact", head: true });
-
-  // Users count
-  const { count: userCount } = await supabase
-    .from("profiles")
-    .select("id", { count: "exact", head: true })
-    .eq("is_active", true);
-
-  // Role counts
-  const { count: studentCount } = await supabase
-    .from("profiles")
-    .select("id", { count: "exact", head: true })
-    .eq("role", "student")
-    .eq("is_active", true);
-
-  const { count: teacherCount } = await supabase
-    .from("profiles")
-    .select("id", { count: "exact", head: true })
-    .eq("role", "teacher")
-    .eq("is_active", true);
-
-  const { count: orgAdminCount } = await supabase
-    .from("profiles")
-    .select("id", { count: "exact", head: true })
-    .eq("role", "org_admin")
-    .eq("is_active", true);
-
-  const { count: centreAdminCount } = await supabase
-    .from("profiles")
-    .select("id", { count: "exact", head: true })
-    .eq("role", "centre_admin")
-    .eq("is_active", true);
-
-  // Content stats
-  const { count: subjectCount } = await supabase
-    .from("subjects")
-    .select("id", { count: "exact", head: true });
-
-  const { count: chapterCount } = await supabase
-    .from("chapters")
-    .select("id", { count: "exact", head: true });
-
-  const { count: videoCount } = await supabase
-    .from("videos")
-    .select("id", { count: "exact", head: true });
-
-  // Progress stats
-  const { count: completedCount } = await supabase
-    .from("video_progress")
-    .select("id", { count: "exact", head: true })
-    .eq("completed", true);
+  const orgCount = orgResult.count;
 
   const roleLabel = profile.role === "platform_admin"
     ? "Platform"

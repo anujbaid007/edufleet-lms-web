@@ -15,9 +15,9 @@ export function Skeleton({ className }: SkeletonProps) {
   );
 }
 
-export function CardSkeleton() {
+export function CardSkeleton({ className }: SkeletonProps = {}) {
   return (
-    <div className="clay-card">
+    <div className={cn("clay-card", className)}>
       <Skeleton className="h-40 w-full mb-4 rounded-clay-sm" />
       <Skeleton className="h-4 w-3/4 mb-2" />
       <Skeleton className="h-4 w-1/2" />

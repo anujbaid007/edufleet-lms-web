@@ -20,24 +20,11 @@ export default async function AccessPage() {
 
   if (!profile) redirect("/login");
 
-  // Organizations
-  const { data: orgs } = await supabase
-    .from("organizations")
-    .select("id, name")
-    .eq("is_active", true)
-    .order("name");
-
-  // All chapters with subject info
-  const { data: chapters } = await supabase
-    .from("chapters")
-    .select("id, class, medium, subject_id, subjects(name)")
-    .order("class")
-    .order("chapter_no");
-
-  // All existing restrictions
-  const { data: restrictions } = await supabase
-    .from("content_restrictions")
-    .select("id, org_id, chapter_id");
+  const [{ data: orgs }, { data: chapters }, { data: restrictions }] = await Promise.all([
+    supabase.from("organizations").select("id, name").eq("is_active", true).order("name"),
+    supabase.from("chapters").select("id, class, medium, subject_id, subjects(name)").order("class").order("chapter_no"),
+    supabase.from("content_restrictions").select("id, org_id, chapter_id"),
+  ]);
 
   // Build subject groups: unique combos of class + medium + subject
   const subjectGroupMap = new Map<string, {

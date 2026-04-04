@@ -27,29 +27,17 @@ export default async function UsersPage() {
 
   if (!profile) redirect("/login");
 
-  const { data: allUsers } = await supabase
-    .from("profiles")
-    .select("id, name, role, org_id, centre_id, class, board, medium, is_active, teacher_id, created_at")
-    .order("name");
-
-  const { data: orgs } = await supabase
-    .from("organizations")
-    .select("id, name")
-    .eq("is_active", true)
-    .order("name");
-
-  const { data: centres } = await supabase
-    .from("centres")
-    .select("id, name, org_id")
-    .eq("is_active", true)
-    .order("name");
-
-  const { data: teacherProfiles } = await supabase
-    .from("profiles")
-    .select("id, name, centre_id")
-    .eq("role", "teacher")
-    .eq("is_active", true)
-    .order("name");
+  const [
+    { data: allUsers },
+    { data: orgs },
+    { data: centres },
+    { data: teacherProfiles },
+  ] = await Promise.all([
+    supabase.from("profiles").select("id, name, role, org_id, centre_id, class, board, medium, is_active, teacher_id, created_at").order("name"),
+    supabase.from("organizations").select("id, name").eq("is_active", true).order("name"),
+    supabase.from("centres").select("id, name, org_id").eq("is_active", true).order("name"),
+    supabase.from("profiles").select("id, name, centre_id").eq("role", "teacher").eq("is_active", true).order("name"),
+  ]);
 
   // Build hierarchy
   const orgList = orgs ?? [];

@@ -35,9 +35,19 @@ interface Props {
 
 export function AccessControl({ organizations, byClass, restrictions, defaultOrgId }: Props) {
   const [selectedOrg, setSelectedOrg] = useState(defaultOrgId);
+  const [selectedMedium, setSelectedMedium] = useState<string>("all");
   const [isPending, startTransition] = useTransition();
   const [loadingKey, setLoadingKey] = useState<string | null>(null);
   const router = useRouter();
+
+  // Derive available mediums
+  const allMediums = Array.from(new Set(byClass.flatMap((cls) => cls.groups.map((g) => g.medium)))).sort();
+
+  // Filter by medium
+  const filteredByClass = byClass.map((cls) => ({
+    ...cls,
+    groups: cls.groups.filter((g) => selectedMedium === "all" || g.medium === selectedMedium),
+  })).filter((cls) => cls.groups.length > 0);
 
   // For the selected org, figure out which subject groups are blocked
   const orgRestrictions = restrictions.filter((r) => r.org_id === selectedOrg);
@@ -76,33 +86,48 @@ export function AccessControl({ organizations, byClass, restrictions, defaultOrg
     });
   }
 
-  const blockedCount = byClass.reduce(
+  const blockedCount = filteredByClass.reduce(
     (sum, cls) => sum + cls.groups.filter((g) => isGroupBlocked(g)).length,
     0
   );
-  const totalCount = byClass.reduce((sum, cls) => sum + cls.groups.length, 0);
+  const totalCount = filteredByClass.reduce((sum, cls) => sum + cls.groups.length, 0);
 
   return (
     <div className="space-y-4">
-      {/* Org selector */}
-      <div className="flex items-center gap-4">
-        <label className="text-sm font-semibold text-heading">Organization:</label>
-        <select
-          value={selectedOrg}
-          onChange={(e) => setSelectedOrg(e.target.value)}
-          className="px-4 py-2 text-sm border border-orange-primary/30 rounded-lg focus:outline-none focus:border-orange-primary clay-input"
-        >
-          {organizations.map((o) => (
-            <option key={o.id} value={o.id}>{o.name}</option>
-          ))}
-        </select>
-        <span className="text-xs text-muted">
+      {/* Filters */}
+      <div className="flex items-center gap-4 flex-wrap">
+        <div className="flex items-center gap-2">
+          <label className="text-sm font-semibold text-heading">Organization:</label>
+          <select
+            value={selectedOrg}
+            onChange={(e) => setSelectedOrg(e.target.value)}
+            className="px-4 py-2 text-sm border border-orange-primary/30 rounded-lg focus:outline-none focus:border-orange-primary clay-input"
+          >
+            {organizations.map((o) => (
+              <option key={o.id} value={o.id}>{o.name}</option>
+            ))}
+          </select>
+        </div>
+        <div className="flex items-center gap-2">
+          <label className="text-sm font-semibold text-heading">Medium:</label>
+          <select
+            value={selectedMedium}
+            onChange={(e) => setSelectedMedium(e.target.value)}
+            className="px-4 py-2 text-sm border border-orange-primary/30 rounded-lg focus:outline-none focus:border-orange-primary clay-input"
+          >
+            <option value="all">All Mediums</option>
+            {allMediums.map((m) => (
+              <option key={m} value={m}>{m}</option>
+            ))}
+          </select>
+        </div>
+        <span className="text-xs text-muted ml-auto">
           {totalCount - blockedCount} of {totalCount} subjects accessible
         </span>
       </div>
 
       {/* Class-wise subject toggles */}
-      {byClass.map((cls) => (
+      {filteredByClass.map((cls) => (
         <ClayCard key={cls.class} hover={false} className="!p-5">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-9 h-9 rounded-lg clay-surface-orange flex items-center justify-center shadow-clay-orange">

@@ -23,24 +23,11 @@ export default async function CentresPage() {
 
   const canCreate = profile.role === "platform_admin" || profile.role === "org_admin";
 
-  // Orgs for the form dropdown
-  const { data: orgs } = await supabase
-    .from("organizations")
-    .select("id, name")
-    .eq("is_active", true)
-    .order("name");
-
-  // Centres with org name
-  const { data: centres } = await supabase
-    .from("centres")
-    .select("id, name, location, is_active, org_id, organizations(name)")
-    .order("name");
-
-  // Count users per centre
-  const { data: users } = await supabase
-    .from("profiles")
-    .select("id, centre_id")
-    .eq("is_active", true);
+  const [{ data: orgs }, { data: centres }, { data: users }] = await Promise.all([
+    supabase.from("organizations").select("id, name").eq("is_active", true).order("name"),
+    supabase.from("centres").select("id, name, location, is_active, org_id, organizations(name)").order("name"),
+    supabase.from("profiles").select("id, centre_id").eq("is_active", true),
+  ]);
 
   const centreStats = (centres ?? []).map((c) => ({
     ...c,
