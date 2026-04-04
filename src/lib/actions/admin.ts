@@ -120,8 +120,12 @@ export async function createUser(formData: FormData) {
     return { error: "Email, password, name, and role are required" };
   }
 
-  if (!orgId || !centreId) {
-    return { error: "Organization and centre are required" };
+  if (!orgId) {
+    return { error: "Organization is required" };
+  }
+
+  if (!centreId && role !== "org_admin") {
+    return { error: "Centre is required" };
   }
 
   // Create auth user via admin API

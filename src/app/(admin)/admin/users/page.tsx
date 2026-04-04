@@ -44,9 +44,9 @@ export default async function UsersPage() {
   const centreList = centres ?? [];
   const users = allUsers ?? [];
 
-  // Org admins not tied to a centre
+  // Org admins (shown at org level regardless of centre)
   const orgAdmins = (orgId: string) =>
-    users.filter((u) => u.org_id === orgId && !u.centre_id && (u.role === "org_admin"));
+    users.filter((u) => u.org_id === orgId && u.role === "org_admin");
 
   // Users per centre
   const centreUsers = (centreId: string) =>

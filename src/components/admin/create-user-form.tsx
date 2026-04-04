@@ -124,16 +124,18 @@ export function CreateUserForm({
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-heading font-poppins mb-2">Centre *</label>
+            <label className="block text-sm font-semibold text-heading font-poppins mb-2">
+              Centre {selectedRole !== "org_admin" ? "*" : ""}
+            </label>
             <select
               name="centre_id"
-              required
+              required={selectedRole !== "org_admin"}
               className="clay-input w-full"
               value={selectedCentreId}
               onChange={(e) => setSelectedCentreId(e.target.value)}
               disabled={currentUserRole === "centre_admin"}
             >
-              <option value="">Select centre</option>
+              <option value="">{selectedRole === "org_admin" ? "None (org-level)" : "Select centre"}</option>
               {filteredCentres.map((c) => (
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
