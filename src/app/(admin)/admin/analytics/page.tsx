@@ -84,22 +84,38 @@ export default async function AnalyticsPage() {
     })
     .slice(0, 10);
 
-  // Subject-wise completion (for heatmap-style view)
-  const { data: chapters } = await supabase
-    .from("chapters")
-    .select("id, subject_id, subjects(name)")
-    .limit(5000);
+  // Subject-wise completion (paginated to bypass max_rows=1000)
+  type ChapterRow = { id: string; subject_id: string; subjects: { name: string } | null };
+  let chapters: ChapterRow[] = [];
+  {
+    let from = 0;
+    while (true) {
+      const { data } = await supabase.from("chapters").select("id, subject_id, subjects(name)").range(from, from + 999);
+      if (!data || data.length === 0) break;
+      chapters = chapters.concat(data as unknown as ChapterRow[]);
+      if (data.length < 1000) break;
+      from += 1000;
+    }
+  }
 
-  const { data: videos } = await supabase
-    .from("videos")
-    .select("id, chapter_id")
-    .limit(10000);
+  type VideoRow = { id: string; chapter_id: string };
+  let videos: VideoRow[] = [];
+  {
+    let from = 0;
+    while (true) {
+      const { data } = await supabase.from("videos").select("id, chapter_id").range(from, from + 999);
+      if (!data || data.length === 0) break;
+      videos = videos.concat(data as unknown as VideoRow[]);
+      if (data.length < 1000) break;
+      from += 1000;
+    }
+  }
 
   const subjectMap = new Map<string, { name: string; totalVideos: number; completions: number }>();
-  chapters?.forEach((ch) => {
+  chapters.forEach((ch) => {
     const subName = (ch.subjects as unknown as { name: string } | null)?.name ?? "Unknown";
     if (!subjectMap.has(subName)) subjectMap.set(subName, { name: subName, totalVideos: 0, completions: 0 });
-    const chapterVideos = videos?.filter((v) => v.chapter_id === ch.id) ?? [];
+    const chapterVideos = videos.filter((v) => v.chapter_id === ch.id);
     const entry = subjectMap.get(subName)!;
     entry.totalVideos += chapterVideos.length;
     const chapterVideoIds = new Set(chapterVideos.map((v) => v.id));

@@ -20,11 +20,27 @@ export default async function AccessPage() {
 
   if (!profile) redirect("/login");
 
-  const [{ data: orgs }, { data: chapters }, { data: restrictions }] = await Promise.all([
+  const [{ data: orgs }, { data: restrictions }] = await Promise.all([
     supabase.from("organizations").select("id, name").eq("is_active", true).order("name"),
-    supabase.from("chapters").select("id, class, medium, subject_id, subjects(name)").order("class").order("chapter_no").limit(5000),
     supabase.from("content_restrictions").select("id, org_id, chapter_id"),
   ]);
+
+  // Paginate chapters (Supabase max_rows = 1000)
+  type ChapterRow = { id: string; class: number; medium: string; subject_id: string; subjects: { name: string } | null };
+  let chapters: ChapterRow[] = [];
+  let from = 0;
+  while (true) {
+    const { data } = await supabase
+      .from("chapters")
+      .select("id, class, medium, subject_id, subjects(name)")
+      .order("class")
+      .order("chapter_no")
+      .range(from, from + 999);
+    if (!data || data.length === 0) break;
+    chapters = chapters.concat(data as unknown as ChapterRow[]);
+    if (data.length < 1000) break;
+    from += 1000;
+  }
 
   // Build subject groups: unique combos of class + medium + subject
   const subjectGroupMap = new Map<string, {

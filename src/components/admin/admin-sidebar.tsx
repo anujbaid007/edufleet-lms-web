@@ -11,6 +11,7 @@ import {
   Shield,
   Upload,
   BarChart3,
+  Library,
   LogOut,
   ChevronLeft,
   ChevronRight,
@@ -29,6 +30,7 @@ const platformAdminLinks = [
   { href: "/admin/orgs", label: "Organizations", icon: Building2 },
   { href: "/admin/centres", label: "Centres", icon: MapPin },
   { href: "/admin/users", label: "Users", icon: Users },
+  { href: "/admin/library", label: "Content Library", icon: Library },
   { href: "/admin/access", label: "Content Access", icon: Shield },
   { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
 ];
@@ -37,6 +39,7 @@ const orgAdminLinks = [
   { href: "/admin", label: "Overview", icon: LayoutDashboard },
   { href: "/admin/centres", label: "Centres", icon: MapPin },
   { href: "/admin/users", label: "Users", icon: Users },
+  { href: "/admin/library", label: "Content Library", icon: Library },
   { href: "/admin/access", label: "Content Access", icon: Shield },
   { href: "/admin/bulk", label: "Bulk Upload", icon: Upload },
   { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
@@ -45,6 +48,7 @@ const orgAdminLinks = [
 const centreAdminLinks = [
   { href: "/admin", label: "Overview", icon: LayoutDashboard },
   { href: "/admin/users", label: "Users", icon: Users },
+  { href: "/admin/library", label: "Content Library", icon: Library },
   { href: "/admin/bulk", label: "Bulk Upload", icon: Upload },
   { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
 ];
