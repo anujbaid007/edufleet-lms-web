@@ -39,18 +39,29 @@ export default async function AdminOverviewPage() {
     .select("id", { count: "exact", head: true })
     .eq("is_active", true);
 
-  // Students count
+  // Role counts
   const { count: studentCount } = await supabase
     .from("profiles")
     .select("id", { count: "exact", head: true })
     .eq("role", "student")
     .eq("is_active", true);
 
-  // Teachers count
   const { count: teacherCount } = await supabase
     .from("profiles")
     .select("id", { count: "exact", head: true })
     .eq("role", "teacher")
+    .eq("is_active", true);
+
+  const { count: orgAdminCount } = await supabase
+    .from("profiles")
+    .select("id", { count: "exact", head: true })
+    .eq("role", "org_admin")
+    .eq("is_active", true);
+
+  const { count: centreAdminCount } = await supabase
+    .from("profiles")
+    .select("id", { count: "exact", head: true })
+    .eq("role", "centre_admin")
     .eq("is_active", true);
 
   // Content stats
@@ -143,26 +154,25 @@ export default async function AdminOverviewPage() {
         <ClayCard hover={false} className="!p-6">
           <h3 className="font-poppins font-bold text-heading mb-4">Users Breakdown</h3>
           <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-body">Students</span>
-              <span className="text-sm font-bold text-heading">{studentCount ?? 0}</span>
-            </div>
-            <div className="h-2 bg-orange-primary/10 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-orange-primary rounded-full"
-                style={{ width: `${userCount ? Math.round(((studentCount ?? 0) / userCount) * 100) : 0}%` }}
-              />
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-body">Teachers</span>
-              <span className="text-sm font-bold text-heading">{teacherCount ?? 0}</span>
-            </div>
-            <div className="h-2 bg-blue-100 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-blue-500 rounded-full"
-                style={{ width: `${userCount ? Math.round(((teacherCount ?? 0) / userCount) * 100) : 0}%` }}
-              />
-            </div>
+            {[
+              { label: "Students", count: studentCount ?? 0, color: "bg-orange-primary", bg: "bg-orange-primary/10" },
+              { label: "Teachers", count: teacherCount ?? 0, color: "bg-blue-500", bg: "bg-blue-100" },
+              { label: "Org Admins", count: orgAdminCount ?? 0, color: "bg-purple-500", bg: "bg-purple-100" },
+              { label: "Centre Admins", count: centreAdminCount ?? 0, color: "bg-emerald-500", bg: "bg-emerald-100" },
+            ].map((row) => (
+              <div key={row.label}>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-body">{row.label}</span>
+                  <span className="text-sm font-bold text-heading">{row.count}</span>
+                </div>
+                <div className={`h-2 ${row.bg} rounded-full overflow-hidden mt-1`}>
+                  <div
+                    className={`h-full ${row.color} rounded-full`}
+                    style={{ width: `${userCount ? Math.round((row.count / userCount) * 100) : 0}%` }}
+                  />
+                </div>
+              </div>
+            ))}
           </div>
         </ClayCard>
 
