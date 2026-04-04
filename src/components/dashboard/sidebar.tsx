@@ -7,13 +7,13 @@ import {
   Home,
   BarChart3,
   Users,
-  GraduationCap,
   LogOut,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
 import { useState } from "react";
 import { logout } from "@/lib/actions/auth";
+import Image from "next/image";
 
 interface SidebarProps {
   userRole: string;
@@ -48,9 +48,13 @@ export function Sidebar({ userRole, userName }: SidebarProps) {
     >
       {/* Logo */}
       <div className="px-5 py-6 flex items-center gap-3 border-b border-orange-primary/10">
-        <div className="shrink-0 w-10 h-10 rounded-clay-sm clay-surface-orange flex items-center justify-center shadow-clay-orange">
-          <GraduationCap className="w-5 h-5 text-white" />
-        </div>
+        <Image
+          src="/logo-icon.png"
+          alt="EduFleet"
+          width={40}
+          height={40}
+          className="shrink-0 rounded-clay-sm"
+        />
         {!collapsed && (
           <span className="font-poppins font-bold text-heading text-lg">
             Edu<span className="text-gradient-orange">Fleet</span>

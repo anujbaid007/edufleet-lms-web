@@ -4,7 +4,8 @@ import { useState } from "react";
 import { login } from "@/lib/actions/auth";
 import { ClayInput } from "@/components/ui/clay-input";
 import { ClayButton } from "@/components/ui/clay-button";
-import { GraduationCap, LogIn } from "lucide-react";
+import { LogIn } from "lucide-react";
+import Image from "next/image";
 
 export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
@@ -35,12 +36,21 @@ export default function LoginPage() {
       <div className="w-full max-w-md relative z-10">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-clay clay-surface shadow-clay mb-4">
-            <GraduationCap className="w-10 h-10 text-orange-primary" />
-          </div>
-          <h1 className="text-3xl font-bold text-heading font-poppins">
-            Edu<span className="text-gradient-orange">Fleet</span>
-          </h1>
+          <Image
+            src="/logo-icon.png"
+            alt="EduFleet"
+            width={80}
+            height={80}
+            className="mx-auto mb-4 rounded-clay"
+            priority
+          />
+          <Image
+            src="/logo.png"
+            alt="EduFleet"
+            width={200}
+            height={55}
+            className="mx-auto"
+          />
           <p className="text-muted mt-2">Learning Management System</p>
         </div>
 
