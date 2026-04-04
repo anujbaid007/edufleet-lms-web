@@ -1,6 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+const REFRESH_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
+
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
@@ -35,32 +37,72 @@ export async function updateSession(request: NextRequest) {
     return supabaseResponse;
   }
 
-  // Use getUser() only when we need auth — this refreshes the session
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Check if we refreshed recently (within 1 hour) — skip expensive getUser()
+  const lastRefresh = request.cookies.get("auth_refreshed_at")?.value;
+  const now = Date.now();
+  const needsRefresh = !lastRefresh || now - parseInt(lastRefresh, 10) > REFRESH_INTERVAL_MS;
 
-  if (!user && isProtectedRoute) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    return NextResponse.redirect(url);
-  }
+  if (needsRefresh) {
+    // Full validation: calls Supabase auth server to verify + refresh token
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-  // Redirect authenticated users away from login
-  if (user && isAuthPage) {
-    const url = request.nextUrl.clone();
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
-
-    if (profile?.role === "platform_admin" || profile?.role === "org_admin" || profile?.role === "centre_admin") {
-      url.pathname = "/admin";
-    } else {
-      url.pathname = "/dashboard";
+    if (!user && isProtectedRoute) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      return NextResponse.redirect(url);
     }
-    return NextResponse.redirect(url);
+
+    if (user && isAuthPage) {
+      const url = request.nextUrl.clone();
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+
+      if (profile?.role === "platform_admin" || profile?.role === "org_admin" || profile?.role === "centre_admin") {
+        url.pathname = "/admin";
+      } else {
+        url.pathname = "/dashboard";
+      }
+      return NextResponse.redirect(url);
+    }
+
+    // Stamp the refresh time
+    supabaseResponse.cookies.set("auth_refreshed_at", String(now), {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 60 * 60, // 1 hour
+      path: "/",
+    });
+  } else {
+    // Cheap path: just read the session from the cookie (no network call)
+    const { data: { session } } = await supabase.auth.getSession();
+
+    if (!session && isProtectedRoute) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      return NextResponse.redirect(url);
+    }
+
+    if (session && isAuthPage) {
+      const url = request.nextUrl.clone();
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", session.user.id)
+        .single();
+
+      if (profile?.role === "platform_admin" || profile?.role === "org_admin" || profile?.role === "centre_admin") {
+        url.pathname = "/admin";
+      } else {
+        url.pathname = "/dashboard";
+      }
+      return NextResponse.redirect(url);
+    }
   }
 
   return supabaseResponse;
