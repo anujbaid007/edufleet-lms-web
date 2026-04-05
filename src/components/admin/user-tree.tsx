@@ -65,7 +65,7 @@ function UserRow({
         <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-orange-50 shadow-sm">
           <User className="h-4 w-4 text-orange-primary" />
         </div>
-        <div className="min-w-0 flex-1">
+        <div className="relative min-w-0 flex-1 pr-24">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm font-semibold text-heading">{u.name}</span>
             <RoleBadge role={u.role} colors={roleBadgeColors} />
@@ -89,11 +89,6 @@ function UserRow({
             />
           </div>
         </div>
-        <div className="pt-1 opacity-0 transition-opacity group-hover:opacity-100">
-          <span className="rounded-full bg-white px-2 py-1 text-[11px] font-medium text-muted shadow-sm">
-            Manage
-          </span>
-        </div>
       </div>
     </div>
   );
@@ -106,6 +101,7 @@ function CentreSection({
   organizations,
   centres,
   teachers,
+  defaultExpanded = true,
 }: {
   centre: { id: string; name: string };
   users: UserData[];
@@ -113,8 +109,9 @@ function CentreSection({
   organizations: { id: string; name: string }[];
   centres: { id: string; name: string; org_id: string }[];
   teachers: { id: string; name: string; centre_id: string | null }[];
+  defaultExpanded?: boolean;
 }) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(defaultExpanded);
   const teacherCount = users.filter((u) => u.role === "teacher").length;
   const studentCount = users.filter((u) => u.role === "student").length;
 
@@ -166,6 +163,7 @@ export function UserTree({ tree, unlinkedUsers, roleBadgeColors, organizations, 
           organizations={organizations}
           centres={centres}
           teachers={teachers}
+          defaultExpanded
         />
       ))}
 
@@ -202,6 +200,7 @@ function OrgSection({
   organizations,
   centres,
   teachers,
+  defaultExpanded = true,
 }: {
   org: { id: string; name: string };
   orgAdmins: UserData[];
@@ -210,8 +209,9 @@ function OrgSection({
   organizations: { id: string; name: string }[];
   centres: { id: string; name: string; org_id: string }[];
   teachers: { id: string; name: string; centre_id: string | null }[];
+  defaultExpanded?: boolean;
 }) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(defaultExpanded);
   const totalUsers = orgAdmins.length + orgCentres.reduce((sum, c) => sum + c.users.length, 0);
 
   return (
@@ -256,6 +256,7 @@ function OrgSection({
               organizations={organizations}
               centres={centres}
               teachers={teachers}
+              defaultExpanded
             />
           ))}
 

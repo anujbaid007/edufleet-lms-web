@@ -128,17 +128,17 @@ export function EditUserRow({ user, organizations, centres, teachers }: Props) {
 
   if (mode === "view") {
     return (
-      <div className="flex gap-1 shrink-0">
+      <div className="absolute right-0 top-0 flex gap-1">
         <button
           onClick={() => setMode("edit")}
-          className="p-2 rounded-lg text-muted hover:text-orange-primary hover:bg-orange-50 transition-all"
+          className="rounded-xl p-2 text-muted transition-all hover:bg-orange-50 hover:text-orange-primary"
           title="Edit"
         >
           <Pencil className="w-4 h-4" />
         </button>
         <button
           onClick={() => setMode("confirmDelete")}
-          className="p-2 rounded-lg text-muted hover:text-red-500 hover:bg-red-50 transition-all"
+          className="rounded-xl p-2 text-muted transition-all hover:bg-red-50 hover:text-red-500"
           title="Delete"
         >
           <Trash2 className="w-4 h-4" />
@@ -149,18 +149,18 @@ export function EditUserRow({ user, organizations, centres, teachers }: Props) {
 
   if (mode === "confirmDelete") {
     return (
-      <div className="flex items-center gap-2 shrink-0">
-        <span className="text-xs text-red-600 font-medium">Delete permanently?</span>
+      <div className="absolute right-0 top-0 flex items-center gap-2 rounded-2xl border border-red-200 bg-white px-3 py-2 shadow-sm">
+        <span className="text-xs font-medium text-red-600">Delete permanently?</span>
         <button
           onClick={handleDelete}
           disabled={loading}
-          className="px-3 py-1.5 text-xs font-medium bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+          className="rounded-xl bg-red-500 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-red-600"
         >
           {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : "Yes"}
         </button>
         <button
           onClick={() => setMode("view")}
-          className="px-3 py-1.5 text-xs font-medium text-body bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+          className="rounded-xl bg-gray-100 px-3 py-1.5 text-xs font-medium text-body transition-colors hover:bg-gray-200"
         >
           No
         </button>
