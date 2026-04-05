@@ -56,6 +56,10 @@ type VideoRow = {
   chapter_id: string;
 };
 
+type VideoChapterRow = {
+  chapter_id: string;
+};
+
 type ChapterRow = {
   id: string;
   class: number;
@@ -431,13 +435,22 @@ async function fetchVideosByIds(supabase: Supabase, videoIds: string[]) {
 }
 
 async function fetchVideoCountsByChapter(supabase: Supabase) {
-  const rpcClient = supabase as Supabase & {
-    rpc: (
-      fn: "get_video_counts_by_chapter"
-    ) => Promise<{ data: VideoCountRow[] | null; error: PostgrestError | null }>;
-  };
+  const videoRows = await fetchAllPages<VideoChapterRow>(async (from, to) => {
+    return supabase.from("videos").select("chapter_id").order("chapter_id").range(from, to);
+  });
 
-  return rpcClient.rpc("get_video_counts_by_chapter");
+  const counts = new Map<string, number>();
+  for (const row of videoRows) {
+    counts.set(row.chapter_id, (counts.get(row.chapter_id) ?? 0) + 1);
+  }
+
+  return {
+    data: Array.from(counts.entries()).map<VideoCountRow>(([chapter_id, video_count]) => ({
+      chapter_id,
+      video_count,
+    })),
+    error: null,
+  };
 }
 
 function buildAccessibleContentFactory(
