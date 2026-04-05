@@ -19,6 +19,10 @@ export function StatsOverview({
   activeSubjects,
 }: StatsOverviewProps) {
   const completionPercent = totalChapters > 0 ? Math.round((completedChapters / totalChapters) * 100) : 0;
+  const streakStarted = streak > 0;
+  const streakLabel = streakStarted ? "On a roll" : "Streak";
+  const streakValue = streak === 1 ? "1 day" : `${streak} days`;
+  const streakSubtext = streakStarted ? "Keep the learning rhythm going." : "Start one lesson today to begin your streak.";
 
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -47,14 +51,23 @@ export function StatsOverview({
       </ClayCard>
 
       {/* Streak */}
-      <ClayCard hover={false} className="!p-5 flex items-center gap-4">
-        <div className="w-14 h-14 rounded-clay-sm clay-surface flex items-center justify-center shadow-clay-pill">
-          <Flame className="w-6 h-6 text-orange-500" />
+      <ClayCard
+        hover={false}
+        className={`!p-5 flex items-center gap-4 transition-colors ${
+          streakStarted ? "bg-gradient-to-br from-white via-white to-orange-50/60" : "bg-gradient-to-br from-white via-white to-slate-50"
+        }`}
+      >
+        <div
+          className={`flex h-14 w-14 items-center justify-center rounded-clay-sm shadow-clay-pill ${
+            streakStarted ? "bg-orange-50" : "bg-slate-50"
+          }`}
+        >
+          <Flame className={`w-6 h-6 ${streakStarted ? "text-orange-500" : "text-slate-400"}`} />
         </div>
         <div>
-          <p className="text-xs text-muted font-medium">Streak</p>
-          <p className="text-lg font-bold text-heading">{streak} days</p>
-          <p className="text-xs text-muted">keep it up!</p>
+          <p className="text-xs text-muted font-medium">{streakLabel}</p>
+          <p className="text-lg font-bold text-heading">{streakValue}</p>
+          <p className="max-w-[18ch] text-xs text-muted">{streakSubtext}</p>
         </div>
       </ClayCard>
 

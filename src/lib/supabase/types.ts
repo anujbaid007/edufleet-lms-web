@@ -158,6 +158,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          avatar_url: string | null
           board: string | null
           centre_id: string | null
           class: number | null
@@ -167,10 +168,12 @@ export type Database = {
           medium: string | null
           name: string
           org_id: string | null
+          phone: string | null
           role: Database["public"]["Enums"]["user_role"]
           teacher_id: string | null
         }
         Insert: {
+          avatar_url?: string | null
           board?: string | null
           centre_id?: string | null
           class?: number | null
@@ -180,10 +183,12 @@ export type Database = {
           medium?: string | null
           name: string
           org_id?: string | null
+          phone?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           teacher_id?: string | null
         }
         Update: {
+          avatar_url?: string | null
           board?: string | null
           centre_id?: string | null
           class?: number | null
@@ -193,6 +198,7 @@ export type Database = {
           medium?: string | null
           name?: string
           org_id?: string | null
+          phone?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           teacher_id?: string | null
         }

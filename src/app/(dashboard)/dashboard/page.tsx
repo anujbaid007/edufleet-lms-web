@@ -48,7 +48,7 @@ export default async function DashboardPage() {
   const { data: videos } = chapterIds.length > 0
     ? await supabase
         .from("videos")
-        .select("id, title, chapter_id, sort_order, duration_seconds")
+        .select("id, title, chapter_id, sort_order, duration_seconds, s3_key, s3_key_hindi")
         .in("chapter_id", chapterIds)
         .order("sort_order")
     : { data: [] };
@@ -110,6 +110,7 @@ export default async function DashboardPage() {
         videoTitle: video?.title ?? "Unknown",
         chapterTitle: chapter?.title ?? "",
         subjectName: (chapter?.subjects as unknown as { id: string; name: string } | null)?.name ?? "",
+        s3Key: profile.medium === "Hindi" && video?.s3_key_hindi ? video.s3_key_hindi : (video?.s3_key ?? null),
         watchedPercentage: p.watched_percentage,
         lastPosition: p.last_position,
       };
@@ -129,6 +130,7 @@ export default async function DashboardPage() {
     chapterTitle: string;
     subjectName: string;
     chapterNo: number;
+    s3Key: string | null;
   }> = [];
 
   subjectMap.forEach((subChapters, subjectName) => {
@@ -144,6 +146,7 @@ export default async function DashboardPage() {
               chapterTitle: ch.title,
               subjectName,
               chapterNo: ch.chapter_no,
+              s3Key: profile.medium === "Hindi" && video.s3_key_hindi ? video.s3_key_hindi : (video.s3_key ?? null),
             });
           }
           return;

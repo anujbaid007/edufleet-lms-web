@@ -10,6 +10,7 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
+  BookOpen,
 } from "lucide-react";
 import { useState } from "react";
 import { logout } from "@/lib/actions/auth";
@@ -22,11 +23,13 @@ interface SidebarProps {
 
 const studentLinks = [
   { href: "/dashboard", label: "Home", icon: Home },
+  { href: "/dashboard/subjects", label: "Subjects", icon: BookOpen },
   { href: "/dashboard/progress", label: "My Progress", icon: BarChart3 },
 ];
 
 const teacherLinks = [
   { href: "/dashboard", label: "Home", icon: Home },
+  { href: "/dashboard/subjects", label: "Subjects", icon: BookOpen },
   { href: "/dashboard/students", label: "My Students", icon: Users },
   { href: "/dashboard/progress", label: "My Progress", icon: BarChart3 },
 ];
@@ -75,7 +78,9 @@ export function Sidebar({ userRole, userName }: SidebarProps) {
       {/* Nav Links */}
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
         {links.map((link) => {
-          const isActive = pathname === link.href;
+          const isActive = link.href === "/dashboard"
+            ? pathname === "/dashboard"
+            : pathname === link.href || pathname.startsWith(`${link.href}/`);
           return (
             <Link
               key={link.href}

@@ -2,13 +2,15 @@
 
 import Link from "next/link";
 import { ClayCard } from "@/components/ui/clay-card";
-import { Play, ChevronRight } from "lucide-react";
+import { ChevronRight } from "lucide-react";
+import { VideoThumbnail } from "@/components/video/video-thumbnail";
 
 interface ContinueItem {
   videoId: string;
   videoTitle: string;
   chapterTitle: string;
   subjectName: string;
+  s3Key: string | null;
   watchedPercentage: number;
   lastPosition: number;
 }
@@ -26,23 +28,28 @@ export function ContinueWatching({ items }: ContinueWatchingProps) {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {items.map((item) => (
           <Link key={item.videoId} href={`/dashboard/watch/${item.videoId}`}>
-            <ClayCard className="!p-4 group cursor-pointer">
-              <div className="flex items-center gap-4">
-                <div className="shrink-0 w-12 h-12 rounded-clay-sm clay-surface-orange flex items-center justify-center shadow-clay-orange group-hover:scale-105 transition-transform">
-                  <Play className="w-5 h-5 text-white ml-0.5" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-heading truncate">{item.videoTitle}</p>
-                  <p className="text-xs text-muted truncate">{item.subjectName} · {item.chapterTitle}</p>
-                  {/* Progress bar */}
-                  <div className="mt-2 h-1.5 bg-orange-primary/10 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-orange-primary to-orange-500 rounded-full transition-all"
-                      style={{ width: `${item.watchedPercentage}%` }}
-                    />
+            <ClayCard className="!p-3 group cursor-pointer">
+              <div className="space-y-3">
+                <VideoThumbnail
+                  s3Key={item.s3Key}
+                  subjectName={item.subjectName}
+                  chapterLabel={item.subjectName}
+                />
+
+                <div className="flex items-start gap-3 px-1 pb-1">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-heading truncate">{item.videoTitle}</p>
+                    <p className="text-xs text-muted truncate">{item.subjectName} · {item.chapterTitle}</p>
+                    <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-orange-primary/10">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-orange-primary to-orange-500 transition-all"
+                        style={{ width: `${item.watchedPercentage}%` }}
+                      />
+                    </div>
+                    <p className="mt-2 text-[11px] font-medium text-muted">{item.watchedPercentage}% watched</p>
                   </div>
+                  <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-muted" />
                 </div>
-                <ChevronRight className="w-4 h-4 text-muted shrink-0" />
               </div>
             </ClayCard>
           </Link>
