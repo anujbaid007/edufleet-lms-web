@@ -1,15 +1,19 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import {
   Activity,
   AlertTriangle,
   BookOpen,
+  CheckCircle2,
   ChevronRight,
+  CirclePlay,
+  Clock3,
   Loader2,
   Target,
   TrendingUp,
   Users,
+  X,
 } from "lucide-react";
 import {
   Area,
@@ -27,11 +31,14 @@ import { ClayCard } from "@/components/ui/clay-card";
 import { ProgressRing } from "@/components/ui/progress-ring";
 import { getAnalyticsDatasetAction } from "@/lib/actions/analytics";
 import type {
+  AnalyticsChapterView,
   AnalyticsDataset,
   AnalyticsLevel,
   AnalyticsPageData,
   AnalyticsRequest,
   AnalyticsRow,
+  AnalyticsStudentDetail,
+  AnalyticsStudentRow,
 } from "@/lib/analytics/types";
 
 type HistoryEntry = {
@@ -109,6 +116,33 @@ function formatDate(value: string | null) {
   });
 }
 
+function formatDuration(seconds: number) {
+  if (!seconds) return "0m";
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  if (!mins) return `${secs}s`;
+  if (!secs) return `${mins}m`;
+  return `${mins}m ${secs}s`;
+}
+
+function getStudentStatus(student: AnalyticsStudentRow) {
+  if (student.trackedUnits > 0 && student.completedUnits >= student.trackedUnits) return "Completed";
+  if (student.lastWatchedAt) return "In progress";
+  return "Not started";
+}
+
+function getLessonStatusTone(status: AnalyticsStudentDetail["lessons"][number]["status"]) {
+  if (status === "completed") {
+    return "bg-emerald-50 text-emerald-700 border border-emerald-100";
+  }
+
+  if (status === "in_progress") {
+    return "bg-orange-50 text-orange-primary border border-orange-primary/15";
+  }
+
+  return "bg-slate-50 text-slate-500 border border-slate-200";
+}
+
 function comparisonHeading(level: AnalyticsLevel) {
   if (level === "organizations") return "Organization comparison";
   if (level === "centres") return "Centre comparison";
@@ -123,6 +157,11 @@ function nextLevelLabel(level: AnalyticsLevel) {
   if (level === "classes") return "View subjects";
   if (level === "subjects") return "View chapters";
   return "Details";
+}
+
+function defaultChapterFocus(dataset: AnalyticsDataset) {
+  if (dataset.level !== "chapters") return null;
+  return dataset.rows.find((row) => row.activeStudents > 0 || row.completionRate > 0)?.id ?? dataset.rows[0]?.id ?? null;
 }
 
 function comparisonValue(row: AnalyticsRow, metric: ComparisonMetric) {
@@ -303,11 +342,13 @@ function DrilldownList({
   metric,
   onSelect,
   loadingRowId,
+  selectedRowId,
 }: {
   dataset: AnalyticsDataset;
   metric: ComparisonMetric;
   onSelect: (row: AnalyticsRow) => void;
   loadingRowId: string | null;
+  selectedRowId?: string | null;
 }) {
   if (!dataset.rows.length) {
     return (
@@ -323,7 +364,11 @@ function DrilldownList({
         <div>
           <h3 className="font-poppins text-lg font-bold text-heading">Drill-down leaderboard</h3>
           <p className="text-sm text-muted">
-            Click a row to {canDrill(dataset.level) ? nextLevelLabel(dataset.level).toLowerCase() : "review the current level"}.
+            Click a row to{" "}
+            {dataset.level === "chapters"
+              ? "focus a chapter and review the students in it"
+              : nextLevelLabel(dataset.level).toLowerCase()}
+            .
           </p>
         </div>
         <div className="rounded-full bg-orange-primary/10 px-3 py-1 text-xs font-semibold text-orange-primary">
@@ -334,10 +379,18 @@ function DrilldownList({
       <div className="space-y-3">
         {dataset.rows.map((row) => {
           const clickable = canDrill(dataset.level);
+          const interactive = clickable || dataset.level === "chapters";
+          const selected = selectedRowId === row.id;
           const completionWidth = `${Math.min(row.completionRate, 100)}%`;
-          const containerClassName = clickable
-            ? "w-full rounded-clay border border-orange-primary/10 bg-cream/60 px-4 py-4 text-left transition hover:border-orange-primary/20 hover:bg-white"
-            : "w-full rounded-clay border border-orange-primary/12 bg-white px-4 py-4 text-left shadow-clay-pill";
+          const containerClassName = [
+            "w-full rounded-clay px-4 py-4 text-left",
+            interactive
+              ? "border border-orange-primary/10 bg-cream/60 transition hover:border-orange-primary/20 hover:bg-white"
+              : "border border-orange-primary/12 bg-white shadow-clay-pill",
+            selected ? "border-orange-primary/30 bg-white shadow-clay-orange" : "",
+          ]
+            .filter(Boolean)
+            .join(" ");
 
           const content = (
             <>
@@ -350,6 +403,11 @@ function DrilldownList({
                         Drill
                       </span>
                     )}
+                    {selected && dataset.level === "chapters" && (
+                      <span className="rounded-full bg-orange-primary px-2 py-0.5 text-[11px] font-semibold text-white">
+                        Selected
+                      </span>
+                    )}
                   </div>
                   {row.subtitle && <p className="mt-1 text-sm text-muted">{row.subtitle}</p>}
                 </div>
@@ -357,7 +415,7 @@ function DrilldownList({
                 <div className="flex items-center gap-3 text-right">
                   {loadingRowId === row.id ? (
                     <Loader2 className="h-4 w-4 animate-spin text-orange-primary" />
-                  ) : clickable ? (
+                  ) : interactive ? (
                     <ChevronRight className="h-4 w-4 text-muted" />
                   ) : null}
                 </div>
@@ -388,7 +446,7 @@ function DrilldownList({
 
               <div className="mt-4">
                 <div className="mb-1 flex items-center justify-between text-xs text-muted">
-                  <span>Chapter completion</span>
+                  <span>{dataset.level === "chapters" ? "Lesson progress" : "Chapter completion"}</span>
                   <span>{row.completionRate}%</span>
                 </div>
                 <div className="h-2 rounded-full bg-orange-primary/10">
@@ -401,7 +459,7 @@ function DrilldownList({
             </>
           );
 
-          if (!clickable) {
+          if (!interactive) {
             return (
               <div key={row.id} className={containerClassName}>
                 {content}
@@ -429,10 +487,14 @@ function StudentTable({
   title,
   subtitle,
   rows,
+  onSelect,
+  selectedStudentId,
 }: {
   title: string;
   subtitle: string;
   rows: AnalyticsDataset["students"];
+  onSelect?: (student: AnalyticsStudentRow) => void;
+  selectedStudentId?: string | null;
 }) {
   if (!rows?.length) return null;
 
@@ -444,20 +506,41 @@ function StudentTable({
       </div>
 
       <div className="space-y-3">
-        {rows.map((student) => (
-          <div
-            key={student.id}
-            className="rounded-clay border border-orange-primary/10 bg-cream/60 px-4 py-4"
-          >
+        {rows.map((student) => {
+          const status = getStudentStatus(student);
+          const selected = selectedStudentId === student.id;
+          const interactive = Boolean(onSelect);
+          const className = [
+            "w-full rounded-clay border border-orange-primary/10 bg-cream/60 px-4 py-4 text-left",
+            interactive ? "transition hover:border-orange-primary/20 hover:bg-white" : "",
+            selected ? "border-orange-primary/30 bg-white shadow-clay-orange" : "",
+          ]
+            .filter(Boolean)
+            .join(" ");
+
+          const content = (
             <div className="flex flex-col justify-between gap-3 lg:flex-row lg:items-center">
-              <div>
-                <p className="text-base font-semibold text-heading">{student.name}</p>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-base font-semibold text-heading">{student.name}</p>
+                  <span
+                    className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                      status === "Completed"
+                        ? "bg-emerald-50 text-emerald-700"
+                        : status === "In progress"
+                          ? "bg-orange-50 text-orange-primary"
+                          : "bg-slate-100 text-slate-500"
+                    }`}
+                  >
+                    {status}
+                  </span>
+                </div>
                 <p className="mt-1 text-sm text-muted">
                   {[student.centreName, student.classLabel, student.board, student.medium].filter(Boolean).join(" · ")}
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
+              <div className="grid grid-cols-2 gap-3 text-sm md:grid-cols-5">
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Completion</p>
                   <p className="mt-1 font-bold text-heading">{student.completionRate}%</p>
@@ -478,17 +561,210 @@ function StudentTable({
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Last active</p>
                   <p className="mt-1 font-bold text-heading">{formatDate(student.lastWatchedAt)}</p>
                 </div>
+                <div className="hidden md:block">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Review</p>
+                  <p className="mt-1 inline-flex items-center gap-1 font-bold text-orange-primary">
+                    Open
+                    {interactive && <ChevronRight className="h-4 w-4" />}
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+
+          if (!interactive) {
+            return (
+              <div key={student.id} className={className}>
+                {content}
+              </div>
+            );
+          }
+
+          return (
+            <button key={student.id} type="button" className={className} onClick={() => onSelect?.(student)}>
+              {content}
+            </button>
+          );
+        })}
       </div>
     </ClayCard>
   );
 }
 
-function AlertsPanel({ dataset }: { dataset: AnalyticsDataset }) {
-  if (!dataset.inactiveStudents.length) {
+function StudentDetailDrawer({
+  chapterView,
+  student,
+  detail,
+  onClose,
+}: {
+  chapterView: AnalyticsChapterView | null;
+  student: AnalyticsStudentRow | null;
+  detail: AnalyticsStudentDetail | null;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    if (!student || !detail || !chapterView) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = "";
+    };
+  }, [chapterView, detail, onClose, student]);
+
+  if (!student || !detail || !chapterView) return null;
+
+  return (
+    <div className="fixed inset-0 z-50">
+      <button
+        type="button"
+        className="absolute inset-0 bg-black/45 backdrop-blur-sm"
+        onClick={onClose}
+        aria-label="Close student breakdown"
+      />
+
+      <aside className="absolute right-0 top-0 flex h-full w-full max-w-[520px] flex-col border-l border-white/20 bg-gradient-to-br from-[#fffaf4] via-white to-[#fff5ea] shadow-[0_32px_80px_rgba(0,0,0,0.18)]">
+        <div className="flex items-start justify-between border-b border-orange-primary/10 px-6 py-5">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-orange-primary">
+              {chapterView.chapterLabel}
+            </p>
+            <h2 className="mt-2 font-poppins text-xl font-bold text-heading">{student.name}</h2>
+            <p className="mt-1 text-sm text-muted">{chapterView.chapterTitle}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-muted shadow-sm transition hover:text-heading"
+            aria-label="Close student breakdown"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="flex-1 space-y-6 overflow-y-auto px-6 py-6">
+          <section className="rounded-[28px] border border-orange-primary/10 bg-white/85 p-5">
+            <div className="flex flex-wrap items-center gap-2">
+              <span
+                className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                  getStudentStatus(student) === "Completed"
+                    ? "bg-emerald-50 text-emerald-700"
+                    : getStudentStatus(student) === "In progress"
+                      ? "bg-orange-50 text-orange-primary"
+                      : "bg-slate-100 text-slate-500"
+                }`}
+              >
+                {getStudentStatus(student)}
+              </span>
+              <span className="rounded-full bg-white px-3 py-1 text-[11px] font-semibold text-muted shadow-sm">
+                {[student.centreName, student.classLabel, student.board, student.medium].filter(Boolean).join(" · ")}
+              </span>
+            </div>
+
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <div className="rounded-3xl border border-orange-primary/10 bg-[#fff8f0] px-4 py-4">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">Completion</p>
+                <p className="mt-2 text-2xl font-bold text-heading">{detail.completionRate}%</p>
+                <p className="text-sm text-muted">
+                  {detail.completedLessons}/{detail.totalLessons} lessons complete
+                </p>
+              </div>
+              <div className="rounded-3xl border border-orange-primary/10 bg-[#fff8f0] px-4 py-4">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">Watch quality</p>
+                <p className="mt-2 text-2xl font-bold text-heading">{detail.avgWatchPercentage}%</p>
+                <p className="text-sm text-muted">
+                  {detail.inProgressLessons} lesson{detail.inProgressLessons === 1 ? "" : "s"} in progress
+                </p>
+              </div>
+              <div className="rounded-3xl border border-orange-primary/10 bg-[#fff8f0] px-4 py-4">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">Last active</p>
+                <p className="mt-2 text-lg font-bold text-heading">{formatDate(detail.lastWatchedAt)}</p>
+              </div>
+              <div className="rounded-3xl border border-orange-primary/10 bg-[#fff8f0] px-4 py-4">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">Chapter scope</p>
+                <p className="mt-2 text-lg font-bold text-heading">{chapterView.lessonCount} lessons</p>
+              </div>
+            </div>
+          </section>
+
+          <section className="space-y-3">
+            <div>
+              <h3 className="font-poppins text-lg font-bold text-heading">Lesson breakdown</h3>
+              <p className="text-sm text-muted">See exactly where this learner is progressing or getting stuck.</p>
+            </div>
+
+            <div className="space-y-3">
+              {detail.lessons.map((lesson, index) => (
+                <div
+                  key={lesson.id}
+                  className="rounded-[28px] border border-orange-primary/10 bg-white/90 px-4 py-4"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-orange-50 text-sm font-semibold text-orange-primary">
+                      {index + 1}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-semibold text-heading">{lesson.title}</p>
+                        <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${getLessonStatusTone(lesson.status)}`}>
+                          {lesson.status === "completed"
+                            ? "Completed"
+                            : lesson.status === "in_progress"
+                              ? "In progress"
+                              : "Not started"}
+                        </span>
+                      </div>
+
+                      <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted">
+                        <span className="inline-flex items-center gap-1">
+                          <Clock3 className="h-3.5 w-3.5" />
+                          {formatDuration(lesson.durationSeconds)}
+                        </span>
+                        <span className="inline-flex items-center gap-1">
+                          {lesson.status === "completed" ? (
+                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                          ) : (
+                            <CirclePlay className="h-3.5 w-3.5 text-orange-primary" />
+                          )}
+                          {lesson.watchedPercentage}% watched
+                        </span>
+                        <span>{formatDate(lesson.lastWatchedAt)}</span>
+                      </div>
+
+                      <div className="mt-3 h-2 rounded-full bg-orange-primary/10">
+                        <div
+                          className="h-2 rounded-full bg-gradient-to-r from-orange-primary to-orange-400"
+                          style={{ width: `${Math.min(lesson.watchedPercentage, 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
+      </aside>
+    </div>
+  );
+}
+
+function AlertsPanel({
+  rows,
+  onSelect,
+  selectedStudentId,
+}: {
+  rows: AnalyticsStudentRow[];
+  onSelect?: (student: AnalyticsStudentRow) => void;
+  selectedStudentId?: string | null;
+}) {
+  if (!rows.length) {
     return (
       <ClayCard hover={false} className="!p-6">
         <div className="flex items-center gap-3">
@@ -517,11 +793,18 @@ function AlertsPanel({ dataset }: { dataset: AnalyticsDataset }) {
       </div>
 
       <div className="space-y-3">
-        {dataset.inactiveStudents.map((student) => (
-          <div
-            key={student.id}
-            className="rounded-clay-sm border border-red-100 bg-red-50/60 px-4 py-3"
-          >
+        {rows.map((student) => {
+          const selected = selectedStudentId === student.id;
+          const interactive = Boolean(onSelect);
+          const className = [
+            "w-full rounded-clay-sm border border-red-100 bg-red-50/60 px-4 py-3 text-left",
+            interactive ? "transition hover:border-red-200 hover:bg-red-50" : "",
+            selected ? "border-orange-primary/30 bg-white shadow-clay-orange" : "",
+          ]
+            .filter(Boolean)
+            .join(" ");
+
+          const content = (
             <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
               <div>
                 <p className="font-semibold text-heading">{student.name}</p>
@@ -530,7 +813,7 @@ function AlertsPanel({ dataset }: { dataset: AnalyticsDataset }) {
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 text-sm md:grid-cols-3">
+              <div className="grid grid-cols-2 gap-4 text-sm md:grid-cols-4">
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Completion</p>
                   <p className="mt-1 font-bold text-heading">{student.completionRate}%</p>
@@ -547,10 +830,31 @@ function AlertsPanel({ dataset }: { dataset: AnalyticsDataset }) {
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Last active</p>
                   <p className="mt-1 font-bold text-heading">{formatDate(student.lastWatchedAt)}</p>
                 </div>
+                <div className="hidden md:block">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Review</p>
+                  <p className="mt-1 inline-flex items-center gap-1 font-bold text-orange-primary">
+                    Open
+                    {interactive && <ChevronRight className="h-4 w-4" />}
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+
+          if (!interactive) {
+            return (
+              <div key={student.id} className={className}>
+                {content}
+              </div>
+            );
+          }
+
+          return (
+            <button key={student.id} type="button" className={className} onClick={() => onSelect?.(student)}>
+              {content}
+            </button>
+          );
+        })}
       </div>
     </ClayCard>
   );
@@ -571,11 +875,54 @@ export function AnalyticsDashboard({
   const [comparisonMetric, setComparisonMetric] = useState<ComparisonMetric>("students");
   const [loadingRowId, setLoadingRowId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [selectedChapterId, setSelectedChapterId] = useState<string | null>(defaultChapterFocus(initialDataset));
+  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const current = history[history.length - 1];
+  const currentChapterView =
+    current.dataset.level === "chapters" && selectedChapterId
+      ? current.dataset.chapterViews?.[selectedChapterId] ?? null
+      : null;
+  const visibleStudents = currentChapterView?.students ?? current.dataset.students;
+  const visibleInactiveStudents = currentChapterView?.inactiveStudents ?? current.dataset.inactiveStudents;
+  const selectedStudent = selectedStudentId ? visibleStudents?.find((student) => student.id === selectedStudentId) ?? null : null;
+  const selectedStudentDetail = selectedStudentId
+    ? currentChapterView?.studentDetails.find((detail) => detail.studentId === selectedStudentId) ?? null
+    : null;
+
+  useEffect(() => {
+    if (current.dataset.level !== "chapters") {
+      if (selectedChapterId !== null) setSelectedChapterId(null);
+      if (selectedStudentId !== null) setSelectedStudentId(null);
+      return;
+    }
+
+    const nextChapterId =
+      selectedChapterId && current.dataset.chapterViews?.[selectedChapterId]
+        ? selectedChapterId
+        : defaultChapterFocus(current.dataset);
+
+    if (nextChapterId !== selectedChapterId) {
+      setSelectedChapterId(nextChapterId);
+    }
+  }, [current.dataset, selectedChapterId, selectedStudentId]);
+
+  useEffect(() => {
+    if (current.dataset.level !== "chapters") return;
+
+    const chapterStudents = currentChapterView?.students ?? [];
+    if (!selectedStudentId || chapterStudents.some((student) => student.id === selectedStudentId)) return;
+    setSelectedStudentId(null);
+  }, [current.dataset.level, currentChapterView, selectedStudentId]);
 
   const handleDrill = (row: AnalyticsRow) => {
+    if (current.dataset.level === "chapters") {
+      setSelectedChapterId(row.id);
+      setSelectedStudentId(null);
+      return;
+    }
+
     if (!canDrill(current.dataset.level)) return;
 
     const nextRequest = buildNextRequest(current.request, current.dataset.level, row);
@@ -593,6 +940,8 @@ export function AnalyticsDashboard({
               dataset,
             },
           ]);
+          setSelectedChapterId(defaultChapterFocus(dataset));
+          setSelectedStudentId(null);
         })
         .catch((caughtError) => {
           const message = caughtError instanceof Error ? caughtError.message : "Failed to load analytics.";
@@ -692,17 +1041,37 @@ export function AnalyticsDashboard({
         metric={comparisonMetric}
         onSelect={handleDrill}
         loadingRowId={loadingRowId}
+        selectedRowId={current.dataset.level === "chapters" ? selectedChapterId : null}
       />
 
-      {current.dataset.students && (
+      {visibleStudents && (
         <StudentTable
-          title="Student watchlist"
-          subtitle="Learner-level progress for the selected subject."
-          rows={current.dataset.students}
+          title={current.dataset.level === "chapters" && currentChapterView ? `${currentChapterView.chapterLabel} student watchlist` : "Student watchlist"}
+          subtitle={
+            current.dataset.level === "chapters" && currentChapterView
+              ? `${currentChapterView.chapterTitle} · ${currentChapterView.lessonCount} lessons. Click a learner to review lesson-level progress.`
+              : "Learner-level progress for the selected subject."
+          }
+          rows={visibleStudents}
+          onSelect={current.dataset.level === "chapters" ? (student) => setSelectedStudentId(student.id) : undefined}
+          selectedStudentId={selectedStudentId}
         />
       )}
 
-      <AlertsPanel dataset={current.dataset} />
+      <AlertsPanel
+        rows={visibleInactiveStudents}
+        onSelect={current.dataset.level === "chapters" ? (student) => setSelectedStudentId(student.id) : undefined}
+        selectedStudentId={selectedStudentId}
+      />
+
+      {current.dataset.level === "chapters" && (
+        <StudentDetailDrawer
+          chapterView={currentChapterView}
+          student={selectedStudent}
+          detail={selectedStudentDetail}
+          onClose={() => setSelectedStudentId(null)}
+        />
+      )}
 
       {isPending && (
         <div className="fixed bottom-6 right-6 z-50 rounded-full bg-heading px-4 py-2 text-sm font-medium text-white shadow-2xl">

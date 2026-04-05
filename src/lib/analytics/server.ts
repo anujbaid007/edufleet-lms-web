@@ -6,11 +6,13 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/types";
 import type {
+  AnalyticsChapterView,
   AnalyticsDataset,
   AnalyticsLevel,
   AnalyticsPageData,
   AnalyticsRequest,
   AnalyticsRow,
+  AnalyticsStudentDetail,
   AnalyticsStudentRow,
   AnalyticsSummary,
   AnalyticsTimelinePoint,
@@ -54,6 +56,14 @@ type ProgressRow = {
 type VideoRow = {
   id: string;
   chapter_id: string;
+};
+
+type VideoLessonRow = {
+  id: string;
+  chapter_id: string;
+  title: string;
+  sort_order: number;
+  duration_seconds: number;
 };
 
 type VideoChapterRow = {
@@ -450,6 +460,26 @@ async function fetchVideosByIds(supabase: Supabase, videoIds: string[]) {
   return videos;
 }
 
+async function fetchVideosByChapterIds(supabase: Supabase, chapterIds: string[]) {
+  if (!chapterIds.length) return [] as VideoLessonRow[];
+
+  const videos: VideoLessonRow[] = [];
+
+  for (const idChunk of chunkValues(chapterIds, VIDEO_ID_CHUNK)) {
+    const { data, error } = await supabase
+      .from("videos")
+      .select("id, chapter_id, title, sort_order, duration_seconds")
+      .in("chapter_id", idChunk)
+      .order("chapter_id")
+      .order("sort_order");
+
+    if (error) throw error;
+    videos.push(...(data ?? []));
+  }
+
+  return videos;
+}
+
 async function fetchVideoCountsByChapter(supabase: Supabase) {
   const videoRows = await fetchAllPages<VideoChapterRow>(async (from, to) => {
     return supabase.from("videos").select("chapter_id").order("chapter_id").range(from, to);
@@ -685,6 +715,98 @@ function buildStudentRows(
       const rightTime = right.lastWatchedAt ? new Date(right.lastWatchedAt).getTime() : 0;
       return rightTime - leftTime || left.name.localeCompare(right.name);
     });
+}
+
+function buildChapterViews(
+  snapshots: StudentSnapshot[],
+  centresById: Map<string, CentreRow>,
+  subjectId: string,
+  videosByChapter: Map<string, VideoLessonRow[]>,
+  progressByStudentVideo: Map<string, Map<string, ProgressRow>>
+) {
+  const chapterMap = new Map<string, ChapterCatalogItem>();
+
+  for (const snapshot of snapshots) {
+    for (const chapter of snapshot.chaptersBySubject.get(subjectId) ?? []) {
+      chapterMap.set(chapter.id, chapter);
+    }
+  }
+
+  const chapterViews = Object.fromEntries(
+    Array.from(chapterMap.values())
+      .sort((left, right) => left.chapterNo - right.chapterNo)
+      .map<[string, AnalyticsChapterView]>((chapter) => {
+        const chapterSnapshots = snapshots.filter((snapshot) => (snapshot.chapterTotals.get(chapter.id) ?? 0) > 0);
+        const students = buildStudentRows(chapterSnapshots, centresById, { chapterId: chapter.id });
+        const inactiveStudents = buildStudentRows(
+          chapterSnapshots.filter((snapshot) => !getScopedMetrics(snapshot, { chapterId: chapter.id }).active),
+          centresById,
+          { chapterId: chapter.id }
+        ).slice(0, 8);
+        const lessons = videosByChapter.get(chapter.id) ?? [];
+
+        const studentDetails = students.map<AnalyticsStudentDetail>((student) => {
+          const lessonProgress = progressByStudentVideo.get(student.id) ?? new Map<string, ProgressRow>();
+          let completedLessons = 0;
+          let inProgressLessons = 0;
+
+          const lessonRows = lessons.map((lesson) => {
+            const progress = lessonProgress.get(lesson.id);
+            const watchedPercentage = Math.round(progress?.watched_percentage ?? 0);
+            const completed = Boolean(progress?.completed) || watchedPercentage >= 90;
+            const status: AnalyticsStudentDetail["lessons"][number]["status"] = completed
+              ? "completed"
+              : watchedPercentage > 0
+                ? "in_progress"
+                : "not_started";
+
+            if (completed) {
+              completedLessons += 1;
+            } else if (status === "in_progress") {
+              inProgressLessons += 1;
+            }
+
+            return {
+              id: lesson.id,
+              title: lesson.title,
+              sortOrder: lesson.sort_order,
+              durationSeconds: lesson.duration_seconds,
+              watchedPercentage,
+              completed,
+              lastWatchedAt: progress?.last_watched_at ?? null,
+              status,
+            };
+          });
+
+          return {
+            studentId: student.id,
+            chapterId: chapter.id,
+            completedLessons,
+            totalLessons: lessons.length,
+            inProgressLessons,
+            completionRate: lessons.length ? toPercentage(completedLessons, lessons.length) : 0,
+            avgWatchPercentage: student.avgWatchPercentage,
+            lastWatchedAt: student.lastWatchedAt,
+            lessons: lessonRows,
+          };
+        });
+
+        return [
+          chapter.id,
+          {
+            chapterId: chapter.id,
+            chapterLabel: `Chapter ${chapter.chapterNo}`,
+            chapterTitle: chapter.title,
+            lessonCount: lessons.length,
+            students,
+            inactiveStudents,
+            studentDetails,
+          },
+        ];
+      })
+  );
+
+  return chapterViews;
 }
 
 function buildTimeline(
@@ -1086,6 +1208,7 @@ async function buildAnalyticsDataset(viewer: AnalyticsViewer, request: Analytics
 
   const snapshots = new Map<string, StudentSnapshot>();
   const subjectMetaById = new Map<string, SubjectMeta>();
+  const progressByStudentVideo = new Map<string, Map<string, ProgressRow>>();
 
   for (const student of students) {
     const accessible = getAccessibleContent(student.org_id, student.class, student.board, student.medium);
@@ -1149,6 +1272,10 @@ async function buildAnalyticsDataset(viewer: AnalyticsViewer, request: Analytics
     if (!snapshot || !chapter) continue;
     if ((snapshot.chapterTotals.get(chapter.id) ?? 0) === 0) continue;
 
+    const progressMap = progressByStudentVideo.get(snapshot.id) ?? new Map<string, ProgressRow>();
+    progressMap.set(row.video_id, row);
+    progressByStudentVideo.set(snapshot.id, progressMap);
+
     snapshot.progressCount += 1;
     snapshot.watchPercentageSum += row.watched_percentage ?? 0;
     incrementNumberMap(snapshot.progressBySubject, chapter.subjectId, 1);
@@ -1204,6 +1331,22 @@ async function buildAnalyticsDataset(viewer: AnalyticsViewer, request: Analytics
   const snapshotList = Array.from(snapshots.values());
   const datasetFilter: ScopeFilter = normalized.subjectId ? { subjectId: normalized.subjectId } : undefined;
   const allowedStudentIds = new Set(snapshotList.map((snapshot) => snapshot.id));
+  const subjectChapterIds = normalized.subjectId
+    ? Array.from(
+        new Set(
+          snapshotList.flatMap((snapshot) =>
+            (snapshot.chaptersBySubject.get(normalized.subjectId ?? "") ?? []).map((chapter) => chapter.id)
+          )
+        )
+      )
+    : [];
+  const chapterVideos = subjectChapterIds.length ? await fetchVideosByChapterIds(supabase, subjectChapterIds) : [];
+  const videosByChapter = new Map<string, VideoLessonRow[]>();
+  for (const video of chapterVideos) {
+    const list = videosByChapter.get(video.chapter_id) ?? [];
+    list.push(video);
+    videosByChapter.set(video.chapter_id, list);
+  }
   const summary = buildSummary(snapshotList, datasetFilter);
   const rows = buildDatasetRows(
     level,
@@ -1222,6 +1365,10 @@ async function buildAnalyticsDataset(viewer: AnalyticsViewer, request: Analytics
   ).slice(0, 8);
 
   const copy = getDatasetText(level, viewer, normalized, organizationsById, centresById, subjectMetaById);
+  const chapterViews =
+    level === "chapters" && normalized.subjectId
+      ? buildChapterViews(snapshotList, centresById, normalized.subjectId, videosByChapter, progressByStudentVideo)
+      : undefined;
 
   return {
     level,
@@ -1232,6 +1379,7 @@ async function buildAnalyticsDataset(viewer: AnalyticsViewer, request: Analytics
     timeline,
     inactiveStudents,
     students: level === "chapters" ? buildStudentRows(snapshotList, centresById, datasetFilter) : undefined,
+    chapterViews,
     emptyMessage: copy.emptyMessage,
   };
 }

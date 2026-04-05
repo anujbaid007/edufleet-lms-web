@@ -73,6 +73,39 @@ export type AnalyticsStudentRow = {
   isActive: boolean;
 };
 
+export type AnalyticsLessonRow = {
+  id: string;
+  title: string;
+  sortOrder: number;
+  durationSeconds: number;
+  watchedPercentage: number;
+  completed: boolean;
+  lastWatchedAt: string | null;
+  status: "not_started" | "in_progress" | "completed";
+};
+
+export type AnalyticsStudentDetail = {
+  studentId: string;
+  chapterId: string;
+  completedLessons: number;
+  totalLessons: number;
+  inProgressLessons: number;
+  completionRate: number;
+  avgWatchPercentage: number;
+  lastWatchedAt: string | null;
+  lessons: AnalyticsLessonRow[];
+};
+
+export type AnalyticsChapterView = {
+  chapterId: string;
+  chapterLabel: string;
+  chapterTitle: string;
+  lessonCount: number;
+  students: AnalyticsStudentRow[];
+  inactiveStudents: AnalyticsStudentRow[];
+  studentDetails: AnalyticsStudentDetail[];
+};
+
 export type AnalyticsDataset = {
   level: AnalyticsLevel;
   title: string;
@@ -82,6 +115,7 @@ export type AnalyticsDataset = {
   timeline: AnalyticsTimelinePoint[];
   inactiveStudents: AnalyticsStudentRow[];
   students?: AnalyticsStudentRow[];
+  chapterViews?: Record<string, AnalyticsChapterView>;
   emptyMessage: string;
 };
 
