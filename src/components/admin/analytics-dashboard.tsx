@@ -380,14 +380,19 @@ function DrilldownList({
         {dataset.rows.map((row) => {
           const clickable = canDrill(dataset.level);
           const interactive = clickable || dataset.level === "chapters";
+          const chapterFocusMode = dataset.level === "chapters";
           const selected = selectedRowId === row.id;
           const completionWidth = `${Math.min(row.completionRate, 100)}%`;
           const containerClassName = [
             "w-full rounded-clay px-4 py-4 text-left",
-            interactive
-              ? "border border-orange-primary/10 bg-cream/60 transition hover:border-orange-primary/20 hover:bg-white"
-              : "border border-orange-primary/12 bg-white shadow-clay-pill",
-            selected ? "border-orange-primary/30 bg-white shadow-clay-orange" : "",
+            chapterFocusMode
+              ? "cursor-pointer border border-orange-primary/15 bg-white shadow-clay-pill ring-1 ring-orange-primary/5 transition hover:-translate-y-0.5 hover:border-orange-primary/35 hover:bg-[#fffaf4] hover:shadow-clay-orange focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-primary/35"
+              : interactive
+                ? "cursor-pointer border border-orange-primary/10 bg-cream/60 transition hover:border-orange-primary/20 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-primary/30"
+                : "border border-orange-primary/12 bg-white shadow-clay-pill",
+            selected
+              ? "border-orange-primary/35 bg-gradient-to-br from-white to-[#fff8f0] shadow-clay-orange"
+              : "",
           ]
             .filter(Boolean)
             .join(" ");
@@ -398,7 +403,7 @@ function DrilldownList({
                 <div className="min-w-0">
                   <div className="flex items-center gap-3">
                     <p className="truncate text-base font-semibold text-heading">{row.label}</p>
-                    {clickable && (
+                    {clickable && !chapterFocusMode && (
                       <span className="rounded-full bg-orange-primary/10 px-2 py-0.5 text-[11px] font-semibold text-orange-primary">
                         Drill
                       </span>
@@ -409,36 +414,45 @@ function DrilldownList({
                       </span>
                     )}
                   </div>
-                  {row.subtitle && <p className="mt-1 text-sm text-muted">{row.subtitle}</p>}
+                  {row.subtitle && (
+                    <p className={`mt-1 text-sm ${chapterFocusMode ? "text-heading/70" : "text-muted"}`}>
+                      {row.subtitle}
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-3 text-right">
+                  {chapterFocusMode && (
+                    <span className="hidden rounded-full bg-orange-primary/10 px-3 py-1 text-[11px] font-semibold text-orange-primary md:inline-flex">
+                      View students
+                    </span>
+                  )}
                   {loadingRowId === row.id ? (
                     <Loader2 className="h-4 w-4 animate-spin text-orange-primary" />
                   ) : interactive ? (
-                    <ChevronRight className="h-4 w-4 text-muted" />
+                    <ChevronRight className={`h-4 w-4 ${chapterFocusMode ? "text-orange-primary" : "text-muted"}`} />
                   ) : null}
                 </div>
               </div>
 
               <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-5">
-                <div className="rounded-2xl bg-white/80 px-3 py-2 shadow-clay-pill">
+                <div className={`rounded-2xl px-3 py-2 shadow-clay-pill ${chapterFocusMode ? "bg-[#fff9f4]" : "bg-white/80"}`}>
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Students</p>
                   <p className="mt-1 text-base font-bold text-heading">{row.students}</p>
                 </div>
-                <div className="rounded-2xl bg-white/80 px-3 py-2 shadow-clay-pill">
+                <div className={`rounded-2xl px-3 py-2 shadow-clay-pill ${chapterFocusMode ? "bg-[#fff9f4]" : "bg-white/80"}`}>
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Active 7d</p>
                   <p className="mt-1 text-base font-bold text-heading">{row.activeStudents}</p>
                 </div>
-                <div className="rounded-2xl bg-white/80 px-3 py-2 shadow-clay-pill">
+                <div className={`rounded-2xl px-3 py-2 shadow-clay-pill ${chapterFocusMode ? "bg-[#fff9f4]" : "bg-white/80"}`}>
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Completed chapters</p>
                   <p className="mt-1 text-base font-bold text-heading">{row.completedChapters}</p>
                 </div>
-                <div className="rounded-2xl bg-white/80 px-3 py-2 shadow-clay-pill">
+                <div className={`rounded-2xl px-3 py-2 shadow-clay-pill ${chapterFocusMode ? "bg-[#fff9f4]" : "bg-white/80"}`}>
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Completion</p>
                   <p className="mt-1 text-base font-bold text-heading">{row.completionRate}%</p>
                 </div>
-                <div className="rounded-2xl bg-white/80 px-3 py-2 shadow-clay-pill">
+                <div className={`rounded-2xl px-3 py-2 shadow-clay-pill ${chapterFocusMode ? "bg-[#fff9f4]" : "bg-white/80"}`}>
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Last activity</p>
                   <p className="mt-1 text-sm font-semibold text-heading">{formatDate(row.lastActivityAt)}</p>
                 </div>
