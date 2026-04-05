@@ -447,9 +447,11 @@ function StudentTable({
                   <p className="mt-1 font-bold text-heading">{student.completionRate}%</p>
                 </div>
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Chapters</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">
+                    {student.unitLabel === "lessons" ? "Lessons" : "Chapters"}
+                  </p>
                   <p className="mt-1 font-bold text-heading">
-                    {student.completedChapters}/{student.trackedChapters}
+                    {student.completedUnits}/{student.trackedUnits}
                   </p>
                 </div>
                 <div>
@@ -518,9 +520,11 @@ function AlertsPanel({ dataset }: { dataset: AnalyticsDataset }) {
                   <p className="mt-1 font-bold text-heading">{student.completionRate}%</p>
                 </div>
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Chapters</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">
+                    {student.unitLabel === "lessons" ? "Lessons" : "Chapters"}
+                  </p>
                   <p className="mt-1 font-bold text-heading">
-                    {student.completedChapters}/{student.trackedChapters}
+                    {student.completedUnits}/{student.trackedUnits}
                   </p>
                 </div>
                 <div>

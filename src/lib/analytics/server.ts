@@ -133,6 +133,8 @@ type StudentSnapshot = {
   completedCount: number;
   completedBySubject: Map<string, number>;
   completedByChapter: Map<string, number>;
+  completedLessonsBySubject: Map<string, number>;
+  completedLessonsByChapter: Map<string, number>;
   progressCount: number;
   progressBySubject: Map<string, number>;
   progressByChapter: Map<string, number>;
@@ -142,6 +144,20 @@ type StudentSnapshot = {
   lastWatchedAt: string | null;
   lastWatchedAtBySubject: Map<string, string>;
   lastWatchedAtByChapter: Map<string, string>;
+};
+
+type ScopedMetrics = {
+  trackedChapters: number;
+  completedChapters: number;
+  completionNumerator: number;
+  completionDenominator: number;
+  completedUnits: number;
+  trackedUnits: number;
+  unitLabel: "chapters" | "lessons";
+  progressCount: number;
+  watchSum: number;
+  active: boolean;
+  lastActivityAt: string | null;
 };
 
 type ScopeFilter =
@@ -531,11 +547,16 @@ function buildAccessibleContentFactory(
   };
 }
 
-function getScopedMetrics(snapshot: StudentSnapshot, filter?: ScopeFilter) {
+function getScopedMetrics(snapshot: StudentSnapshot, filter?: ScopeFilter): ScopedMetrics {
   if (!filter) {
     return {
       trackedChapters: snapshot.totalChapters,
       completedChapters: snapshot.completedCount,
+      completionNumerator: snapshot.completedCount,
+      completionDenominator: snapshot.totalChapters,
+      completedUnits: snapshot.completedCount,
+      trackedUnits: snapshot.totalChapters,
+      unitLabel: "chapters",
       progressCount: snapshot.progressCount,
       watchSum: snapshot.watchPercentageSum,
       active: snapshot.active7d,
@@ -569,6 +590,11 @@ function getScopedMetrics(snapshot: StudentSnapshot, filter?: ScopeFilter) {
     return {
       trackedChapters: subjectChapters.length,
       completedChapters,
+      completionNumerator: completedChapters,
+      completionDenominator: subjectChapters.length,
+      completedUnits: completedChapters,
+      trackedUnits: subjectChapters.length,
+      unitLabel: "chapters",
       progressCount,
       watchSum,
       active,
@@ -576,9 +602,20 @@ function getScopedMetrics(snapshot: StudentSnapshot, filter?: ScopeFilter) {
     };
   }
 
+  const chapterMeta = Array.from(snapshot.chaptersBySubject.values())
+    .flat()
+    .find((chapter) => chapter.id === filter.chapterId);
+  const trackedLessons = chapterMeta?.videoCount ?? 0;
+  const completedLessons = snapshot.completedLessonsByChapter.get(filter.chapterId) ?? 0;
+
   return {
     trackedChapters: snapshot.chapterTotals.get(filter.chapterId) ?? 0,
     completedChapters: snapshot.completedByChapter.get(filter.chapterId) ?? 0,
+    completionNumerator: completedLessons,
+    completionDenominator: trackedLessons,
+    completedUnits: completedLessons,
+    trackedUnits: trackedLessons,
+    unitLabel: "lessons",
     progressCount: snapshot.progressByChapter.get(filter.chapterId) ?? 0,
     watchSum: snapshot.watchPercentageByChapter.get(filter.chapterId) ?? 0,
     active: snapshot.activeChapterIds.has(filter.chapterId),
@@ -590,6 +627,8 @@ function buildSummary(snapshots: StudentSnapshot[], filter?: ScopeFilter): Analy
   let activeStudents = 0;
   let completedChapters = 0;
   let trackedChapters = 0;
+  let completionNumerator = 0;
+  let completionDenominator = 0;
   let watchSum = 0;
   let progressCount = 0;
 
@@ -598,6 +637,8 @@ function buildSummary(snapshots: StudentSnapshot[], filter?: ScopeFilter): Analy
     if (metrics.active) activeStudents += 1;
     completedChapters += metrics.completedChapters;
     trackedChapters += metrics.trackedChapters;
+    completionNumerator += metrics.completionNumerator;
+    completionDenominator += metrics.completionDenominator;
     watchSum += metrics.watchSum;
     progressCount += metrics.progressCount;
   }
@@ -606,7 +647,7 @@ function buildSummary(snapshots: StudentSnapshot[], filter?: ScopeFilter): Analy
     students: snapshots.length,
     activeStudents,
     completedChapters,
-    completionRate: toPercentage(completedChapters, trackedChapters),
+    completionRate: toPercentage(completionNumerator, completionDenominator),
     avgWatchPercentage: progressCount ? Math.round(watchSum / progressCount) : 0,
     trackedChapters,
   };
@@ -629,7 +670,10 @@ function buildStudentRows(
         medium: snapshot.medium,
         completedChapters: metrics.completedChapters,
         trackedChapters: metrics.trackedChapters,
-        completionRate: toPercentage(metrics.completedChapters, metrics.trackedChapters),
+        completedUnits: metrics.completedUnits,
+        trackedUnits: metrics.trackedUnits,
+        unitLabel: metrics.unitLabel,
+        completionRate: toPercentage(metrics.completionNumerator, metrics.completionDenominator),
         avgWatchPercentage: metrics.progressCount ? Math.round(metrics.watchSum / metrics.progressCount) : 0,
         lastWatchedAt: metrics.lastActivityAt,
         isActive: metrics.active,
@@ -1072,6 +1116,8 @@ async function buildAnalyticsDataset(viewer: AnalyticsViewer, request: Analytics
       completedCount: 0,
       completedBySubject: new Map<string, number>(),
       completedByChapter: new Map<string, number>(),
+      completedLessonsBySubject: new Map<string, number>(),
+      completedLessonsByChapter: new Map<string, number>(),
       progressCount: 0,
       progressBySubject: new Map<string, number>(),
       progressByChapter: new Map<string, number>(),
@@ -1144,6 +1190,9 @@ async function buildAnalyticsDataset(viewer: AnalyticsViewer, request: Analytics
     if (!snapshot) continue;
 
     for (const [chapterId, chapterProgress] of Array.from(chaptersForStudent.entries())) {
+      incrementNumberMap(snapshot.completedLessonsBySubject, chapterProgress.subjectId, chapterProgress.completedVideos);
+      snapshot.completedLessonsByChapter.set(chapterId, chapterProgress.completedVideos);
+
       if (chapterProgress.totalVideos === 0 || chapterProgress.completedVideos < chapterProgress.totalVideos) continue;
 
       snapshot.completedCount += 1;

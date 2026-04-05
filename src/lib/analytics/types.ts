@@ -64,6 +64,9 @@ export type AnalyticsStudentRow = {
   medium: string | null;
   completedChapters: number;
   trackedChapters: number;
+  completedUnits: number;
+  trackedUnits: number;
+  unitLabel: "chapters" | "lessons";
   completionRate: number;
   avgWatchPercentage: number;
   lastWatchedAt: string | null;
