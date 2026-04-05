@@ -100,6 +100,7 @@ type SubjectMeta = {
 };
 
 type AccessibleContent = {
+  totalChapters: number;
   totalVideos: number;
   subjectTotals: Map<string, number>;
   subjectMeta: Map<string, SubjectMeta>;
@@ -115,6 +116,7 @@ type StudentSnapshot = {
   classNum: number | null;
   board: string | null;
   medium: string | null;
+  totalChapters: number;
   totalVideos: number;
   subjectTotals: Map<string, number>;
   chapterTotals: Map<string, number>;
@@ -462,12 +464,16 @@ function buildAccessibleContentFactory(
     const chapterTotals = new Map<string, number>();
     const chaptersBySubject = new Map<string, ChapterCatalogItem[]>();
 
+    let totalChapters = 0;
     let totalVideos = 0;
 
     for (const chapter of relevant) {
       totalVideos += chapter.videoCount;
-      chapterTotals.set(chapter.id, chapter.videoCount);
-      incrementNumberMap(subjectTotals, chapter.subjectId, chapter.videoCount);
+      if (chapter.videoCount === 0) continue;
+
+      totalChapters += 1;
+      chapterTotals.set(chapter.id, 1);
+      incrementNumberMap(subjectTotals, chapter.subjectId, 1);
 
       const existingMeta = subjectMeta.get(chapter.subjectId);
       if (existingMeta) {
@@ -487,6 +493,7 @@ function buildAccessibleContentFactory(
     }
 
     const result: AccessibleContent = {
+      totalChapters,
       totalVideos,
       subjectTotals,
       subjectMeta,
@@ -502,8 +509,8 @@ function buildAccessibleContentFactory(
 function getScopedMetrics(snapshot: StudentSnapshot, filter?: ScopeFilter) {
   if (!filter) {
     return {
-      trackedVideos: snapshot.totalVideos,
-      completions: snapshot.completedCount,
+      trackedChapters: snapshot.totalChapters,
+      completedChapters: snapshot.completedCount,
       progressCount: snapshot.progressCount,
       watchSum: snapshot.watchPercentageSum,
       active: snapshot.active7d,
@@ -513,8 +520,8 @@ function getScopedMetrics(snapshot: StudentSnapshot, filter?: ScopeFilter) {
 
   if ("subjectId" in filter) {
     return {
-      trackedVideos: snapshot.subjectTotals.get(filter.subjectId) ?? 0,
-      completions: snapshot.completedBySubject.get(filter.subjectId) ?? 0,
+      trackedChapters: snapshot.subjectTotals.get(filter.subjectId) ?? 0,
+      completedChapters: snapshot.completedBySubject.get(filter.subjectId) ?? 0,
       progressCount: snapshot.progressBySubject.get(filter.subjectId) ?? 0,
       watchSum: snapshot.watchPercentageBySubject.get(filter.subjectId) ?? 0,
       active: snapshot.activeSubjectIds.has(filter.subjectId),
@@ -523,8 +530,8 @@ function getScopedMetrics(snapshot: StudentSnapshot, filter?: ScopeFilter) {
   }
 
   return {
-    trackedVideos: snapshot.chapterTotals.get(filter.chapterId) ?? 0,
-    completions: snapshot.completedByChapter.get(filter.chapterId) ?? 0,
+    trackedChapters: snapshot.chapterTotals.get(filter.chapterId) ?? 0,
+    completedChapters: snapshot.completedByChapter.get(filter.chapterId) ?? 0,
     progressCount: snapshot.progressByChapter.get(filter.chapterId) ?? 0,
     watchSum: snapshot.watchPercentageByChapter.get(filter.chapterId) ?? 0,
     active: snapshot.activeChapterIds.has(filter.chapterId),
@@ -534,16 +541,16 @@ function getScopedMetrics(snapshot: StudentSnapshot, filter?: ScopeFilter) {
 
 function buildSummary(snapshots: StudentSnapshot[], filter?: ScopeFilter): AnalyticsSummary {
   let activeStudents = 0;
-  let completions = 0;
-  let trackedVideos = 0;
+  let completedChapters = 0;
+  let trackedChapters = 0;
   let watchSum = 0;
   let progressCount = 0;
 
   for (const snapshot of snapshots) {
     const metrics = getScopedMetrics(snapshot, filter);
     if (metrics.active) activeStudents += 1;
-    completions += metrics.completions;
-    trackedVideos += metrics.trackedVideos;
+    completedChapters += metrics.completedChapters;
+    trackedChapters += metrics.trackedChapters;
     watchSum += metrics.watchSum;
     progressCount += metrics.progressCount;
   }
@@ -551,10 +558,10 @@ function buildSummary(snapshots: StudentSnapshot[], filter?: ScopeFilter): Analy
   return {
     students: snapshots.length,
     activeStudents,
-    completions,
-    completionRate: toPercentage(completions, trackedVideos),
+    completedChapters,
+    completionRate: toPercentage(completedChapters, trackedChapters),
     avgWatchPercentage: progressCount ? Math.round(watchSum / progressCount) : 0,
-    trackedVideos,
+    trackedChapters,
   };
 }
 
@@ -573,9 +580,9 @@ function buildStudentRows(
         classLabel: snapshot.classNum ? `Class ${snapshot.classNum}` : null,
         board: snapshot.board,
         medium: snapshot.medium,
-        completedVideos: metrics.completions,
-        trackedVideos: metrics.trackedVideos,
-        completionRate: toPercentage(metrics.completions, metrics.trackedVideos),
+        completedChapters: metrics.completedChapters,
+        trackedChapters: metrics.trackedChapters,
+        completionRate: toPercentage(metrics.completedChapters, metrics.trackedChapters),
         avgWatchPercentage: metrics.progressCount ? Math.round(metrics.watchSum / metrics.progressCount) : 0,
         lastWatchedAt: metrics.lastActivityAt,
         isActive: metrics.active,
@@ -605,7 +612,7 @@ function buildTimeline(
       label: string;
       activeStudents: Set<string>;
       watchSessions: number;
-      completions: number;
+      completedChapters: number;
     }
   >();
 
@@ -617,9 +624,20 @@ function buildTimeline(
       label: formatTimelineLabel(date),
       activeStudents: new Set<string>(),
       watchSessions: 0,
-      completions: 0,
+      completedChapters: 0,
     });
   }
+
+  const chapterCompletionCandidates = new Map<
+    string,
+    {
+      totalVideos: number;
+      completedVideos: number;
+      completedAt: string | null;
+      subjectId: string;
+      chapterId: string;
+    }
+  >();
 
   for (const row of progressRows) {
     if (!allowedStudentIds.has(row.user_id)) continue;
@@ -637,7 +655,35 @@ function buildTimeline(
 
     point.activeStudents.add(row.user_id);
     point.watchSessions += 1;
-    if (row.completed) point.completions += 1;
+    if (!row.completed) continue;
+
+    const completionKey = `${row.user_id}:${chapter.id}`;
+    const existing = chapterCompletionCandidates.get(completionKey) ?? {
+      totalVideos: chapter.videoCount,
+      completedVideos: 0,
+      completedAt: null,
+      subjectId: chapter.subjectId,
+      chapterId: chapter.id,
+    };
+
+    existing.completedVideos += 1;
+    if (!existing.completedAt || existing.completedAt < row.last_watched_at) {
+      existing.completedAt = row.last_watched_at;
+    }
+    chapterCompletionCandidates.set(completionKey, existing);
+  }
+
+  for (const candidate of Array.from(chapterCompletionCandidates.values())) {
+    if (candidate.totalVideos === 0 || candidate.completedVideos < candidate.totalVideos || !candidate.completedAt) {
+      continue;
+    }
+
+    if (filter && "subjectId" in filter && candidate.subjectId !== filter.subjectId) continue;
+    if (filter && "chapterId" in filter && candidate.chapterId !== filter.chapterId) continue;
+
+    const point = points.get(candidate.completedAt.slice(0, 10));
+    if (!point) continue;
+    point.completedChapters += 1;
   }
 
   return Array.from(points.entries()).map<AnalyticsTimelinePoint>(([date, point]) => ({
@@ -645,7 +691,7 @@ function buildTimeline(
     label: point.label,
     activeStudents: point.activeStudents.size,
     watchSessions: point.watchSessions,
-    completions: point.completions,
+    completedChapters: point.completedChapters,
   }));
 }
 
@@ -729,10 +775,10 @@ function buildDatasetRows(
         subtitle: `${centreCountByOrg.get(organization.id) ?? 0} centres`,
         students: summary.students,
         activeStudents: summary.activeStudents,
-        completions: summary.completions,
+        completedChapters: summary.completedChapters,
         completionRate: summary.completionRate,
         avgWatchPercentage: summary.avgWatchPercentage,
-        trackedVideos: summary.trackedVideos,
+        trackedChapters: summary.trackedChapters,
         lastActivityAt,
       };
     });
@@ -754,10 +800,10 @@ function buildDatasetRows(
         subtitle: centre.location,
         students: summary.students,
         activeStudents: summary.activeStudents,
-        completions: summary.completions,
+        completedChapters: summary.completedChapters,
         completionRate: summary.completionRate,
         avgWatchPercentage: summary.avgWatchPercentage,
-        trackedVideos: summary.trackedVideos,
+        trackedChapters: summary.trackedChapters,
         lastActivityAt,
       };
     });
@@ -787,10 +833,10 @@ function buildDatasetRows(
         subtitle: parts.join(" · "),
         students: summary.students,
         activeStudents: summary.activeStudents,
-        completions: summary.completions,
+        completedChapters: summary.completedChapters,
         completionRate: summary.completionRate,
         avgWatchPercentage: summary.avgWatchPercentage,
-        trackedVideos: summary.trackedVideos,
+        trackedChapters: summary.trackedChapters,
         lastActivityAt,
       };
     });
@@ -818,10 +864,10 @@ function buildDatasetRows(
         subtitle: `${subject.chapterCount} chapters`,
         students: summary.students,
         activeStudents: summary.activeStudents,
-        completions: summary.completions,
+        completedChapters: summary.completedChapters,
         completionRate: summary.completionRate,
         avgWatchPercentage: summary.avgWatchPercentage,
-        trackedVideos: summary.trackedVideos,
+        trackedChapters: summary.trackedChapters,
         lastActivityAt,
       });
     }
@@ -857,10 +903,10 @@ function buildDatasetRows(
         subtitle: `${chapter.title} · ${chapter.videoCount} videos`,
         students: summary.students,
         activeStudents: summary.activeStudents,
-        completions: summary.completions,
+        completedChapters: summary.completedChapters,
         completionRate: summary.completionRate,
         avgWatchPercentage: summary.avgWatchPercentage,
-        trackedVideos: summary.trackedVideos,
+        trackedChapters: summary.trackedChapters,
         lastActivityAt,
       };
     });
@@ -965,6 +1011,7 @@ async function buildAnalyticsDataset(viewer: AnalyticsViewer, request: Analytics
       classNum: student.class,
       board: student.board,
       medium: student.medium,
+      totalChapters: accessible.totalChapters,
       totalVideos: accessible.totalVideos,
       subjectTotals: new Map(accessible.subjectTotals),
       chapterTotals: new Map(accessible.chapterTotals),
@@ -988,11 +1035,24 @@ async function buildAnalyticsDataset(viewer: AnalyticsViewer, request: Analytics
     });
   }
 
+  const chapterProgressByStudent = new Map<
+    string,
+    Map<
+      string,
+      {
+        totalVideos: number;
+        completedVideos: number;
+        subjectId: string;
+      }
+    >
+  >();
+
   for (const row of progressRows) {
     const snapshot = snapshots.get(row.user_id);
     const chapter = chapterByVideoId.get(row.video_id);
 
     if (!snapshot || !chapter) continue;
+    if ((snapshot.chapterTotals.get(chapter.id) ?? 0) === 0) continue;
 
     snapshot.progressCount += 1;
     snapshot.watchPercentageSum += row.watched_percentage ?? 0;
@@ -1000,12 +1060,6 @@ async function buildAnalyticsDataset(viewer: AnalyticsViewer, request: Analytics
     incrementNumberMap(snapshot.progressByChapter, chapter.id, 1);
     incrementNumberMap(snapshot.watchPercentageBySubject, chapter.subjectId, row.watched_percentage ?? 0);
     incrementNumberMap(snapshot.watchPercentageByChapter, chapter.id, row.watched_percentage ?? 0);
-
-    if (row.completed) {
-      snapshot.completedCount += 1;
-      incrementNumberMap(snapshot.completedBySubject, chapter.subjectId, 1);
-      incrementNumberMap(snapshot.completedByChapter, chapter.id, 1);
-    }
 
     if (row.last_watched_at) {
       if (!snapshot.lastWatchedAt || snapshot.lastWatchedAt < row.last_watched_at) {
@@ -1019,6 +1073,33 @@ async function buildAnalyticsDataset(viewer: AnalyticsViewer, request: Analytics
         snapshot.activeSubjectIds.add(chapter.subjectId);
         snapshot.activeChapterIds.add(chapter.id);
       }
+    }
+
+    const studentChapterProgress = chapterProgressByStudent.get(snapshot.id) ?? new Map();
+    const chapterProgress = studentChapterProgress.get(chapter.id) ?? {
+      totalVideos: chapter.videoCount,
+      completedVideos: 0,
+      subjectId: chapter.subjectId,
+    };
+
+    if (row.completed) {
+      chapterProgress.completedVideos += 1;
+    }
+
+    studentChapterProgress.set(chapter.id, chapterProgress);
+    chapterProgressByStudent.set(snapshot.id, studentChapterProgress);
+  }
+
+  for (const [studentId, chaptersForStudent] of Array.from(chapterProgressByStudent.entries())) {
+    const snapshot = snapshots.get(studentId);
+    if (!snapshot) continue;
+
+    for (const [chapterId, chapterProgress] of Array.from(chaptersForStudent.entries())) {
+      if (chapterProgress.totalVideos === 0 || chapterProgress.completedVideos < chapterProgress.totalVideos) continue;
+
+      snapshot.completedCount += 1;
+      incrementNumberMap(snapshot.completedBySubject, chapterProgress.subjectId, 1);
+      snapshot.completedByChapter.set(chapterId, 1);
     }
   }
 

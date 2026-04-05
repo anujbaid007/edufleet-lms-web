@@ -4,6 +4,9 @@ import { useRef, useEffect, useCallback, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { updateVideoProgress } from "@/lib/actions/progress";
 
+const MIN_SAVE_INTERVAL_MS = 60_000;
+const MIN_PROGRESS_DELTA_SECONDS = 15;
+
 interface VideoPlayerProps {
   videoId: string;
   s3Key: string;
@@ -16,7 +19,8 @@ export function VideoPlayer({ videoId, s3Key, initialPosition = 0, durationSecon
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const lastSavedRef = useRef(0);
+  const lastSavedPositionRef = useRef(initialPosition);
+  const lastSavedAtRef = useRef(0);
 
   // Fetch presigned URL
   useEffect(() => {
@@ -32,18 +36,22 @@ export function VideoPlayer({ videoId, s3Key, initialPosition = 0, durationSecon
       .finally(() => setLoading(false));
   }, [s3Key]);
 
-  // Save progress periodically
-  const saveProgress = useCallback(async () => {
+  const saveProgress = useCallback(async (force = false) => {
     const video = videoRef.current;
     if (!video || !video.duration) return;
 
     const currentTime = video.currentTime;
     const percentage = (currentTime / video.duration) * 100;
+    const now = Date.now();
+    const movedEnough = Math.abs(currentTime - lastSavedPositionRef.current) >= MIN_PROGRESS_DELTA_SECONDS;
+    const elapsedEnough = now - lastSavedAtRef.current >= MIN_SAVE_INTERVAL_MS;
+    const isCompleted = percentage >= 90 || video.ended;
 
-    // Only save if moved at least 5 seconds since last save
-    if (Math.abs(currentTime - lastSavedRef.current) < 5) return;
+    if (!force && !(isCompleted || (movedEnough && elapsedEnough))) return;
+    if (force && !isCompleted && Math.abs(currentTime - lastSavedPositionRef.current) < 5) return;
 
-    lastSavedRef.current = currentTime;
+    lastSavedPositionRef.current = currentTime;
+    lastSavedAtRef.current = now;
     await updateVideoProgress(videoId, percentage, currentTime);
   }, [videoId]);
 
@@ -52,25 +60,36 @@ export function VideoPlayer({ videoId, s3Key, initialPosition = 0, durationSecon
     const video = videoRef.current;
     if (!video) return;
 
-    // Save on pause
-    const handlePause = () => saveProgress();
+    const handlePause = () => {
+      void saveProgress(true);
+    };
 
-    // Save periodically during playback (every 10 seconds)
+    // Save periodically during playback, but much less often than before.
     const interval = setInterval(() => {
-      if (video && !video.paused) saveProgress();
-    }, 10000);
+      if (video && !video.paused) {
+        void saveProgress();
+      }
+    }, 15000);
 
-    // Save on unload
-    const handleBeforeUnload = () => saveProgress();
+    const handlePageHide = () => {
+      void saveProgress(true);
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        void saveProgress(true);
+      }
+    };
 
     video.addEventListener("pause", handlePause);
-    window.addEventListener("beforeunload", handleBeforeUnload);
+    window.addEventListener("pagehide", handlePageHide);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
       video.removeEventListener("pause", handlePause);
-      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("pagehide", handlePageHide);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
       clearInterval(interval);
-      saveProgress();
+      void saveProgress(true);
     };
   }, [saveProgress]);
 
@@ -83,6 +102,8 @@ export function VideoPlayer({ videoId, s3Key, initialPosition = 0, durationSecon
 
   // Save on video end (100% completion)
   const handleEnded = async () => {
+    lastSavedPositionRef.current = durationSeconds;
+    lastSavedAtRef.current = Date.now();
     await updateVideoProgress(videoId, 100, durationSeconds);
   };
 

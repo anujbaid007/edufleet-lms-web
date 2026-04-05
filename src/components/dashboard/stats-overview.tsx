@@ -4,14 +4,21 @@ import { BookOpen, Clock, Flame } from "lucide-react";
 import { formatDuration } from "@/lib/utils";
 
 interface StatsOverviewProps {
-  totalVideos: number;
-  completedVideos: number;
+  totalChapters: number;
+  completedChapters: number;
   totalWatchTimeSeconds: number;
   streak: number;
+  activeSubjects: number;
 }
 
-export function StatsOverview({ totalVideos, completedVideos, totalWatchTimeSeconds, streak }: StatsOverviewProps) {
-  const completionPercent = totalVideos > 0 ? Math.round((completedVideos / totalVideos) * 100) : 0;
+export function StatsOverview({
+  totalChapters,
+  completedChapters,
+  totalWatchTimeSeconds,
+  streak,
+  activeSubjects,
+}: StatsOverviewProps) {
+  const completionPercent = totalChapters > 0 ? Math.round((completedChapters / totalChapters) * 100) : 0;
 
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -22,8 +29,8 @@ export function StatsOverview({ totalVideos, completedVideos, totalWatchTimeSeco
         </ProgressRing>
         <div>
           <p className="text-xs text-muted font-medium">Overall</p>
-          <p className="text-lg font-bold text-heading">{completedVideos}/{totalVideos}</p>
-          <p className="text-xs text-muted">videos done</p>
+          <p className="text-lg font-bold text-heading">{completedChapters}/{totalChapters}</p>
+          <p className="text-xs text-muted">chapters done</p>
         </div>
       </ClayCard>
 
@@ -58,8 +65,8 @@ export function StatsOverview({ totalVideos, completedVideos, totalWatchTimeSeco
         </div>
         <div>
           <p className="text-xs text-muted font-medium">Subjects</p>
-          <p className="text-lg font-bold text-heading">{totalVideos > 0 ? "Active" : "\u2014"}</p>
-          <p className="text-xs text-muted">learning</p>
+          <p className="text-lg font-bold text-heading">{activeSubjects}</p>
+          <p className="text-xs text-muted">in progress</p>
         </div>
       </ClayCard>
     </div>

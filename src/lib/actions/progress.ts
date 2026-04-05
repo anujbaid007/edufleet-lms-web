@@ -11,7 +11,21 @@ export async function updateVideoProgress(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: "Unauthorized" };
 
-  const completed = watchedPercentage >= 90;
+  const nextWatchedPercentage = Math.max(0, Math.min(100, Math.round(watchedPercentage)));
+  const nextLastPosition = Math.max(0, Math.round(lastPosition));
+
+  const { data: existing, error: existingError } = await supabase
+    .from("video_progress")
+    .select("watched_percentage, last_position, completed")
+    .eq("user_id", user.id)
+    .eq("video_id", videoId)
+    .maybeSingle();
+
+  if (existingError) return { error: existingError.message };
+
+  const watchedPercentageToStore = Math.max(existing?.watched_percentage ?? 0, nextWatchedPercentage);
+  const lastPositionToStore = Math.max(existing?.last_position ?? 0, nextLastPosition);
+  const completed = Boolean(existing?.completed) || watchedPercentageToStore >= 90;
 
   const { error } = await supabase
     .from("video_progress")
@@ -19,8 +33,8 @@ export async function updateVideoProgress(
       {
         user_id: user.id,
         video_id: videoId,
-        watched_percentage: Math.round(watchedPercentage),
-        last_position: Math.round(lastPosition),
+        watched_percentage: watchedPercentageToStore,
+        last_position: lastPositionToStore,
         completed,
         last_watched_at: new Date().toISOString(),
       },

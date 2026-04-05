@@ -81,12 +81,13 @@ export default async function SubjectPage({ params }: { params: { id: string } }
       : 0;
     return { ...ch, totalVideos: chapterVideos.length, completedVideos: chapterCompleted, percent };
   });
+  const trackableChapters = chaptersWithProgress.filter((chapter) => chapter.totalVideos > 0);
 
   return (
     <div>
       <Header
         title={subject.name}
-        subtitle={`${chapters?.length ?? 0} chapters · ${profile.class === 0 ? "KG" : profile.class === 99 ? "General" : `Class ${profile.class}`}`}
+        subtitle={`${chapters?.length ?? 0} chapters · ${trackableChapters.length} with lessons · ${profile.class === 0 ? "KG" : profile.class === 99 ? "General" : `Class ${profile.class}`}`}
       />
 
       <div className="space-y-3">
@@ -102,7 +103,7 @@ export default async function SubjectPage({ params }: { params: { id: string } }
                     Ch. {ch.chapter_no}: {ch.title}
                   </p>
                   <p className="text-xs text-muted mt-0.5">
-                    {ch.completedVideos}/{ch.totalVideos} lessons completed
+                    {ch.totalVideos > 0 ? `${ch.completedVideos}/${ch.totalVideos} lessons completed` : "No lessons yet"}
                   </p>
                 </div>
                 <ChevronRight className="w-4 h-4 text-muted group-hover:text-orange-primary transition-colors shrink-0" />

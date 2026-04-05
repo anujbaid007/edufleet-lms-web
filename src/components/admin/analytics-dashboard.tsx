@@ -40,7 +40,7 @@ type HistoryEntry = {
   dataset: AnalyticsDataset;
 };
 
-type ComparisonMetric = "students" | "activeStudents" | "completionRate" | "completions";
+type ComparisonMetric = "students" | "activeStudents" | "completionRate" | "completedChapters";
 
 const comparisonMetricOptions: Array<{
   key: ComparisonMetric;
@@ -50,7 +50,7 @@ const comparisonMetricOptions: Array<{
   { key: "students", label: "Students" },
   { key: "activeStudents", label: "Active 7d" },
   { key: "completionRate", label: "Completion Rate", unit: "%" },
-  { key: "completions", label: "Completions" },
+  { key: "completedChapters", label: "Completed Chapters" },
 ];
 
 const comparisonPalette = [
@@ -265,8 +265,8 @@ function SummaryCards({ dataset }: { dataset: AnalyticsDataset }) {
             <span className="text-xs font-bold text-heading">{summary.completionRate}%</span>
           </ProgressRing>
           <div>
-            <p className="text-lg font-bold text-heading">{summary.completions}</p>
-            <p className="text-xs text-muted">Completed videos</p>
+            <p className="text-lg font-bold text-heading">{summary.completedChapters}</p>
+            <p className="text-xs text-muted">Completed chapters</p>
           </div>
         </div>
       </ClayCard>
@@ -289,8 +289,8 @@ function SummaryCards({ dataset }: { dataset: AnalyticsDataset }) {
             <BookOpen className="h-6 w-6 text-amber-700" />
           </div>
           <div>
-            <p className="text-2xl font-bold text-heading">{summary.trackedVideos}</p>
-            <p className="text-xs text-muted">Video opportunities</p>
+            <p className="text-2xl font-bold text-heading">{summary.trackedChapters}</p>
+            <p className="text-xs text-muted">Chapter opportunities</p>
           </div>
         </div>
       </ClayCard>
@@ -376,8 +376,8 @@ function DrilldownList({
                   <p className="mt-1 text-base font-bold text-heading">{row.activeStudents}</p>
                 </div>
                 <div className="rounded-2xl bg-white/70 px-3 py-2 shadow-clay-pill">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Completions</p>
-                  <p className="mt-1 text-base font-bold text-heading">{row.completions}</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Completed chapters</p>
+                  <p className="mt-1 text-base font-bold text-heading">{row.completedChapters}</p>
                 </div>
                 <div className="rounded-2xl bg-white/70 px-3 py-2 shadow-clay-pill">
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Completion</p>
@@ -391,7 +391,7 @@ function DrilldownList({
 
               <div className="mt-4">
                 <div className="mb-1 flex items-center justify-between text-xs text-muted">
-                  <span>Completion progress</span>
+                  <span>Chapter completion</span>
                   <span>{row.completionRate}%</span>
                 </div>
                 <div className="h-2 rounded-full bg-orange-primary/10">
@@ -447,9 +447,9 @@ function StudentTable({
                   <p className="mt-1 font-bold text-heading">{student.completionRate}%</p>
                 </div>
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Completed</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Chapters</p>
                   <p className="mt-1 font-bold text-heading">
-                    {student.completedVideos}/{student.trackedVideos}
+                    {student.completedChapters}/{student.trackedChapters}
                   </p>
                 </div>
                 <div>
@@ -518,9 +518,9 @@ function AlertsPanel({ dataset }: { dataset: AnalyticsDataset }) {
                   <p className="mt-1 font-bold text-heading">{student.completionRate}%</p>
                 </div>
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Completed</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Chapters</p>
                   <p className="mt-1 font-bold text-heading">
-                    {student.completedVideos}/{student.trackedVideos}
+                    {student.completedChapters}/{student.trackedChapters}
                   </p>
                 </div>
                 <div>

@@ -9,6 +9,7 @@ interface SubjectWithProgress {
   totalVideos: number;
   completedVideos: number;
   totalChapters: number;
+  completedChapters: number;
 }
 
 interface SubjectGridProps {
@@ -42,8 +43,8 @@ export function SubjectGrid({ subjects }: SubjectGridProps) {
       <h2 className="text-lg font-bold text-heading font-poppins mb-4">Your Subjects</h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {subjects.map((subject) => {
-          const percent = subject.totalVideos > 0
-            ? Math.round((subject.completedVideos / subject.totalVideos) * 100)
+          const percent = subject.totalChapters > 0
+            ? Math.round((subject.completedChapters / subject.totalChapters) * 100)
             : 0;
           const color = getColor(subject.name);
 
@@ -55,11 +56,11 @@ export function SubjectGrid({ subjects }: SubjectGridProps) {
                     <span className="text-[10px] font-bold text-heading">{percent}%</span>
                   </ProgressRing>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-heading">{subject.name}</p>
-                    <p className="text-xs text-muted mt-0.5">
-                      {subject.totalChapters} chapters · {subject.completedVideos}/{subject.totalVideos} videos
-                    </p>
-                  </div>
+                  <p className="text-sm font-bold text-heading">{subject.name}</p>
+                  <p className="text-xs text-muted mt-0.5">
+                    {subject.completedChapters}/{subject.totalChapters} chapters · {subject.completedVideos}/{subject.totalVideos} videos
+                  </p>
+                </div>
                   <ChevronRight className="w-4 h-4 text-muted group-hover:text-orange-primary transition-colors shrink-0" />
                 </div>
               </ClayCard>

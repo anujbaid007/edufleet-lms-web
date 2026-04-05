@@ -28,10 +28,10 @@ export type AnalyticsViewer = {
 export type AnalyticsSummary = {
   students: number;
   activeStudents: number;
-  completions: number;
+  completedChapters: number;
   completionRate: number;
   avgWatchPercentage: number;
-  trackedVideos: number;
+  trackedChapters: number;
 };
 
 export type AnalyticsRow = {
@@ -40,10 +40,10 @@ export type AnalyticsRow = {
   subtitle: string | null;
   students: number;
   activeStudents: number;
-  completions: number;
+  completedChapters: number;
   completionRate: number;
   avgWatchPercentage: number;
-  trackedVideos: number;
+  trackedChapters: number;
   lastActivityAt: string | null;
 };
 
@@ -52,7 +52,7 @@ export type AnalyticsTimelinePoint = {
   label: string;
   activeStudents: number;
   watchSessions: number;
-  completions: number;
+  completedChapters: number;
 };
 
 export type AnalyticsStudentRow = {
@@ -62,8 +62,8 @@ export type AnalyticsStudentRow = {
   classLabel: string | null;
   board: string | null;
   medium: string | null;
-  completedVideos: number;
-  trackedVideos: number;
+  completedChapters: number;
+  trackedChapters: number;
   completionRate: number;
   avgWatchPercentage: number;
   lastWatchedAt: string | null;

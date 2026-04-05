@@ -17,19 +17,29 @@ export default async function ProgressPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("class, board, medium")
+    .select("class, board, medium, org_id")
     .eq("id", userId)
     .single();
   if (!profile) redirect("/login");
 
   // Get all chapters for user's class
-  const { data: chapters } = await supabase
+  const { data: allChapters } = await supabase
     .from("chapters")
     .select("id, title, chapter_no, subject_id, subjects(id, name)")
     .eq("class", profile.class ?? 0)
     .eq("board", profile.board ?? "CBSE")
     .eq("medium", profile.medium ?? "English")
     .order("chapter_no");
+
+  let chapters = allChapters ?? [];
+  if (profile.org_id) {
+    const { data: restrictions } = await supabase
+      .from("content_restrictions")
+      .select("chapter_id")
+      .eq("org_id", profile.org_id);
+    const blockedIds = new Set(restrictions?.map((row) => row.chapter_id) ?? []);
+    chapters = chapters.filter((chapter) => !blockedIds.has(chapter.id));
+  }
 
   const chapterIds = chapters?.map((c) => c.id) ?? [];
 
@@ -50,10 +60,23 @@ export default async function ProgressPage() {
   const progressMap = new Map(progress?.map((p) => [p.video_id, p]) ?? []);
 
   // Global stats
-  const totalVideos = videos?.length ?? 0;
-  const completedVideos = progress?.filter((p) => p.completed).length ?? 0;
   const totalWatchTime = progress?.reduce((sum, p) => sum + (p.last_position || 0), 0) ?? 0;
-  const overallPercent = totalVideos > 0 ? Math.round((completedVideos / totalVideos) * 100) : 0;
+  const chapterStats = (chapters ?? []).map((chapter) => {
+    const chapterVideos = videos?.filter((video) => video.chapter_id === chapter.id) ?? [];
+    const chapterCompletedVideos = chapterVideos.filter((video) => progressMap.get(video.id)?.completed).length;
+    const percent = chapterVideos.length > 0 ? Math.round((chapterCompletedVideos / chapterVideos.length) * 100) : 0;
+    return {
+      ...chapter,
+      totalVideos: chapterVideos.length,
+      completedVideos: chapterCompletedVideos,
+      percent,
+      completed: chapterVideos.length > 0 && chapterCompletedVideos === chapterVideos.length,
+    };
+  });
+  const trackableChapterStats = chapterStats.filter((chapter) => chapter.totalVideos > 0);
+  const totalChapters = trackableChapterStats.length;
+  const completedChapters = trackableChapterStats.filter((chapter) => chapter.completed).length;
+  const overallPercent = totalChapters > 0 ? Math.round((completedChapters / totalChapters) * 100) : 0;
 
   // Streak
   const watchDates = Array.from(new Set(
@@ -80,17 +103,23 @@ export default async function ProgressPage() {
     const subChapterIds = sub.chapters!.map((c: { id: string }) => c.id);
     const subVideos = videos?.filter((v) => subChapterIds.includes(v.chapter_id)) ?? [];
     const subCompleted = subVideos.filter((v) => progressMap.get(v.id)?.completed).length;
-    const percent = subVideos.length > 0 ? Math.round((subCompleted / subVideos.length) * 100) : 0;
+    const subjectChapterStats = chapterStats.filter((chapter) => subChapterIds.includes(chapter.id));
+    const trackableSubjectChapters = subjectChapterStats.filter((chapter) => chapter.totalVideos > 0);
+    const completedSubjectChapters = trackableSubjectChapters.filter((chapter) => chapter.completed).length;
+    const percent = trackableSubjectChapters.length > 0
+      ? Math.round((completedSubjectChapters / trackableSubjectChapters.length) * 100)
+      : 0;
 
-    const chapterStats = sub.chapters!.map((ch: { id: string; chapter_no: number; title: string }) => {
-      const chVids = videos?.filter((v) => v.chapter_id === ch.id) ?? [];
-      const chCompleted = chVids.filter((v) => progressMap.get(v.id)?.completed).length;
-      const chPercent = chVids.length > 0 ? Math.round((chCompleted / chVids.length) * 100) : 0;
-      return { ...ch, totalVideos: chVids.length, completedVideos: chCompleted, percent: chPercent };
-    });
-
-    return { ...sub, totalVideos: subVideos.length, completedVideos: subCompleted, percent, chapterStats };
-  });
+    return {
+      ...sub,
+      totalVideos: subVideos.length,
+      completedVideos: subCompleted,
+      totalChapters: trackableSubjectChapters.length,
+      completedChapters: completedSubjectChapters,
+      percent,
+      chapterStats: trackableSubjectChapters,
+    };
+  }).filter((subject) => subject.totalChapters > 0 || subject.totalVideos > 0);
 
   return (
     <div className="space-y-8">
@@ -102,12 +131,12 @@ export default async function ProgressPage() {
           <ProgressRing percentage={overallPercent} size={72} strokeWidth={7}>
             <span className="text-sm font-bold text-heading">{overallPercent}%</span>
           </ProgressRing>
-          <p className="text-xs text-muted mt-2">Overall Completion</p>
+          <p className="text-xs text-muted mt-2">Chapter Completion</p>
         </ClayCard>
         <ClayCard hover={false} className="!p-5 flex flex-col items-center justify-center">
           <Trophy className="w-8 h-8 text-orange-primary mb-2" />
-          <p className="text-2xl font-bold text-heading">{completedVideos}</p>
-          <p className="text-xs text-muted">Videos Completed</p>
+          <p className="text-2xl font-bold text-heading">{completedChapters}</p>
+          <p className="text-xs text-muted">Chapters Completed</p>
         </ClayCard>
         <ClayCard hover={false} className="!p-5 flex flex-col items-center justify-center">
           <Clock className="w-8 h-8 text-orange-primary mb-2" />
@@ -132,7 +161,9 @@ export default async function ProgressPage() {
               </ProgressRing>
               <div>
                 <h3 className="font-poppins font-bold text-heading">{sub.name}</h3>
-                <p className="text-xs text-muted">{sub.completedVideos}/{sub.totalVideos} videos · {sub.chapters!.length} chapters</p>
+                <p className="text-xs text-muted">
+                  {sub.completedChapters}/{sub.totalChapters} chapters · {sub.completedVideos}/{sub.totalVideos} videos
+                </p>
               </div>
             </div>
 

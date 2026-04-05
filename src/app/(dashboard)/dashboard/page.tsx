@@ -67,9 +67,22 @@ export default async function DashboardPage() {
   const progressMap = new Map(progress?.map((p) => [p.video_id, p]) ?? []);
 
   // Calculate stats
-  const totalVideos = videos?.length ?? 0;
-  const completedVideos = progress?.filter((p) => p.completed).length ?? 0;
   const totalWatchTimeSeconds = progress?.reduce((sum, p) => sum + (p.last_position || 0), 0) ?? 0;
+  const chapterStats = chapters.map((chapter) => {
+    const chapterVideos = videos?.filter((video) => video.chapter_id === chapter.id) ?? [];
+    const chapterCompletedVideos = chapterVideos.filter((video) => progressMap.get(video.id)?.completed).length;
+    const percent = chapterVideos.length > 0 ? Math.round((chapterCompletedVideos / chapterVideos.length) * 100) : 0;
+    return {
+      id: chapter.id,
+      totalVideos: chapterVideos.length,
+      completedVideos: chapterCompletedVideos,
+      percent,
+      completed: chapterVideos.length > 0 && chapterCompletedVideos === chapterVideos.length,
+    };
+  });
+  const trackableChapterStats = chapterStats.filter((chapter) => chapter.totalVideos > 0);
+  const totalChapters = trackableChapterStats.length;
+  const completedChapters = trackableChapterStats.filter((chapter) => chapter.completed).length;
 
   // Calculate streak (consecutive days with activity)
   const watchDates = Array.from(new Set(
@@ -146,14 +159,20 @@ export default async function DashboardPage() {
       (ch) => videos?.filter((v) => v.chapter_id === ch.id) ?? []
     );
     const subCompleted = subVideos.filter((v) => progressMap.get(v.id)?.completed).length;
+    const subChapterStats = subChapters
+      .map((chapter) => chapterStats.find((item) => item.id === chapter.id))
+      .filter((chapter): chapter is NonNullable<typeof chapterStats[number]> => Boolean(chapter));
+    const trackableSubjectChapters = subChapterStats.filter((chapter) => chapter.totalVideos > 0);
+    const subCompletedChapters = trackableSubjectChapters.filter((chapter) => chapter.completed).length;
     return {
       id: subjectId,
       name,
       totalVideos: subVideos.length,
       completedVideos: subCompleted,
-      totalChapters: subChapters.length,
+      totalChapters: trackableSubjectChapters.length,
+      completedChapters: subCompletedChapters,
     };
-  });
+  }).filter((subject) => subject.totalChapters > 0 || subject.totalVideos > 0);
 
   return (
     <div className="space-y-8">
@@ -163,10 +182,11 @@ export default async function DashboardPage() {
       />
 
       <StatsOverview
-        totalVideos={totalVideos}
-        completedVideos={completedVideos}
+        totalChapters={totalChapters}
+        completedChapters={completedChapters}
         totalWatchTimeSeconds={totalWatchTimeSeconds}
         streak={streak}
+        activeSubjects={subjectProgress.filter((subject) => subject.totalChapters > 0).length}
       />
 
       <ContinueWatching items={continueItems} />

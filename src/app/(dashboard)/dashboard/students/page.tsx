@@ -23,13 +23,48 @@ export default async function MyStudentsPage() {
   // Get students assigned to this teacher
   const { data: students } = await supabase
     .from("profiles")
-    .select("id, name, class, board, medium")
+    .select("id, name, class, board, medium, org_id")
     .eq("teacher_id", userId)
     .eq("is_active", true)
     .order("name");
 
-  // Get progress for all students
-  const studentIds = students?.map((s) => s.id) ?? [];
+  const studentList = students ?? [];
+  const studentIds = studentList.map((student) => student.id);
+  const orgIds = Array.from(
+    new Set(studentList.map((student) => student.org_id).filter((value): value is string => Boolean(value)))
+  );
+  const classes = Array.from(
+    new Set(studentList.map((student) => student.class).filter((value): value is number => value !== null))
+  );
+  const boards = Array.from(
+    new Set(studentList.map((student) => student.board).filter((value): value is string => Boolean(value)))
+  );
+  const media = Array.from(
+    new Set(studentList.map((student) => student.medium).filter((value): value is string => Boolean(value)))
+  );
+
+  const [{ data: restrictions }, { data: chapters }] = await Promise.all([
+    orgIds.length > 0
+      ? supabase.from("content_restrictions").select("org_id, chapter_id").in("org_id", orgIds)
+      : Promise.resolve({ data: [] }),
+    classes.length > 0 && boards.length > 0 && media.length > 0
+      ? supabase
+          .from("chapters")
+          .select("id, class, board, medium")
+          .in("class", classes)
+          .in("board", boards)
+          .in("medium", media)
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  const chapterIds = (chapters ?? []).map((chapter) => chapter.id);
+  const { data: videos } = chapterIds.length > 0
+    ? await supabase
+        .from("videos")
+        .select("id, chapter_id")
+        .in("chapter_id", chapterIds)
+    : { data: [] };
+
   const { data: allProgress } = studentIds.length > 0
     ? await supabase
         .from("video_progress")
@@ -37,11 +72,40 @@ export default async function MyStudentsPage() {
         .in("user_id", studentIds)
     : { data: [] };
 
+  const blockedChapterIdsByOrg = new Map<string, Set<string>>();
+  for (const restriction of restrictions ?? []) {
+    const blocked = blockedChapterIdsByOrg.get(restriction.org_id) ?? new Set<string>();
+    blocked.add(restriction.chapter_id);
+    blockedChapterIdsByOrg.set(restriction.org_id, blocked);
+  }
+
+  const videoIdsByChapter = new Map<string, string[]>();
+  for (const video of videos ?? []) {
+    const chapterVideoIds = videoIdsByChapter.get(video.chapter_id) ?? [];
+    chapterVideoIds.push(video.id);
+    videoIdsByChapter.set(video.chapter_id, chapterVideoIds);
+  }
+
+  const chaptersByCombo = new Map<string, Array<{ id: string; class: number; board: string; medium: string }>>();
+  for (const chapter of chapters ?? []) {
+    const comboKey = `${chapter.class}|${chapter.board}|${chapter.medium}`;
+    const matchingChapters = chaptersByCombo.get(comboKey) ?? [];
+    matchingChapters.push(chapter);
+    chaptersByCombo.set(comboKey, matchingChapters);
+  }
+
   // Aggregate per student
-  const studentStats = (students ?? []).map((student) => {
+  const studentStats = studentList.map((student) => {
     const studentProgress = allProgress?.filter((p) => p.user_id === student.id) ?? [];
-    const completed = studentProgress.filter((p) => p.completed).length;
-    const total = studentProgress.length;
+    const completedVideoIds = new Set(studentProgress.filter((progress) => progress.completed).map((progress) => progress.video_id));
+    const comboKey = `${student.class ?? "na"}|${student.board ?? "na"}|${student.medium ?? "na"}`;
+    const blockedChapterIds = student.org_id ? blockedChapterIdsByOrg.get(student.org_id) ?? new Set<string>() : new Set<string>();
+    const accessibleChapters = (chaptersByCombo.get(comboKey) ?? []).filter((chapter) => !blockedChapterIds.has(chapter.id));
+    const trackableChapters = accessibleChapters.filter((chapter) => (videoIdsByChapter.get(chapter.id)?.length ?? 0) > 0);
+    const completedChapters = trackableChapters.filter((chapter) => {
+      const chapterVideoIds = videoIdsByChapter.get(chapter.id) ?? [];
+      return chapterVideoIds.length > 0 && chapterVideoIds.every((videoId) => completedVideoIds.has(videoId));
+    }).length;
     const lastActive = studentProgress
       .map((p) => p.last_watched_at)
       .filter(Boolean)
@@ -54,8 +118,8 @@ export default async function MyStudentsPage() {
 
     return {
       ...student,
-      completedVideos: completed,
-      totalWatched: total,
+      completedChapters,
+      totalChapters: trackableChapters.length,
       lastActive,
       daysSinceActive,
       isInactive: daysSinceActive !== null && daysSinceActive > 7,
@@ -110,7 +174,9 @@ export default async function MyStudentsPage() {
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-sm font-bold text-heading">{student.completedVideos} done</p>
+                <p className="text-sm font-bold text-heading">
+                  {student.completedChapters}/{student.totalChapters} chapters
+                </p>
                 <p className={`text-xs ${student.isInactive ? "text-red-500 font-semibold" : "text-muted"}`}>
                   {student.daysSinceActive === null
                     ? "Never active"
