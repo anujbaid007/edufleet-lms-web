@@ -342,7 +342,7 @@ function SummaryCards({ dataset }: { dataset: AnalyticsDataset }) {
           </div>
           <div>
             <p className="text-2xl font-bold text-heading">{summary.trackedChapters}</p>
-            <p className="text-xs text-muted">Chapter opportunities</p>
+            <p className="text-xs text-muted">Chapters in scope</p>
           </div>
         </div>
       </ClayCard>
