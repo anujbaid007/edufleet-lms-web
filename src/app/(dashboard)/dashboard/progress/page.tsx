@@ -4,7 +4,7 @@ import { Header } from "@/components/dashboard/header";
 import { ClayCard } from "@/components/ui/clay-card";
 import { ProgressRing } from "@/components/ui/progress-ring";
 import { formatDuration } from "@/lib/utils";
-import { Clock, Flame, Trophy } from "lucide-react";
+import { ChevronDown, Clock, Flame, Trophy } from "lucide-react";
 import Link from "next/link";
 
 export const metadata = { title: "My Progress" };
@@ -153,35 +153,81 @@ export default async function ProgressPage() {
       {/* Per-Subject Progress */}
       <div className="space-y-6">
         <h2 className="text-lg font-bold text-heading font-poppins">Subject Progress</h2>
-        {subjectStats.map((sub) => (
-          <ClayCard key={sub.id} hover={false} className="!p-6">
-            <div className="flex items-center gap-4 mb-4">
-              <ProgressRing percentage={sub.percent} size={56} strokeWidth={6}>
-                <span className="text-xs font-bold text-heading">{sub.percent}%</span>
-              </ProgressRing>
-              <div>
-                <h3 className="font-poppins font-bold text-heading">{sub.name}</h3>
-                <p className="text-xs text-muted">
-                  {sub.completedChapters}/{sub.totalChapters} chapters · {sub.completedVideos}/{sub.totalVideos} videos
-                </p>
-              </div>
-            </div>
-
-            {/* Chapter rings */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-              {sub.chapterStats.map((ch) => (
-                <Link key={ch.id} href={`/dashboard/chapters/${ch.id}`} className="text-center group">
-                  <ProgressRing percentage={ch.percent} size={44} strokeWidth={4}>
-                    <span className="text-[9px] font-bold text-heading">{ch.percent}%</span>
+        <div className="space-y-4">
+          {subjectStats.map((sub, index) => (
+            <ClayCard key={sub.id} hover={false} className="overflow-hidden !p-0">
+              <details className="group" open={index === 0}>
+                <summary className="flex cursor-pointer list-none items-center gap-4 px-6 py-5 marker:content-none">
+                  <ProgressRing percentage={sub.percent} size={58} strokeWidth={6}>
+                    <span className="text-xs font-bold text-heading">{sub.percent}%</span>
                   </ProgressRing>
-                  <p className="text-[10px] text-muted mt-1 truncate group-hover:text-heading transition-colors">
-                    Ch. {ch.chapter_no}
-                  </p>
-                </Link>
-              ))}
-            </div>
-          </ClayCard>
-        ))}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <h3 className="font-poppins text-lg font-bold text-heading">{sub.name}</h3>
+                        <p className="text-sm text-muted">
+                          {sub.completedChapters}/{sub.totalChapters} chapters completed
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
+                        <span className="rounded-full bg-white/80 px-3 py-1 shadow-[inset_0_0_0_1px_rgba(232,135,30,0.08)]">
+                          {sub.completedVideos}/{sub.totalVideos} videos
+                        </span>
+                        <span className="rounded-full bg-white/80 px-3 py-1 shadow-[inset_0_0_0_1px_rgba(232,135,30,0.08)]">
+                          {sub.percent === 100 ? "Mastered" : `${sub.totalChapters - sub.completedChapters} chapters to go`}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/80 shadow-[inset_0_0_0_1px_rgba(15,23,42,0.06)] transition-transform group-open:rotate-180">
+                    <ChevronDown className="h-4 w-4 text-muted" />
+                  </div>
+                </summary>
+
+                <div className="border-t border-white/70 bg-white/35 px-4 py-4 sm:px-6">
+                  <div className="space-y-3">
+                    {sub.chapterStats.map((ch) => (
+                      <Link
+                        key={ch.id}
+                        href={`/dashboard/chapters/${ch.id}`}
+                        className="group/chapter flex items-center gap-4 rounded-[24px] bg-white/85 px-4 py-3 transition-all hover:-translate-y-0.5 hover:shadow-[0_14px_28px_rgba(232,135,30,0.12)]"
+                      >
+                        <ProgressRing percentage={ch.percent} size={48} strokeWidth={5}>
+                          <span className="text-[10px] font-bold text-heading">{ch.percent}%</span>
+                        </ProgressRing>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-bold text-heading">
+                                Chapter {ch.chapter_no}: {ch.title}
+                              </p>
+                              <p className="text-xs text-muted">
+                                {ch.completedVideos}/{ch.totalVideos} videos complete
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs">
+                              <span
+                                className={`rounded-full px-2.5 py-1 font-semibold ${
+                                  ch.completed
+                                    ? "bg-emerald-100 text-emerald-700"
+                                    : ch.completedVideos > 0
+                                      ? "bg-orange-100 text-orange-700"
+                                      : "bg-slate-100 text-slate-500"
+                                }`}
+                              >
+                                {ch.completed ? "Completed" : ch.completedVideos > 0 ? "In progress" : "Not started"}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              </details>
+            </ClayCard>
+          ))}
+        </div>
       </div>
     </div>
   );

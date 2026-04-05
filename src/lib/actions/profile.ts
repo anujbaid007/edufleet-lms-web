@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { PROFILE_AVATAR_IDS } from "@/components/dashboard/profile-avatar";
+import { PROFILE_AVATAR_IDS } from "@/lib/profile-avatars";
 
 export async function updateOwnAvatar(formData: FormData) {
   const supabase = await createClient();

@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { PROFILE_AVATAR_IDS } from "@/lib/profile-avatars";
 
 const BACKGROUNDS = ["#FFE6CC", "#DDF4FF", "#E7E1FF", "#DDF7E7", "#FFE0E8", "#FFF0C7"];
 const SKIN = ["#F5C7A9", "#E9B18D", "#D99674", "#B87358", "#8A5A44"];
@@ -13,16 +14,6 @@ const STYLES = [
   { hair: "wave", accessory: "star" },
   { hair: "cap", accessory: "none" },
 ] as const;
-
-export const PROFILE_AVATAR_IDS = Array.from({ length: 30 }, (_, index) => `avatar-${String(index + 1).padStart(2, "0")}`);
-
-export function defaultAvatarIdForUser(userId: string) {
-  let hash = 0;
-  for (let index = 0; index < userId.length; index += 1) {
-    hash = (hash * 31 + userId.charCodeAt(index)) >>> 0;
-  }
-  return PROFILE_AVATAR_IDS[hash % PROFILE_AVATAR_IDS.length];
-}
 
 function avatarIndexFromId(avatarId: string) {
   const match = /avatar-(\d+)/.exec(avatarId);

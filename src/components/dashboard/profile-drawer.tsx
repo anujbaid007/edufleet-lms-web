@@ -13,7 +13,8 @@ import {
   X,
 } from "lucide-react";
 import { updateOwnAvatar } from "@/lib/actions/profile";
-import { defaultAvatarIdForUser, PROFILE_AVATAR_IDS, ProfileAvatar } from "./profile-avatar";
+import { defaultAvatarIdForUser, PROFILE_AVATAR_IDS } from "@/lib/profile-avatars";
+import { ProfileAvatar } from "./profile-avatar";
 
 type ProfileDrawerProps = {
   userId: string;
