@@ -335,15 +335,12 @@ function DrilldownList({
         {dataset.rows.map((row) => {
           const clickable = canDrill(dataset.level);
           const completionWidth = `${Math.min(row.completionRate, 100)}%`;
+          const containerClassName = clickable
+            ? "w-full rounded-clay border border-orange-primary/10 bg-cream/60 px-4 py-4 text-left transition hover:border-orange-primary/20 hover:bg-white"
+            : "w-full rounded-clay border border-orange-primary/12 bg-white px-4 py-4 text-left shadow-clay-pill";
 
-          return (
-            <button
-              type="button"
-              key={row.id}
-              onClick={() => clickable && onSelect(row)}
-              disabled={!clickable}
-              className="w-full rounded-clay border border-orange-primary/10 bg-cream/60 px-4 py-4 text-left transition hover:border-orange-primary/20 hover:bg-white disabled:cursor-default"
-            >
+          const content = (
+            <>
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
                   <div className="flex items-center gap-3">
@@ -367,23 +364,23 @@ function DrilldownList({
               </div>
 
               <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-5">
-                <div className="rounded-2xl bg-white/70 px-3 py-2 shadow-clay-pill">
+                <div className="rounded-2xl bg-white/80 px-3 py-2 shadow-clay-pill">
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Students</p>
                   <p className="mt-1 text-base font-bold text-heading">{row.students}</p>
                 </div>
-                <div className="rounded-2xl bg-white/70 px-3 py-2 shadow-clay-pill">
+                <div className="rounded-2xl bg-white/80 px-3 py-2 shadow-clay-pill">
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Active 7d</p>
                   <p className="mt-1 text-base font-bold text-heading">{row.activeStudents}</p>
                 </div>
-                <div className="rounded-2xl bg-white/70 px-3 py-2 shadow-clay-pill">
+                <div className="rounded-2xl bg-white/80 px-3 py-2 shadow-clay-pill">
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Completed chapters</p>
                   <p className="mt-1 text-base font-bold text-heading">{row.completedChapters}</p>
                 </div>
-                <div className="rounded-2xl bg-white/70 px-3 py-2 shadow-clay-pill">
+                <div className="rounded-2xl bg-white/80 px-3 py-2 shadow-clay-pill">
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Completion</p>
                   <p className="mt-1 text-base font-bold text-heading">{row.completionRate}%</p>
                 </div>
-                <div className="rounded-2xl bg-white/70 px-3 py-2 shadow-clay-pill">
+                <div className="rounded-2xl bg-white/80 px-3 py-2 shadow-clay-pill">
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Last activity</p>
                   <p className="mt-1 text-sm font-semibold text-heading">{formatDate(row.lastActivityAt)}</p>
                 </div>
@@ -401,6 +398,25 @@ function DrilldownList({
                   />
                 </div>
               </div>
+            </>
+          );
+
+          if (!clickable) {
+            return (
+              <div key={row.id} className={containerClassName}>
+                {content}
+              </div>
+            );
+          }
+
+          return (
+            <button
+              type="button"
+              key={row.id}
+              onClick={() => onSelect(row)}
+              className={containerClassName}
+            >
+              {content}
             </button>
           );
         })}
