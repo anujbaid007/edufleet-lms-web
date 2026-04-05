@@ -86,6 +86,42 @@ export function AccessControl({ organizations, byClass, restrictions, defaultOrg
     });
   }
 
+  function isClassBlocked(cls: ClassGroup) {
+    return cls.groups.length > 0 && cls.groups.every((g) => isGroupBlocked(g));
+  }
+
+  function isClassPartial(cls: ClassGroup) {
+    const hasBlocked = cls.groups.some((g) => isGroupBlocked(g) || isGroupPartial(g));
+    const hasOpen = cls.groups.some((g) => !isGroupBlocked(g));
+    return hasBlocked && hasOpen;
+  }
+
+  async function toggleClass(cls: ClassGroup) {
+    const classKey = `class-${cls.class}`;
+    setLoadingKey(classKey);
+    const blocked = isClassBlocked(cls);
+
+    startTransition(async () => {
+      if (blocked) {
+        // Unblock all subjects in this class
+        const allChapterIds = cls.groups.flatMap((g) => g.chapterIds);
+        const toRemove = orgRestrictions.filter((r) => allChapterIds.includes(r.chapter_id));
+        for (const r of toRemove) {
+          await removeRestriction(r.id);
+        }
+      } else {
+        // Block all subjects in this class
+        const allChapterIds = cls.groups.flatMap((g) => g.chapterIds);
+        const unrestricted = allChapterIds.filter((id) => !blockedChapterIds.has(id));
+        for (const chId of unrestricted) {
+          await addRestriction(selectedOrg, chId);
+        }
+      }
+      router.refresh();
+      setLoadingKey(null);
+    });
+  }
+
   const blockedCount = filteredByClass.reduce(
     (sum, cls) => sum + cls.groups.filter((g) => isGroupBlocked(g)).length,
     0
@@ -127,63 +163,98 @@ export function AccessControl({ organizations, byClass, restrictions, defaultOrg
       </div>
 
       {/* Class-wise subject toggles */}
-      {filteredByClass.map((cls) => (
-        <ClayCard key={cls.class} hover={false} className="!p-5">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-9 h-9 rounded-lg clay-surface-orange flex items-center justify-center shadow-clay-orange">
-              <span className="text-xs font-bold text-white">
-                {cls.class === 0 ? "KG" : cls.class === 99 ? "G" : cls.class}
+      {filteredByClass.map((cls) => {
+        const classBlocked = isClassBlocked(cls);
+        const classPartial = isClassPartial(cls);
+        const classLoading = loadingKey === `class-${cls.class}`;
+
+        return (
+          <ClayCard key={cls.class} hover={false} className="!p-5">
+            <div className="flex items-center gap-3 mb-4">
+              {/* Class-level toggle */}
+              <button
+                onClick={() => toggleClass(cls)}
+                disabled={isPending}
+                className="shrink-0"
+                title={classBlocked ? "Enable entire class" : "Disable entire class"}
+              >
+                {classLoading ? (
+                  <Loader2 className="w-5 h-5 animate-spin text-muted" />
+                ) : (
+                  <div className={`w-5 h-5 rounded shrink-0 border-2 flex items-center justify-center transition-colors ${
+                    classBlocked
+                      ? "border-red-400 bg-red-400"
+                      : classPartial
+                      ? "border-yellow-400 bg-yellow-400"
+                      : "border-green-400 bg-green-400"
+                  }`}>
+                    {!classBlocked && (
+                      <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d={classPartial ? "M5 12h14" : "M5 13l4 4L19 7"} />
+                      </svg>
+                    )}
+                  </div>
+                )}
+              </button>
+
+              <div className="w-9 h-9 rounded-lg clay-surface-orange flex items-center justify-center shadow-clay-orange">
+                <span className="text-xs font-bold text-white">
+                  {cls.class === 0 ? "KG" : cls.class === 99 ? "G" : cls.class}
+                </span>
+              </div>
+              <h3 className="text-sm font-bold text-heading">
+                {cls.class === 0 ? "Kindergarten" : cls.class === 99 ? "General" : `Class ${cls.class}`}
+              </h3>
+              <span className="text-[10px] text-muted ml-1">
+                {cls.groups.filter((g) => !isGroupBlocked(g)).length}/{cls.groups.length} subjects
               </span>
             </div>
-            <h3 className="text-sm font-bold text-heading">
-              {cls.class === 0 ? "Kindergarten" : cls.class === 99 ? "General" : `Class ${cls.class}`}
-            </h3>
-          </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-            {cls.groups.map((group) => {
-              const blocked = isGroupBlocked(group);
-              const partial = isGroupPartial(group);
-              const isLoading = loadingKey === group.key;
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+              {cls.groups.map((group) => {
+                const blocked = isGroupBlocked(group);
+                const partial = isGroupPartial(group);
+                const isLoading = loadingKey === group.key;
 
-              return (
-                <button
-                  key={group.key}
-                  onClick={() => toggleGroup(group)}
-                  disabled={isPending}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border transition-all text-left ${
-                    blocked
-                      ? "border-red-200 bg-red-50/60 text-red-700"
-                      : partial
-                      ? "border-yellow-200 bg-yellow-50/60 text-yellow-700"
-                      : "border-green-200 bg-green-50/60 text-green-700"
-                  } hover:shadow-sm`}
-                >
-                  {isLoading ? (
-                    <Loader2 className="w-4 h-4 animate-spin shrink-0" />
-                  ) : (
-                    <div className={`w-4 h-4 rounded shrink-0 border-2 flex items-center justify-center ${
-                      blocked ? "border-red-400 bg-red-400" : partial ? "border-yellow-400 bg-yellow-400" : "border-green-400 bg-green-400"
-                    }`}>
-                      {!blocked && (
-                        <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
-                      )}
+                return (
+                  <button
+                    key={group.key}
+                    onClick={() => toggleGroup(group)}
+                    disabled={isPending}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border transition-all text-left ${
+                      blocked
+                        ? "border-red-200 bg-red-50/60 text-red-700"
+                        : partial
+                        ? "border-yellow-200 bg-yellow-50/60 text-yellow-700"
+                        : "border-green-200 bg-green-50/60 text-green-700"
+                    } hover:shadow-sm`}
+                  >
+                    {isLoading ? (
+                      <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                    ) : (
+                      <div className={`w-4 h-4 rounded shrink-0 border-2 flex items-center justify-center ${
+                        blocked ? "border-red-400 bg-red-400" : partial ? "border-yellow-400 bg-yellow-400" : "border-green-400 bg-green-400"
+                      }`}>
+                        {!blocked && (
+                          <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{group.subjectName}</p>
+                      <p className="text-[10px] opacity-70">
+                        {group.medium} · {group.chapterIds.length} ch
+                      </p>
                     </div>
-                  )}
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">{group.subjectName}</p>
-                    <p className="text-[10px] opacity-70">
-                      {group.medium} · {group.chapterIds.length} ch
-                    </p>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </ClayCard>
-      ))}
+                  </button>
+                );
+              })}
+            </div>
+          </ClayCard>
+        );
+      })}
     </div>
   );
 }
