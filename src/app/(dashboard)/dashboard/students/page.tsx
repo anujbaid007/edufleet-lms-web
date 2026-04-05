@@ -137,7 +137,7 @@ export default async function MyStudentsPage() {
       />
 
       {/* Summary */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <ClayCard hover={false} className="!p-5 text-center">
           <Users className="w-8 h-8 text-orange-primary mx-auto mb-2" />
           <p className="text-2xl font-bold text-heading">{students?.length ?? 0}</p>
@@ -163,17 +163,20 @@ export default async function MyStudentsPage() {
       <div className="space-y-3">
         {studentStats.map((student) => (
           <ClayCard key={student.id} hover={false} className="!p-5">
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 rounded-full clay-surface shadow-clay-pill flex items-center justify-center">
-                <User className="w-5 h-5 text-orange-primary" />
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-full clay-surface shadow-clay-pill flex items-center justify-center">
+                  <User className="w-5 h-5 text-orange-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-heading">{student.name}</p>
+                  <p className="text-xs text-muted">
+                    {student.class === 0 ? "KG" : student.class === 99 ? "General" : `Class ${student.class}`} · {student.board} · {student.medium}
+                  </p>
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-heading">{student.name}</p>
-                <p className="text-xs text-muted">
-                  {student.class === 0 ? "KG" : student.class === 99 ? "General" : `Class ${student.class}`} · {student.board} · {student.medium}
-                </p>
-              </div>
-              <div className="text-right">
+
+              <div className="flex items-center justify-between gap-4 rounded-2xl bg-white/70 px-4 py-3 sm:min-w-[220px] sm:justify-end sm:bg-transparent sm:px-0 sm:py-0">
                 <p className="text-sm font-bold text-heading">
                   {student.completedChapters}/{student.totalChapters} chapters
                 </p>

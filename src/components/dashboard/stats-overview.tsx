@@ -25,13 +25,13 @@ export function StatsOverview({
   const streakSubtext = streakStarted ? "Keep the learning rhythm going." : "Start one lesson today to begin your streak.";
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
       {/* Overall Progress */}
-      <ClayCard hover={false} className="!p-5 flex items-center gap-4">
+      <ClayCard hover={false} className="!p-4 sm:!p-5 flex items-center gap-4">
         <ProgressRing percentage={completionPercent} size={56} strokeWidth={6}>
           <span className="text-xs font-bold text-heading">{completionPercent}%</span>
         </ProgressRing>
-        <div>
+        <div className="min-w-0">
           <p className="text-xs text-muted font-medium">Overall</p>
           <p className="text-lg font-bold text-heading">{completedChapters}/{totalChapters}</p>
           <p className="text-xs text-muted">chapters done</p>
@@ -39,11 +39,11 @@ export function StatsOverview({
       </ClayCard>
 
       {/* Watch Time */}
-      <ClayCard hover={false} className="!p-5 flex items-center gap-4">
-        <div className="w-14 h-14 rounded-clay-sm clay-surface flex items-center justify-center shadow-clay-pill">
+      <ClayCard hover={false} className="!p-4 sm:!p-5 flex items-center gap-4">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-clay-sm clay-surface shadow-clay-pill sm:h-14 sm:w-14">
           <Clock className="w-6 h-6 text-orange-primary" />
         </div>
-        <div>
+        <div className="min-w-0">
           <p className="text-xs text-muted font-medium">Watch Time</p>
           <p className="text-lg font-bold text-heading">{formatDuration(totalWatchTimeSeconds)}</p>
           <p className="text-xs text-muted">total</p>
@@ -53,18 +53,18 @@ export function StatsOverview({
       {/* Streak */}
       <ClayCard
         hover={false}
-        className={`!p-5 flex items-center gap-4 transition-colors ${
+        className={`!p-4 sm:!p-5 flex items-center gap-4 transition-colors ${
           streakStarted ? "bg-gradient-to-br from-white via-white to-orange-50/60" : "bg-gradient-to-br from-white via-white to-slate-50"
         }`}
       >
         <div
-          className={`flex h-14 w-14 items-center justify-center rounded-clay-sm shadow-clay-pill ${
+          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-clay-sm shadow-clay-pill sm:h-14 sm:w-14 ${
             streakStarted ? "bg-orange-50" : "bg-slate-50"
           }`}
         >
           <Flame className={`w-6 h-6 ${streakStarted ? "text-orange-500" : "text-slate-400"}`} />
         </div>
-        <div>
+        <div className="min-w-0">
           <p className="text-xs text-muted font-medium">{streakLabel}</p>
           <p className="text-lg font-bold text-heading">{streakValue}</p>
           <p className="max-w-[18ch] text-xs text-muted">{streakSubtext}</p>
@@ -72,11 +72,11 @@ export function StatsOverview({
       </ClayCard>
 
       {/* Subjects */}
-      <ClayCard hover={false} className="!p-5 flex items-center gap-4">
-        <div className="w-14 h-14 rounded-clay-sm clay-surface flex items-center justify-center shadow-clay-pill">
+      <ClayCard hover={false} className="!p-4 sm:!p-5 flex items-center gap-4">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-clay-sm clay-surface shadow-clay-pill sm:h-14 sm:w-14">
           <BookOpen className="w-6 h-6 text-orange-primary" />
         </div>
-        <div>
+        <div className="min-w-0">
           <p className="text-xs text-muted font-medium">Subjects</p>
           <p className="text-lg font-bold text-heading">{activeSubjects}</p>
           <p className="text-xs text-muted">in progress</p>

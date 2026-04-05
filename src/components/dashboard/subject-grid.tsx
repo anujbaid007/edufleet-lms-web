@@ -109,7 +109,7 @@ export function SubjectGrid({ subjects }: SubjectGridProps) {
   return (
     <section>
       <h2 className="text-lg font-bold text-heading font-poppins mb-4">Your Subjects</h2>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {subjects.map((subject) => {
           const percent = subject.totalChapters > 0
             ? Math.round((subject.completedChapters / subject.totalChapters) * 100)
@@ -120,7 +120,7 @@ export function SubjectGrid({ subjects }: SubjectGridProps) {
           return (
             <Link key={subject.id} href={`/dashboard/subjects/${subject.id}`}>
               <ClayCard className="group cursor-pointer overflow-hidden !p-0">
-                <div className="relative h-32 overflow-hidden">
+                <div className="relative h-28 overflow-hidden sm:h-32">
                   <Image
                     src={artwork.image}
                     alt=""
@@ -130,15 +130,15 @@ export function SubjectGrid({ subjects }: SubjectGridProps) {
                     className="object-cover transition-transform duration-500 group-hover:scale-105"
                   />
                   <div className={`absolute inset-0 bg-gradient-to-r ${artwork.accent}`} />
-                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#101828]/85 via-[#101828]/35 to-transparent px-5 pb-4 pt-12">
+                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#101828]/85 via-[#101828]/35 to-transparent px-4 pb-3 pt-10 sm:px-5 sm:pb-4 sm:pt-12">
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/70">
                       Learning Path
                     </p>
-                    <p className="mt-1 text-xl font-bold text-white">{subject.name}</p>
+                    <p className="mt-1 text-lg font-bold text-white sm:text-xl">{subject.name}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-4 px-5 py-4">
-                  <ProgressRing percentage={percent} size={56} strokeWidth={5} color={color}>
+                <div className="flex items-center gap-3 px-4 py-4 sm:gap-4 sm:px-5">
+                  <ProgressRing percentage={percent} size={52} strokeWidth={5} color={color}>
                     <span className="text-[10px] font-bold text-heading">{percent}%</span>
                   </ProgressRing>
                   <div className="min-w-0 flex-1">

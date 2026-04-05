@@ -25,7 +25,7 @@ export function ContinueWatching({ items }: ContinueWatchingProps) {
   return (
     <section>
       <h2 className="text-lg font-bold text-heading font-poppins mb-4">Continue Watching</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
         {items.map((item) => (
           <Link key={item.videoId} href={`/dashboard/watch/${item.videoId}`}>
             <ClayCard className="!p-3 group cursor-pointer">
@@ -38,8 +38,8 @@ export function ContinueWatching({ items }: ContinueWatchingProps) {
 
                 <div className="flex items-start gap-3 px-1 pb-1">
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-heading truncate">{item.videoTitle}</p>
-                    <p className="text-xs text-muted truncate">{item.subjectName} · {item.chapterTitle}</p>
+                    <p className="line-clamp-2 text-sm font-semibold leading-5 text-heading">{item.videoTitle}</p>
+                    <p className="mt-0.5 line-clamp-2 text-xs leading-5 text-muted">{item.subjectName} · {item.chapterTitle}</p>
                     <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-orange-primary/10">
                       <div
                         className="h-full rounded-full bg-gradient-to-r from-orange-primary to-orange-500 transition-all"
