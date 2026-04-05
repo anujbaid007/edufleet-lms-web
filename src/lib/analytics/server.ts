@@ -520,13 +520,35 @@ function getScopedMetrics(snapshot: StudentSnapshot, filter?: ScopeFilter) {
   }
 
   if ("subjectId" in filter) {
+    const subjectChapters = snapshot.chaptersBySubject.get(filter.subjectId) ?? [];
+    let completedChapters = 0;
+    let progressCount = 0;
+    let watchSum = 0;
+    let lastActivityAt: string | null = null;
+    let active = false;
+
+    for (const chapter of subjectChapters) {
+      if (snapshot.completedByChapter.get(chapter.id)) completedChapters += 1;
+      progressCount += snapshot.progressByChapter.get(chapter.id) ?? 0;
+      watchSum += snapshot.watchPercentageByChapter.get(chapter.id) ?? 0;
+
+      const chapterLastWatchedAt = snapshot.lastWatchedAtByChapter.get(chapter.id) ?? null;
+      if (chapterLastWatchedAt && (!lastActivityAt || lastActivityAt < chapterLastWatchedAt)) {
+        lastActivityAt = chapterLastWatchedAt;
+      }
+
+      if (snapshot.activeChapterIds.has(chapter.id)) {
+        active = true;
+      }
+    }
+
     return {
-      trackedChapters: snapshot.subjectTotals.get(filter.subjectId) ?? 0,
-      completedChapters: snapshot.completedBySubject.get(filter.subjectId) ?? 0,
-      progressCount: snapshot.progressBySubject.get(filter.subjectId) ?? 0,
-      watchSum: snapshot.watchPercentageBySubject.get(filter.subjectId) ?? 0,
-      active: snapshot.activeSubjectIds.has(filter.subjectId),
-      lastActivityAt: snapshot.lastWatchedAtBySubject.get(filter.subjectId) ?? null,
+      trackedChapters: subjectChapters.length,
+      completedChapters,
+      progressCount,
+      watchSum,
+      active,
+      lastActivityAt,
     };
   }
 
