@@ -51,7 +51,8 @@ export function CreateUserForm({
 
   const filteredCentres = centres.filter((c) => c.org_id === selectedOrgId);
   const filteredTeachers = teachers.filter((t) => t.centre_id === selectedCentreId);
-  const showClass = selectedRole === "student" || selectedRole === "teacher";
+  const showAcademicDetails = selectedRole === "student" || selectedRole === "teacher";
+  const showClass = selectedRole === "student";
   const showTeacher = selectedRole === "student";
   const availableRoles = roleOptions[currentUserRole] ?? [];
 
@@ -156,18 +157,20 @@ export function CreateUserForm({
           )}
         </div>
 
-        {showClass && (
+        {showAcademicDetails && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-semibold text-heading font-poppins mb-2">Class</label>
-              <select name="class" className="clay-input w-full">
-                <option value="">None</option>
-                <option value="0">KG</option>
-                {Array.from({ length: 12 }, (_, i) => (
-                  <option key={i + 1} value={i + 1}>Class {i + 1}</option>
-                ))}
-              </select>
-            </div>
+            {showClass && (
+              <div>
+                <label className="block text-sm font-semibold text-heading font-poppins mb-2">Class</label>
+                <select name="class" className="clay-input w-full">
+                  <option value="">None</option>
+                  <option value="0">KG</option>
+                  {Array.from({ length: 12 }, (_, i) => (
+                    <option key={i + 1} value={i + 1}>Class {i + 1}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div>
               <label className="block text-sm font-semibold text-heading font-poppins mb-2">Board</label>
               <select name="board" className="clay-input w-full">

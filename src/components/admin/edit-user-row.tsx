@@ -25,6 +25,32 @@ interface Props {
   teachers: { id: string; name: string; centre_id: string | null }[];
 }
 
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">
+      {children}
+    </p>
+  );
+}
+
+function Field({
+  label,
+  children,
+  hint,
+}: {
+  label: string;
+  children: React.ReactNode;
+  hint?: string;
+}) {
+  return (
+    <label className="block space-y-2">
+      <span className="text-[11px] font-semibold uppercase tracking-wide text-muted">{label}</span>
+      {children}
+      {hint ? <span className="block text-[11px] text-muted">{hint}</span> : null}
+    </label>
+  );
+}
+
 export function EditUserRow({ user, organizations, centres, teachers }: Props) {
   const [mode, setMode] = useState<"view" | "edit" | "confirmDelete">("view");
   const [loading, setLoading] = useState(false);
@@ -48,6 +74,7 @@ export function EditUserRow({ user, organizations, centres, teachers }: Props) {
   async function handleSave() {
     setLoading(true);
     setError(null);
+    const effectiveClassNum = role === "student" ? classNum : "";
     const fd = new FormData();
     fd.set("name", name);
     fd.set("email", email);
@@ -57,7 +84,7 @@ export function EditUserRow({ user, organizations, centres, teachers }: Props) {
     fd.set("org_id", orgId);
     fd.set("centre_id", centreId);
     fd.set("teacher_id", teacherId);
-    if (classNum) fd.set("class", classNum);
+    if (effectiveClassNum) fd.set("class", effectiveClassNum);
     if (board) fd.set("board", board);
     if (medium) fd.set("medium", medium);
     fd.set("is_active", String(user.is_active));
@@ -141,118 +168,150 @@ export function EditUserRow({ user, organizations, centres, teachers }: Props) {
     );
   }
 
-  const inputClass = "w-full px-2.5 py-1.5 text-sm border border-orange-primary/30 rounded-lg focus:outline-none focus:border-orange-primary";
+  const inputClass =
+    "h-11 w-full rounded-2xl border border-orange-primary/20 bg-white/90 px-4 text-sm text-heading shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] outline-none transition focus:border-orange-primary/60 focus:ring-4 focus:ring-orange-primary/10";
+  const secondaryButtonClass =
+    "inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50";
+  const primaryButtonClass =
+    "inline-flex items-center gap-2 rounded-2xl bg-emerald-500 px-4 py-2 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(16,185,129,0.25)] transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-70";
 
   return (
-    <div className="mt-2 p-4 rounded-xl bg-cream/60 border border-orange-primary/10 space-y-3">
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold text-heading">Edit User</span>
-        <div className="flex gap-1">
+    <div className="mt-4 rounded-[28px] border border-orange-primary/15 bg-gradient-to-br from-[#fffaf4] via-white to-[#fff5ea] p-5 shadow-[0_18px_44px_rgba(214,153,68,0.08)] sm:p-6">
+      <div className="flex flex-col gap-4 border-b border-orange-primary/10 pb-5 lg:flex-row lg:items-start lg:justify-between">
+        <div className="space-y-3">
+          <div className="inline-flex items-center rounded-full bg-orange-primary/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-orange-primary">
+            Edit User
+          </div>
+          <div>
+            <h3 className="font-poppins text-xl font-bold text-heading">{name || user.name}</h3>
+            <p className="mt-1 text-sm text-muted">
+              Update login details, access scope, and academic mapping without leaving this list.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={handleSave}
             disabled={loading}
-            className="px-3 py-1.5 text-xs font-medium bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center gap-1"
+            className={primaryButtonClass}
           >
-            {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
             Save
           </button>
           <button
             onClick={resetFields}
-            className="px-3 py-1.5 text-xs font-medium text-body bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-1"
+            className={secondaryButtonClass}
           >
-            <X className="w-3 h-3" /> Cancel
+            <X className="h-4 w-4" /> Cancel
           </button>
         </div>
       </div>
 
-      {error && <p className="text-xs text-red-500">{error}</p>}
-
-      {/* Row 1: Identity */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        <div>
-          <label className="text-[10px] font-semibold text-muted uppercase">Name</label>
-          <input value={name} onChange={(e) => setName(e.target.value)} className={inputClass} placeholder="Name" autoFocus />
-        </div>
-        <div>
-          <label className="text-[10px] font-semibold text-muted uppercase">Email (Login)</label>
-          <input value={email} onChange={(e) => setEmail(e.target.value)} className={inputClass} placeholder="Email" type="email" />
-        </div>
-        <div>
-          <label className="text-[10px] font-semibold text-muted uppercase">Phone</label>
-          <input value={phone} onChange={(e) => setPhone(e.target.value)} className={inputClass} placeholder="Phone number" />
-        </div>
-        <div>
-          <label className="text-[10px] font-semibold text-muted uppercase">New Password</label>
-          <input value={password} onChange={(e) => setPassword(e.target.value)} className={inputClass} placeholder="Leave blank to keep" type="text" />
-        </div>
-      </div>
-
-      {/* Row 2: Role & Org */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        <div>
-          <label className="text-[10px] font-semibold text-muted uppercase">Role</label>
-          <select value={role} onChange={(e) => setRole(e.target.value)} className={inputClass}>
-            <option value="student">Student</option>
-            <option value="teacher">Teacher</option>
-            <option value="centre_admin">Centre Admin</option>
-            <option value="org_admin">Org Admin</option>
-            <option value="platform_admin">Platform Admin</option>
-          </select>
-        </div>
-        <div>
-          <label className="text-[10px] font-semibold text-muted uppercase">Organization</label>
-          <select value={orgId} onChange={(e) => { setOrgId(e.target.value); setCentreId(""); setTeacherId(""); }} className={inputClass}>
-            <option value="">No org</option>
-            {organizations.map((o) => (<option key={o.id} value={o.id}>{o.name}</option>))}
-          </select>
-        </div>
-        <div>
-          <label className="text-[10px] font-semibold text-muted uppercase">Centre</label>
-          <select value={centreId} onChange={(e) => { setCentreId(e.target.value); setTeacherId(""); }} className={inputClass}>
-            <option value="">No centre</option>
-            {filteredCentres.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
-          </select>
-        </div>
-        {role === "student" && (
-          <div>
-            <label className="text-[10px] font-semibold text-muted uppercase">Teacher</label>
-            <select value={teacherId} onChange={(e) => setTeacherId(e.target.value)} className={inputClass}>
-              <option value="">No teacher</option>
-              {filteredTeachers.map((t) => (<option key={t.id} value={t.id}>{t.name}</option>))}
-            </select>
-          </div>
-        )}
-      </div>
-
-      {/* Row 3: Academic (students & teachers) */}
-      {(role === "student" || role === "teacher") && (
-        <div className="grid grid-cols-3 gap-2">
-          <div>
-            <label className="text-[10px] font-semibold text-muted uppercase">Class</label>
-            <select value={classNum} onChange={(e) => setClassNum(e.target.value)} className={inputClass}>
-              <option value="">None</option>
-              <option value="0">KG</option>
-              {Array.from({ length: 12 }, (_, i) => (<option key={i + 1} value={String(i + 1)}>Class {i + 1}</option>))}
-            </select>
-          </div>
-          <div>
-            <label className="text-[10px] font-semibold text-muted uppercase">Board</label>
-            <select value={board} onChange={(e) => setBoard(e.target.value)} className={inputClass}>
-              <option value="">None</option>
-              <option value="CBSE">CBSE</option>
-              <option value="State">State</option>
-            </select>
-          </div>
-          <div>
-            <label className="text-[10px] font-semibold text-muted uppercase">Medium</label>
-            <select value={medium} onChange={(e) => setMedium(e.target.value)} className={inputClass}>
-              <option value="">None</option>
-              <option value="English">English</option>
-              <option value="Hindi">Hindi</option>
-            </select>
-          </div>
+      {error && (
+        <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+          {error}
         </div>
       )}
+
+      <div className="mt-5 grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
+        <div className="space-y-5">
+          <section className="rounded-3xl border border-orange-primary/10 bg-white/75 p-5">
+            <SectionLabel>Identity</SectionLabel>
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              <Field label="Name">
+                <input value={name} onChange={(e) => setName(e.target.value)} className={inputClass} placeholder="Full name" autoFocus />
+              </Field>
+              <Field label="Email (Login)">
+                <input value={email} onChange={(e) => setEmail(e.target.value)} className={inputClass} placeholder="Email address" type="email" />
+              </Field>
+              <Field label="Phone">
+                <input value={phone} onChange={(e) => setPhone(e.target.value)} className={inputClass} placeholder="Phone number" />
+              </Field>
+              <Field label="New Password" hint="Leave blank if you do not want to reset it.">
+                <input value={password} onChange={(e) => setPassword(e.target.value)} className={inputClass} placeholder="Temporary or new password" type="text" />
+              </Field>
+            </div>
+          </section>
+
+          <section className="rounded-3xl border border-orange-primary/10 bg-white/75 p-5">
+            <SectionLabel>Access Mapping</SectionLabel>
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              <Field label="Role">
+                <select value={role} onChange={(e) => setRole(e.target.value)} className={inputClass}>
+                  <option value="student">Student</option>
+                  <option value="teacher">Teacher</option>
+                  <option value="centre_admin">Centre Admin</option>
+                  <option value="org_admin">Org Admin</option>
+                  <option value="platform_admin">Platform Admin</option>
+                </select>
+              </Field>
+              <Field label="Organization">
+                <select value={orgId} onChange={(e) => { setOrgId(e.target.value); setCentreId(""); setTeacherId(""); }} className={inputClass}>
+                  <option value="">No org</option>
+                  {organizations.map((o) => (<option key={o.id} value={o.id}>{o.name}</option>))}
+                </select>
+              </Field>
+              <Field label="Centre">
+                <select value={centreId} onChange={(e) => { setCentreId(e.target.value); setTeacherId(""); }} className={inputClass}>
+                  <option value="">No centre</option>
+                  {filteredCentres.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
+                </select>
+              </Field>
+              {role === "student" && (
+                <Field label="Teacher">
+                  <select value={teacherId} onChange={(e) => setTeacherId(e.target.value)} className={inputClass}>
+                    <option value="">No teacher</option>
+                    {filteredTeachers.map((t) => (<option key={t.id} value={t.id}>{t.name}</option>))}
+                  </select>
+                </Field>
+              )}
+            </div>
+          </section>
+        </div>
+
+        <div className="space-y-5">
+          {(role === "student" || role === "teacher") && (
+            <section className="rounded-3xl border border-orange-primary/10 bg-white/75 p-5">
+              <SectionLabel>Academic Profile</SectionLabel>
+              <div className={`mt-4 grid gap-4 ${role === "student" ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
+                {role === "student" && (
+                  <Field label="Class">
+                    <select value={classNum} onChange={(e) => setClassNum(e.target.value)} className={inputClass}>
+                      <option value="">None</option>
+                      <option value="0">KG</option>
+                      {Array.from({ length: 12 }, (_, i) => (<option key={i + 1} value={String(i + 1)}>Class {i + 1}</option>))}
+                    </select>
+                  </Field>
+                )}
+                <Field label="Board">
+                  <select value={board} onChange={(e) => setBoard(e.target.value)} className={inputClass}>
+                    <option value="">None</option>
+                    <option value="CBSE">CBSE</option>
+                    <option value="State">State</option>
+                  </select>
+                </Field>
+                <Field label="Medium">
+                  <select value={medium} onChange={(e) => setMedium(e.target.value)} className={inputClass}>
+                    <option value="">None</option>
+                    <option value="English">English</option>
+                    <option value="Hindi">Hindi</option>
+                  </select>
+                </Field>
+              </div>
+            </section>
+          )}
+
+          <section className="rounded-3xl border border-orange-primary/10 bg-[#fff8f0] p-5">
+            <SectionLabel>Quick Notes</SectionLabel>
+            <ul className="mt-4 space-y-3 text-sm text-muted">
+              <li>Teachers are no longer assigned a single class from this editor.</li>
+              <li>Students can still be mapped to a teacher and a class for progress tracking.</li>
+              <li>Password changes are optional and only apply when you enter a new value.</li>
+            </ul>
+          </section>
+        </div>
+      </div>
     </div>
   );
 }

@@ -112,7 +112,7 @@ export async function createUser(formData: FormData) {
   const orgId = (formData.get("org_id") as string) || null;
   const centreId = (formData.get("centre_id") as string) || null;
   const teacherId = (formData.get("teacher_id") as string) || null;
-  const classNum = formData.get("class") ? Number(formData.get("class")) : null;
+  const classNum = role === "student" && formData.get("class") ? Number(formData.get("class")) : null;
   const board = (formData.get("board") as string) || null;
   const medium = (formData.get("medium") as string) || null;
   const phone = (formData.get("phone") as string) || null;
@@ -147,7 +147,7 @@ export async function createUser(formData: FormData) {
       role,
       org_id: orgId,
       centre_id: centreId,
-      teacher_id: teacherId,
+      teacher_id: role === "student" ? teacherId : null,
       class: classNum,
       board,
       medium,
@@ -168,7 +168,7 @@ export async function updateUser(id: string, formData: FormData) {
   const orgId = (formData.get("org_id") as string) || null;
   const centreId = (formData.get("centre_id") as string) || null;
   const teacherId = (formData.get("teacher_id") as string) || null;
-  const classNum = formData.get("class") ? Number(formData.get("class")) : null;
+  const classNum = role === "student" && formData.get("class") ? Number(formData.get("class")) : null;
   const board = (formData.get("board") as string) || null;
   const medium = (formData.get("medium") as string) || null;
   const phone = (formData.get("phone") as string) || null;
@@ -194,7 +194,7 @@ export async function updateUser(id: string, formData: FormData) {
       role,
       org_id: orgId,
       centre_id: centreId,
-      teacher_id: teacherId,
+      teacher_id: role === "student" ? teacherId : null,
       class: classNum,
       board,
       medium,
@@ -265,8 +265,8 @@ export async function bulkCreateUsers(
         role: user.role,
         org_id: user.org_id,
         centre_id: user.centre_id,
-        teacher_id: user.teacher_id,
-        class: user.class,
+        teacher_id: user.role === "student" ? user.teacher_id : null,
+        class: user.role === "student" ? user.class : null,
         board: user.board,
         medium: user.medium,
       })
