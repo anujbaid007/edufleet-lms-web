@@ -15,10 +15,18 @@ if (!supabaseUrl || !supabaseKey) {
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+const s3SubjectAliases: Record<string, string> = {
+  Mathematics: "Maths",
+};
+
+function getS3SubjectName(subject: string): string {
+  return s3SubjectAliases[subject] ?? subject;
+}
+
 // S3 key pattern: {Medium}/{Class}/{Subject}/{ChapterNo}. {ChapterTitle}/{VideoOrder}. {VideoTitle}.mp4
 function buildS3Key(medium: string, classNum: number | string, subject: string, chapterNo: number, chapterTitle: string, videoOrder: number, videoTitle: string): string {
   const classStr = classNum === 0 ? "KG" : String(classNum);
-  return `${medium}/${classStr}/${subject}/${chapterNo}. ${chapterTitle}/${videoOrder}. ${videoTitle}.mp4`;
+  return `${medium}/${classStr}/${getS3SubjectName(subject)}/${chapterNo}. ${chapterTitle}/${videoOrder}. ${videoTitle}.mp4`;
 }
 
 function parseDuration(dur: string | null): number {

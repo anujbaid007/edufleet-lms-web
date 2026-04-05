@@ -10,11 +10,23 @@ export default async function LibraryPage() {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) redirect("/login");
 
-  // Fetch chapters (paginated, ~1857 rows = 2 requests) and video counts (single RPC)
-  type ChapterRow = { id: string; class: number; medium: string; chapter_no: number; title: string; subject_id: string; subjects: { name: string } | null };
-
-  // Run chapters pagination and video counts RPC in parallel
-  const videoCounts$ = supabase.rpc("get_video_counts_by_chapter");
+  type ChapterRow = {
+    id: string;
+    class: number;
+    medium: string;
+    chapter_no: number;
+    title: string;
+    subject_id: string;
+    subjects: { name: string } | null;
+  };
+  type VideoRow = {
+    id: string;
+    title: string;
+    duration_seconds: number | null;
+    sort_order: number;
+    chapter_id: string;
+    s3_key: string | null;
+  };
 
   let chapters: ChapterRow[] = [];
   {
@@ -33,22 +45,60 @@ export default async function LibraryPage() {
     }
   }
 
-  const { data: videoCounts } = await videoCounts$;
-
-  // Build video count per chapter from RPC result
-  const videoCountMap = new Map<string, number>();
-  let totalVideos = 0;
-  for (const row of videoCounts ?? []) {
-    videoCountMap.set(row.chapter_id, Number(row.video_count));
-    totalVideos += Number(row.video_count);
+  let videos: VideoRow[] = [];
+  {
+    let from = 0;
+    while (true) {
+      const { data } = await supabase
+        .from("videos")
+        .select("id, title, duration_seconds, sort_order, chapter_id, s3_key")
+        .order("chapter_id")
+        .order("sort_order")
+        .range(from, from + 999);
+      if (!data || data.length === 0) break;
+      videos = videos.concat(data as VideoRow[]);
+      if (data.length < 1000) break;
+      from += 1000;
+    }
   }
 
-  // Build nested tree: Class → Medium → Subject → Chapters (with video counts)
+  const videosByChapter = new Map<
+    string,
+    Array<{
+      id: string;
+      title: string;
+      durationSeconds: number;
+      s3Key: string | null;
+      sortOrder: number;
+    }>
+  >();
+
+  for (const video of videos) {
+    if (!videosByChapter.has(video.chapter_id)) videosByChapter.set(video.chapter_id, []);
+    videosByChapter.get(video.chapter_id)!.push({
+      id: video.id,
+      title: video.title,
+      durationSeconds: video.duration_seconds ?? 0,
+      s3Key: video.s3_key,
+      sortOrder: video.sort_order,
+    });
+  }
+
   type ChapterItem = {
     id: string;
     chapterNo: number;
     title: string;
     videoCount: number;
+    classNum: number;
+    medium: string;
+    subjectName: string;
+    videos: Array<{
+      id: string;
+      title: string;
+      durationSeconds: number;
+      s3Key: string | null;
+      sortOrder: number;
+    }>;
   };
   type SubjectGroup = {
     subjectName: string;
@@ -77,11 +127,16 @@ export default async function LibraryPage() {
     if (!mediumMap.has(ch.medium)) mediumMap.set(ch.medium, new Map());
     const subjectMap = mediumMap.get(ch.medium)!;
     if (!subjectMap.has(subName)) subjectMap.set(subName, []);
+    const chapterVideos = (videosByChapter.get(ch.id) ?? []).sort((a, b) => a.sortOrder - b.sortOrder);
     subjectMap.get(subName)!.push({
       id: ch.id,
       chapterNo: ch.chapter_no,
       title: ch.title,
-      videoCount: videoCountMap.get(ch.id) || 0,
+      videoCount: chapterVideos.length,
+      classNum: ch.class,
+      medium: ch.medium,
+      subjectName: subName,
+      videos: chapterVideos,
     });
   }
 
@@ -117,7 +172,7 @@ export default async function LibraryPage() {
     <div className="space-y-6">
       <Header
         title="Content Library"
-        subtitle={`${chapters.length} chapters · ${totalVideos} videos across ${classMap.size} classes`}
+        subtitle={`${chapters.length} chapters · ${videos.length} videos across ${classMap.size} classes`}
       />
       <ContentLibraryTree tree={tree} />
     </div>
