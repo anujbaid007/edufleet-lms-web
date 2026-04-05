@@ -63,8 +63,6 @@ type LibraryChapterDetail = {
   videos: LibraryVideo[];
 };
 
-const INITIAL_FEATURED_COUNT = 8;
-const FEATURED_BATCH = 8;
 const INITIAL_MORE_COUNT = 16;
 const MORE_BATCH = 16;
 
@@ -754,24 +752,23 @@ function VideoModal({
   );
 }
 
-export function ContentLibraryBrowser({ chapters }: { chapters: LibraryChapterCard[] }) {
+export function ContentLibraryBrowser({
+  chapters,
+  searchAccessory,
+}: {
+  chapters: LibraryChapterCard[];
+  searchAccessory?: React.ReactNode;
+}) {
+  const [search, setSearch] = useState("");
   const [selectedBoard, setSelectedBoard] = useState<string | null>(null);
-  const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
   const [selectedGrade, setSelectedGrade] = useState<number | null>(null);
+  const [selectedMedium, setSelectedMedium] = useState<string | null>(null);
+  const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
   const [activeChapter, setActiveChapter] = useState<LibraryChapterCard | null>(null);
+  const searchLower = search.trim().toLowerCase();
 
   const boardOptions = useMemo(
     () => Array.from(new Set(chapters.map((chapter) => chapter.board).filter(Boolean))).sort(),
-    [chapters]
-  );
-  const subjectOptions = useMemo(
-    () =>
-      Array.from(new Set(chapters.map((chapter) => chapter.subjectName).filter(Boolean))).sort((left, right) => {
-        const leftMeta = subjectMeta(left);
-        const rightMeta = subjectMeta(right);
-        if (leftMeta.order !== rightMeta.order) return leftMeta.order - rightMeta.order;
-        return left.localeCompare(right);
-      }),
     [chapters]
   );
   const gradeOptions = useMemo(
@@ -780,37 +777,122 @@ export function ContentLibraryBrowser({ chapters }: { chapters: LibraryChapterCa
         .sort((left, right) => left - right),
     [chapters]
   );
+  const subjectOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          chapters
+            .filter((chapter) => {
+              if (selectedBoard && chapter.board !== selectedBoard) return false;
+              if (selectedGrade !== null && chapter.classNum !== selectedGrade) return false;
+              if (selectedMedium && chapter.medium !== selectedMedium) return false;
+              return Boolean(chapter.subjectName);
+            })
+            .map((chapter) => chapter.subjectName)
+        )
+      ).sort((left, right) => {
+        const leftMeta = subjectMeta(left);
+        const rightMeta = subjectMeta(right);
+        if (leftMeta.order !== rightMeta.order) return leftMeta.order - rightMeta.order;
+        return left.localeCompare(right);
+      }),
+    [chapters, selectedBoard, selectedGrade, selectedMedium]
+  );
+  const mediumOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          chapters
+            .filter((chapter) => {
+              if (selectedBoard && chapter.board !== selectedBoard) return false;
+              if (selectedGrade !== null && chapter.classNum !== selectedGrade) return false;
+              if (selectedSubject && chapter.subjectName !== selectedSubject) return false;
+              return Boolean(chapter.medium);
+            })
+            .map((chapter) => chapter.medium)
+        )
+      ).sort((left, right) => left.localeCompare(right)),
+    [chapters, selectedBoard, selectedGrade, selectedSubject]
+  );
+
+  useEffect(() => {
+    if (selectedSubject && !subjectOptions.includes(selectedSubject)) {
+      setSelectedSubject(null);
+    }
+  }, [selectedSubject, subjectOptions]);
+
+  useEffect(() => {
+    if (selectedMedium && !mediumOptions.includes(selectedMedium)) {
+      setSelectedMedium(null);
+    }
+  }, [mediumOptions, selectedMedium]);
 
   const matchesSharedFilters = useCallback((chapter: LibraryChapterCard) => {
     if (selectedBoard && chapter.board !== selectedBoard) return false;
+    if (selectedMedium && chapter.medium !== selectedMedium) return false;
     if (selectedSubject && chapter.subjectName !== selectedSubject) return false;
-    return true;
-  }, [selectedBoard, selectedSubject]);
+    if (searchLower) {
+      const searchableText = [
+        chapter.title,
+        chapter.subjectName,
+        chapter.medium,
+        chapter.board,
+        classLabel(chapter.classNum),
+        chapter.previewVideo?.title ?? "",
+      ]
+        .join(" ")
+        .toLowerCase();
 
-  const featuredChapters = useMemo(
-    () =>
-      chapters.filter((chapter) => {
-        if (selectedGrade && selectedGrade !== 1) return false;
-        return chapter.classNum === 1 && chapter.medium === "English" && matchesSharedFilters(chapter);
-      }),
-    [chapters, matchesSharedFilters, selectedGrade]
-  );
+      if (!searchableText.includes(searchLower)) return false;
+    }
+    return true;
+  }, [searchLower, selectedBoard, selectedMedium, selectedSubject]);
+
+  const featuredGroups = useMemo(() => {
+    const highlightedChapters = chapters.filter((chapter) => {
+      if (!matchesSharedFilters(chapter)) return false;
+      if (selectedGrade !== null) return chapter.classNum === selectedGrade;
+      return chapter.classNum === 1 && chapter.medium === "English";
+    });
+
+    const groups = new Map<
+      string,
+      {
+        classNum: number;
+        medium: string;
+        chapters: LibraryChapterCard[];
+      }
+    >();
+
+    for (const chapter of highlightedChapters) {
+      const key = `${chapter.classNum}-${chapter.medium}`;
+      const existing = groups.get(key);
+      if (existing) {
+        existing.chapters.push(chapter);
+      } else {
+        groups.set(key, {
+          classNum: chapter.classNum,
+          medium: chapter.medium,
+          chapters: [chapter],
+        });
+      }
+    }
+
+    return Array.from(groups.values()).sort((left, right) => {
+      if (left.classNum !== right.classNum) return left.classNum - right.classNum;
+      return left.medium.localeCompare(right.medium);
+    });
+  }, [chapters, matchesSharedFilters, selectedGrade]);
 
   const moreContentChapters = useMemo(() => {
-    const featuredIds = new Set(featuredChapters.map((chapter) => chapter.id));
+    const featuredIds = new Set(featuredGroups.flatMap((group) => group.chapters.map((chapter) => chapter.id)));
     return chapters.filter((chapter) => {
       if (!matchesSharedFilters(chapter)) return false;
       if (selectedGrade !== null && chapter.classNum !== selectedGrade) return false;
       return !featuredIds.has(chapter.id);
     });
-  }, [chapters, featuredChapters, matchesSharedFilters, selectedGrade]);
+  }, [chapters, featuredGroups, matchesSharedFilters, selectedGrade]);
 
-  const featuredReveal = useProgressiveReveal(
-    featuredChapters.length,
-    INITIAL_FEATURED_COUNT,
-    FEATURED_BATCH,
-    `${selectedBoard ?? "all"}-${selectedSubject ?? "all"}-${selectedGrade ?? "all"}-featured`
-  );
   const moreReveal = useProgressiveReveal(
     moreContentChapters.length,
     INITIAL_MORE_COUNT,
@@ -818,9 +900,8 @@ export function ContentLibraryBrowser({ chapters }: { chapters: LibraryChapterCa
     `${selectedBoard ?? "all"}-${selectedSubject ?? "all"}-${selectedGrade ?? "all"}-more`
   );
 
-  const visibleFeatured = featuredChapters.slice(0, featuredReveal.visibleCount);
   const visibleMoreContent = moreContentChapters.slice(0, moreReveal.visibleCount);
-  const hasResults = visibleFeatured.length > 0 || visibleMoreContent.length > 0;
+  const hasResults = featuredGroups.length > 0 || visibleMoreContent.length > 0;
 
   return (
     <>
@@ -842,6 +923,22 @@ export function ContentLibraryBrowser({ chapters }: { chapters: LibraryChapterCa
         </section>
 
         <section>
+          <div className="mb-3 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+            <div className="min-w-0 flex-1">
+              <h3 className="mb-3 text-xs font-bold uppercase tracking-[0.15em] text-heading">Search Content</h3>
+              <input
+                type="text"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search chapters, subjects, lessons, classes..."
+                className="clay-input w-full max-w-xl px-4 py-3 text-sm"
+              />
+            </div>
+            {searchAccessory ? <div className="shrink-0 lg:pb-0.5">{searchAccessory}</div> : null}
+          </div>
+        </section>
+
+        <section>
           <h3 className="mb-3 text-xs font-bold uppercase tracking-[0.15em] text-heading">Filter by Board</h3>
           <div className="flex flex-wrap gap-2">
             <ClayPill active={selectedBoard === null} onClick={() => setSelectedBoard(null)}>All Boards</ClayPill>
@@ -852,6 +949,38 @@ export function ContentLibraryBrowser({ chapters }: { chapters: LibraryChapterCa
                 onClick={() => setSelectedBoard(selectedBoard === board ? null : board)}
               >
                 {board}
+              </ClayPill>
+            ))}
+          </div>
+        </section>
+
+        <section>
+          <h3 className="mb-3 text-xs font-bold uppercase tracking-[0.15em] text-heading">Filter by Grade</h3>
+          <div className="flex flex-wrap gap-2">
+            <ClayPill active={selectedGrade === null} onClick={() => setSelectedGrade(null)}>All Grades</ClayPill>
+            {gradeOptions.map((grade) => (
+              <ClayPill
+                key={grade}
+                active={selectedGrade === grade}
+                onClick={() => setSelectedGrade(selectedGrade === grade ? null : grade)}
+              >
+                {classLabel(grade)}
+              </ClayPill>
+            ))}
+          </div>
+        </section>
+
+        <section>
+          <h3 className="mb-3 text-xs font-bold uppercase tracking-[0.15em] text-heading">Filter by Medium</h3>
+          <div className="flex flex-wrap gap-2">
+            <ClayPill active={selectedMedium === null} onClick={() => setSelectedMedium(null)}>All Mediums</ClayPill>
+            {mediumOptions.map((medium) => (
+              <ClayPill
+                key={medium}
+                active={selectedMedium === medium}
+                onClick={() => setSelectedMedium(selectedMedium === medium ? null : medium)}
+              >
+                {medium} Medium
               </ClayPill>
             ))}
           </div>
@@ -877,27 +1006,13 @@ export function ContentLibraryBrowser({ chapters }: { chapters: LibraryChapterCa
           </div>
         </section>
 
-        <section>
-          <h3 className="mb-3 text-xs font-bold uppercase tracking-[0.15em] text-heading">Filter by Grade</h3>
-          <div className="flex flex-wrap gap-2">
-            <ClayPill active={selectedGrade === null} onClick={() => setSelectedGrade(null)}>All Grades</ClayPill>
-            {gradeOptions.map((grade) => (
-              <ClayPill
-                key={grade}
-                active={selectedGrade === grade}
-                onClick={() => setSelectedGrade(selectedGrade === grade ? null : grade)}
-              >
-                {classLabel(grade)}
-              </ClayPill>
-            ))}
-          </div>
-        </section>
-
-        {visibleFeatured.length > 0 ? (
-          <section className="mb-2">
+        {featuredGroups.map((group) => (
+          <section key={`${group.classNum}-${group.medium}`} className="mb-2">
             <div className="mb-6 flex items-center gap-3">
               <div>
-                <h2 className="text-lg font-bold text-heading font-poppins">Class 1 — English Medium</h2>
+                <h2 className="text-lg font-bold text-heading font-poppins">
+                  {classLabel(group.classNum)} — {group.medium} Medium
+                </h2>
                 <p className="mt-0.5 text-xs text-muted">Live demo content · Streamed from EduFleet cloud</p>
               </div>
               <div className="ml-auto flex items-center gap-1.5 rounded-full border border-green-200 bg-green-50 px-3 py-1.5">
@@ -907,17 +1022,16 @@ export function ContentLibraryBrowser({ chapters }: { chapters: LibraryChapterCa
             </div>
 
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {visibleFeatured.map((chapter) => (
+              {group.chapters.map((chapter) => (
                 <ChapterCard key={chapter.id} chapter={chapter} onClick={() => setActiveChapter(chapter)} />
               ))}
             </div>
-            {featuredReveal.visibleCount < featuredChapters.length ? <div ref={featuredReveal.sentinelRef} className="h-6" /> : null}
           </section>
-        ) : null}
+        ))}
 
         {visibleMoreContent.length > 0 ? (
           <section>
-            {visibleFeatured.length > 0 ? (
+            {featuredGroups.length > 0 ? (
               <h2 className="mb-6 text-lg font-bold text-heading font-poppins">More Content</h2>
             ) : null}
 

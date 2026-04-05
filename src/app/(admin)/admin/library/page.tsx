@@ -1,8 +1,10 @@
 import { unstable_cache } from "next/cache";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { ContentLibraryViewSwitcher } from "@/components/admin/content-library-view-switcher";
+import { type LibraryChapterCard } from "@/components/admin/content-library-browser";
+import { type ClassGroup, type ChapterItem } from "@/components/admin/content-library-tree";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { ContentLibraryBrowser, type LibraryChapterCard } from "@/components/admin/content-library-browser";
+import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Content Library" };
 export const dynamic = "force-dynamic";
@@ -29,8 +31,18 @@ type VideoRow = {
   s3_key: string | null;
 };
 
-const loadContentLibraryCards = unstable_cache(
-  async (): Promise<LibraryChapterCard[]> => {
+type LibraryPayload = {
+  chapters: LibraryChapterCard[];
+  tree: ClassGroup[];
+  stats: {
+    chapterCount: number;
+    videoCount: number;
+    classCount: number;
+  };
+};
+
+const loadContentLibraryData = unstable_cache(
+  async (): Promise<LibraryPayload> => {
     const admin = createAdminClient();
 
     const [{ count: chapterCount }, { count: videoCount }] = await Promise.all([
@@ -73,64 +85,114 @@ const loadContentLibraryCards = unstable_cache(
     const chapters = chapterPages.flatMap((page) => (page.data ?? []) as unknown as ChapterRow[]);
     const videos = videoPages.flatMap((page) => (page.data ?? []) as VideoRow[]);
 
-    const videoSummaryByChapter = new Map<
-      string,
-      {
-        videoCount: number;
-        previewVideo:
-          | {
-              id: string;
-              title: string;
-              durationSeconds: number;
-              s3Key: string | null;
-            }
-          | null;
-      }
-    >();
-
+    const videosByChapter = new Map<string, VideoRow[]>();
     for (const video of videos) {
-      const current = videoSummaryByChapter.get(video.chapter_id);
-      if (!current) {
-        videoSummaryByChapter.set(video.chapter_id, {
-          videoCount: 1,
-          previewVideo: {
+      const group = videosByChapter.get(video.chapter_id);
+      if (group) {
+        group.push(video);
+      } else {
+        videosByChapter.set(video.chapter_id, [video]);
+      }
+    }
+
+    const classMap = new Map<number, Map<string, Map<string, ChapterItem[]>>>();
+
+    const chapterCards = chapters
+      .map((chapter) => {
+        const subjectName = (chapter.subjects as { name: string } | null)?.name ?? "Unknown";
+        const chapterVideos = (videosByChapter.get(chapter.id) ?? []).sort((left, right) => left.sort_order - right.sort_order);
+        if (chapterVideos.length === 0) return null;
+
+        const chapterItem: ChapterItem = {
+          id: chapter.id,
+          chapterNo: chapter.chapter_no,
+          title: chapter.title,
+          videoCount: chapterVideos.length,
+          classNum: chapter.class,
+          medium: chapter.medium,
+          subjectName,
+          videos: chapterVideos.map((video) => ({
             id: video.id,
             title: video.title,
             durationSeconds: video.duration_seconds ?? 0,
             s3Key: video.s3_key,
-          },
-        });
-        continue;
-      }
+            sortOrder: video.sort_order,
+          })),
+        };
 
-      current.videoCount += 1;
-    }
-
-    return chapters
-      .map((chapter) => {
-        const videoSummary = videoSummaryByChapter.get(chapter.id);
+        if (!classMap.has(chapter.class)) classMap.set(chapter.class, new Map());
+        const mediumMap = classMap.get(chapter.class)!;
+        if (!mediumMap.has(chapter.medium)) mediumMap.set(chapter.medium, new Map());
+        const subjectMap = mediumMap.get(chapter.medium)!;
+        if (!subjectMap.has(subjectName)) subjectMap.set(subjectName, []);
+        subjectMap.get(subjectName)!.push(chapterItem);
 
         return {
           id: chapter.id,
           chapterNo: chapter.chapter_no,
           title: chapter.title,
-          subjectName: (chapter.subjects as { name: string } | null)?.name ?? "Unknown",
+          subjectName,
           classNum: chapter.class,
           board: chapter.board,
           medium: chapter.medium,
-          videoCount: videoSummary?.videoCount ?? 0,
-          previewVideo: videoSummary?.previewVideo ?? null,
+          videoCount: chapterVideos.length,
+          previewVideo: {
+            id: chapterVideos[0].id,
+            title: chapterVideos[0].title,
+            durationSeconds: chapterVideos[0].duration_seconds ?? 0,
+            s3Key: chapterVideos[0].s3_key,
+          },
         } satisfies LibraryChapterCard;
       })
-      .filter((chapter) => chapter.videoCount > 0)
+      .filter((chapter): chapter is LibraryChapterCard => chapter !== null)
       .sort((left, right) => {
         if (left.classNum !== right.classNum) return left.classNum - right.classNum;
         if (left.medium !== right.medium) return left.medium.localeCompare(right.medium);
         if (left.subjectName !== right.subjectName) return left.subjectName.localeCompare(right.subjectName);
         return left.chapterNo - right.chapterNo;
       });
+
+    const tree: ClassGroup[] = Array.from(classMap.entries())
+      .sort(([left], [right]) => left - right)
+      .map(([classNum, mediumMap]) => {
+        const mediums = Array.from(mediumMap.entries())
+          .sort(([left], [right]) => left.localeCompare(right))
+          .map(([medium, subjectMap]) => {
+            const subjects = Array.from(subjectMap.entries())
+              .sort(([left], [right]) => left.localeCompare(right))
+              .map(([subjectName, chapterItems]) => ({
+                subjectName,
+                chapters: chapterItems.sort((left, right) => left.chapterNo - right.chapterNo),
+                totalVideos: chapterItems.reduce((sum, chapter) => sum + chapter.videoCount, 0),
+              }));
+
+            return {
+              medium,
+              subjects,
+              totalChapters: subjects.reduce((sum, subject) => sum + subject.chapters.length, 0),
+              totalVideos: subjects.reduce((sum, subject) => sum + subject.totalVideos, 0),
+            };
+          });
+
+        return {
+          classNum,
+          mediums,
+          totalChapters: mediums.reduce((sum, medium) => sum + medium.totalChapters, 0),
+          totalVideos: mediums.reduce((sum, medium) => sum + medium.totalVideos, 0),
+        };
+      });
+
+    return {
+      chapters: chapterCards,
+      tree,
+      stats: {
+        chapterCount: chapterCards.length,
+        videoCount: videos.length,
+        classCount: classMap.size,
+      },
+    };
   },
-  ["admin-content-library-cards-v2"],
+  ["admin-content-library-data-v3"],
   { revalidate: 3600 }
 );
 
@@ -142,7 +204,7 @@ export default async function LibraryPage() {
 
   if (!session) redirect("/login");
 
-  const chapters = await loadContentLibraryCards();
+  const { chapters, tree, stats } = await loadContentLibraryData();
 
-  return <ContentLibraryBrowser chapters={chapters} />;
+  return <ContentLibraryViewSwitcher chapters={chapters} tree={tree} stats={stats} />;
 }

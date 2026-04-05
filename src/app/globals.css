@@ -147,6 +147,11 @@ html {
       inset -1px -1px 3px rgba(200,160,120,0.06);
   }
 
+  .clay-pill.clay-surface-orange {
+    background: linear-gradient(145deg, #F97316 0%, #E8871E 50%, #EA580C 100%);
+    border: 1.5px solid rgba(255,200,140,0.3);
+  }
+
   .clay-divider {
     height: 2px;
     background: linear-gradient(90deg, transparent, rgba(232,135,30,0.15), transparent);

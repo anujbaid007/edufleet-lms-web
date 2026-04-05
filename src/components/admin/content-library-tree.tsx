@@ -16,7 +16,7 @@ import {
 import { ClayCard } from "@/components/ui/clay-card";
 import { cn, formatDuration } from "@/lib/utils";
 
-type ChapterVideo = {
+export type ChapterVideo = {
   id: string;
   title: string;
   durationSeconds: number;
@@ -24,7 +24,7 @@ type ChapterVideo = {
   sortOrder: number;
 };
 
-type ChapterItem = {
+export type ChapterItem = {
   id: string;
   chapterNo: number;
   title: string;
@@ -35,20 +35,20 @@ type ChapterItem = {
   videos: ChapterVideo[];
 };
 
-type SubjectGroup = {
+export type SubjectGroup = {
   subjectName: string;
   chapters: ChapterItem[];
   totalVideos: number;
 };
 
-type MediumGroup = {
+export type MediumGroup = {
   medium: string;
   subjects: SubjectGroup[];
   totalChapters: number;
   totalVideos: number;
 };
 
-type ClassGroup = {
+export type ClassGroup = {
   classNum: number;
   mediums: MediumGroup[];
   totalChapters: number;
