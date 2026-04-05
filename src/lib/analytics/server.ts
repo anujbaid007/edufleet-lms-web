@@ -3,6 +3,7 @@ import "server-only";
 import { redirect } from "next/navigation";
 import type { PostgrestError, SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/types";
 import type {
   AnalyticsDataset,
@@ -427,6 +428,16 @@ async function fetchVideosByIds(supabase: Supabase, videoIds: string[]) {
   }
 
   return videos;
+}
+
+async function fetchVideoCountsByChapter(supabase: Supabase) {
+  const rpcClient = supabase as Supabase & {
+    rpc: (
+      fn: "get_video_counts_by_chapter"
+    ) => Promise<{ data: VideoCountRow[] | null; error: PostgrestError | null }>;
+  };
+
+  return rpcClient.rpc("get_video_counts_by_chapter");
 }
 
 function buildAccessibleContentFactory(
@@ -936,7 +947,9 @@ function buildDatasetRows(
 }
 
 async function buildAnalyticsDataset(viewer: AnalyticsViewer, request: AnalyticsRequest): Promise<AnalyticsDataset> {
-  const supabase = await createClient();
+  // Auth is verified through the viewer session, then analytics reads use the
+  // admin client so reporting is not accidentally limited by RLS visibility.
+  const supabase = createAdminClient();
   const normalized = normalizeRequest(viewer, request);
   const level = getDatasetLevel(viewer, normalized);
 
@@ -968,7 +981,7 @@ async function buildAnalyticsDataset(viewer: AnalyticsViewer, request: Analytics
   const [restrictions, videoCounts, chapters, progressRows] = await Promise.all([
     fetchRestrictions(supabase, orgIds),
     classes.length && boards.length && media.length
-      ? supabase.rpc("get_video_counts_by_chapter")
+      ? fetchVideoCountsByChapter(supabase)
       : Promise.resolve({ data: [] as VideoCountRow[], error: null }),
     fetchChapters(supabase, classes, boards, media),
     fetchProgressForUsers(
