@@ -8,6 +8,8 @@ import { EditUserRow } from "./edit-user-row";
 interface UserData {
   id: string;
   name: string;
+  email: string;
+  phone: string | null;
   role: string;
   org_id: string | null;
   centre_id: string | null;
@@ -58,33 +60,35 @@ function UserRow({
   teachers: { id: string; name: string; centre_id: string | null }[];
 }) {
   return (
-    <div className="flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-orange-50/50 transition-colors group">
-      <div className="w-7 h-7 rounded-full bg-orange-50 flex items-center justify-center shrink-0">
-        <User className="w-3.5 h-3.5 text-orange-primary" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm font-medium text-heading">{u.name}</span>
-          <RoleBadge role={u.role} colors={roleBadgeColors} />
-          {!u.is_active && (
-            <span className="px-2 py-0.5 text-[10px] bg-red-100 text-red-600 rounded-full font-medium">Inactive</span>
-          )}
+    <div className="px-4 py-2.5 rounded-lg hover:bg-orange-50/50 transition-colors group">
+      <div className="flex items-center gap-3">
+        <div className="w-7 h-7 rounded-full bg-orange-50 flex items-center justify-center shrink-0">
+          <User className="w-3.5 h-3.5 text-orange-primary" />
         </div>
-        {(u.class !== null || u.board || u.medium) && (
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-medium text-heading">{u.name}</span>
+            <RoleBadge role={u.role} colors={roleBadgeColors} />
+            {!u.is_active && (
+              <span className="px-2 py-0.5 text-[10px] bg-red-100 text-red-600 rounded-full font-medium">Inactive</span>
+            )}
+          </div>
           <p className="text-xs text-muted mt-0.5">
-            {u.class !== null ? (u.class === 0 ? "KG" : u.class === 99 ? "General" : `Class ${u.class}`) : ""}
+            {u.email}
+            {u.phone ? ` · ${u.phone}` : ""}
+            {u.class !== null ? ` · ${u.class === 0 ? "KG" : u.class === 99 ? "General" : `Class ${u.class}`}` : ""}
             {u.board ? ` · ${u.board}` : ""}
             {u.medium ? ` · ${u.medium}` : ""}
           </p>
-        )}
-      </div>
-      <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-        <EditUserRow
-          user={u}
-          organizations={organizations}
-          centres={centres}
-          teachers={teachers}
-        />
+        </div>
+        <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+          <EditUserRow
+            user={u}
+            organizations={organizations}
+            centres={centres}
+            teachers={teachers}
+          />
+        </div>
       </div>
     </div>
   );

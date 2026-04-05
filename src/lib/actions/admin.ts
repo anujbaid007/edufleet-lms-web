@@ -115,6 +115,7 @@ export async function createUser(formData: FormData) {
   const classNum = formData.get("class") ? Number(formData.get("class")) : null;
   const board = (formData.get("board") as string) || null;
   const medium = (formData.get("medium") as string) || null;
+  const phone = (formData.get("phone") as string) || null;
 
   if (!email || !password || !name || !role) {
     return { error: "Email, password, name, and role are required" };
@@ -150,6 +151,7 @@ export async function createUser(formData: FormData) {
       class: classNum,
       board,
       medium,
+      phone,
     })
     .eq("id", authData.user.id);
 
@@ -169,8 +171,22 @@ export async function updateUser(id: string, formData: FormData) {
   const classNum = formData.get("class") ? Number(formData.get("class")) : null;
   const board = (formData.get("board") as string) || null;
   const medium = (formData.get("medium") as string) || null;
+  const phone = (formData.get("phone") as string) || null;
   const isActive = formData.get("is_active") === "true";
 
+  // Update auth fields (email, password) if provided
+  const email = (formData.get("email") as string) || null;
+  const password = (formData.get("password") as string) || null;
+  const authUpdate: { email?: string; password?: string } = {};
+  if (email) authUpdate.email = email;
+  if (password) authUpdate.password = password;
+
+  if (Object.keys(authUpdate).length > 0) {
+    const { error: authError } = await admin.auth.admin.updateUserById(id, authUpdate);
+    if (authError) return { error: authError.message };
+  }
+
+  // Update profile
   const { error } = await admin
     .from("profiles")
     .update({
@@ -182,6 +198,7 @@ export async function updateUser(id: string, formData: FormData) {
       class: classNum,
       board,
       medium,
+      phone,
       is_active: isActive,
     })
     .eq("id", id);

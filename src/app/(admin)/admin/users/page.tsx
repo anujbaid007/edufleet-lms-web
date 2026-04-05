@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { Header } from "@/components/dashboard/header";
 import { CreateUserForm } from "@/components/admin/create-user-form";
 import { UserTree } from "@/components/admin/user-tree";
@@ -33,16 +34,24 @@ export default async function UsersPage() {
     { data: centres },
     { data: teacherProfiles },
   ] = await Promise.all([
-    supabase.from("profiles").select("id, name, role, org_id, centre_id, class, board, medium, is_active, teacher_id, created_at").order("name"),
+    supabase.from("profiles").select("id, name, role, org_id, centre_id, class, board, medium, is_active, teacher_id, phone, created_at").order("name"),
     supabase.from("organizations").select("id, name").eq("is_active", true).order("name"),
     supabase.from("centres").select("id, name, org_id").eq("is_active", true).order("name"),
     supabase.from("profiles").select("id, name, centre_id").eq("role", "teacher").eq("is_active", true).order("name"),
   ]);
 
+  // Fetch auth users to get emails
+  const adminClient = createAdminClient();
+  const { data: authListData } = await adminClient.auth.admin.listUsers({ perPage: 1000 });
+  const emailMap = new Map<string, string>();
+  for (const u of authListData?.users ?? []) {
+    if (u.email) emailMap.set(u.id, u.email);
+  }
+
   // Build hierarchy
   const orgList = orgs ?? [];
   const centreList = centres ?? [];
-  const users = allUsers ?? [];
+  const users = (allUsers ?? []).map((u) => ({ ...u, email: emailMap.get(u.id) ?? "" }));
 
   // Org admins (shown at org level regardless of centre)
   const orgAdmins = (orgId: string) =>
