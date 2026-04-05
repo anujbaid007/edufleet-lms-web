@@ -3,6 +3,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Header } from "@/components/dashboard/header";
 import { ClayCard } from "@/components/ui/clay-card";
+import { PageBreadcrumbs } from "@/components/dashboard/page-breadcrumbs";
 import { Play, CheckCircle2 } from "lucide-react";
 import { formatDuration } from "@/lib/utils";
 
@@ -14,7 +15,7 @@ export default async function ChapterPage({ params }: { params: { id: string } }
 
   const { data: chapter } = await supabase
     .from("chapters")
-    .select("id, title, chapter_no, subjects(name)")
+    .select("id, title, chapter_no, subject_id, subjects(id, name)")
     .eq("id", params.id)
     .single();
 
@@ -38,10 +39,21 @@ export default async function ChapterPage({ params }: { params: { id: string } }
   const progressMap = new Map(progress?.map((p) => [p.video_id, p]) ?? []);
 
   // Need to cast the subjects join result
-  const subjectName = (chapter.subjects as unknown as { name: string } | null)?.name ?? "Subject";
+  const subjectMeta = chapter.subjects as unknown as { id: string; name: string } | null;
+  const subjectName = subjectMeta?.name ?? "Subject";
+  const subjectId = subjectMeta?.id ?? "";
 
   return (
     <div>
+      <PageBreadcrumbs
+        backHref={subjectId ? `/dashboard/subjects/${subjectId}` : "/dashboard/subjects"}
+        backLabel={subjectId ? `${subjectName} Chapters` : "All Subjects"}
+        crumbs={[
+          { href: "/dashboard/subjects", label: "Subjects" },
+          ...(subjectId ? [{ href: `/dashboard/subjects/${subjectId}`, label: subjectName }] : []),
+          { href: `/dashboard/chapters/${chapter.id}`, label: `Ch. ${chapter.chapter_no}` },
+        ]}
+      />
       <Header
         title={`Ch. ${chapter.chapter_no}: ${chapter.title}`}
         subtitle={`${subjectName} · ${videos?.length ?? 0} lessons`}

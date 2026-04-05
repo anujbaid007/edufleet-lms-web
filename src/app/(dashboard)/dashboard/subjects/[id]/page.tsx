@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Header } from "@/components/dashboard/header";
 import { ClayCard } from "@/components/ui/clay-card";
 import { ProgressRing } from "@/components/ui/progress-ring";
+import { PageBreadcrumbs } from "@/components/dashboard/page-breadcrumbs";
 import { ChevronRight, BookOpen } from "lucide-react";
 
 export default async function SubjectPage({ params }: { params: { id: string } }) {
@@ -85,6 +86,14 @@ export default async function SubjectPage({ params }: { params: { id: string } }
 
   return (
     <div>
+      <PageBreadcrumbs
+        backHref="/dashboard/subjects"
+        backLabel="All Subjects"
+        crumbs={[
+          { href: "/dashboard/subjects", label: "Subjects" },
+          { href: `/dashboard/subjects/${subject.id}`, label: subject.name },
+        ]}
+      />
       <Header
         title={subject.name}
         subtitle={`${chapters?.length ?? 0} chapters · ${trackableChapters.length} with lessons · ${profile.class === 0 ? "KG" : profile.class === 99 ? "General" : `Class ${profile.class}`}`}

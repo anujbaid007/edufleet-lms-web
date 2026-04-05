@@ -1,24 +1,38 @@
 "use client";
 
 import { useRef, useEffect, useCallback, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Loader2, Play, X } from "lucide-react";
 import { updateVideoProgress } from "@/lib/actions/progress";
 
 const MIN_SAVE_INTERVAL_MS = 60_000;
 const MIN_PROGRESS_DELTA_SECONDS = 15;
+const AUTOPLAY_SECONDS = 5;
 
 interface VideoPlayerProps {
   videoId: string;
   s3Key: string;
   initialPosition?: number;
   durationSeconds: number;
+  nextVideoId?: string | null;
+  nextVideoTitle?: string | null;
 }
 
-export function VideoPlayer({ videoId, s3Key, initialPosition = 0, durationSeconds }: VideoPlayerProps) {
+export function VideoPlayer({
+  videoId,
+  s3Key,
+  initialPosition = 0,
+  durationSeconds,
+  nextVideoId = null,
+  nextVideoTitle = null,
+}: VideoPlayerProps) {
+  const router = useRouter();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [showAutoplayPrompt, setShowAutoplayPrompt] = useState(false);
+  const [countdown, setCountdown] = useState(AUTOPLAY_SECONDS);
   const lastSavedPositionRef = useRef(initialPosition);
   const lastSavedAtRef = useRef(0);
 
@@ -26,6 +40,8 @@ export function VideoPlayer({ videoId, s3Key, initialPosition = 0, durationSecon
   useEffect(() => {
     setLoading(true);
     setError(false);
+    setShowAutoplayPrompt(false);
+    setCountdown(AUTOPLAY_SECONDS);
     fetch(`/api/presign?key=${encodeURIComponent(s3Key)}`)
       .then((r) => r.json())
       .then((d) => {
@@ -105,6 +121,35 @@ export function VideoPlayer({ videoId, s3Key, initialPosition = 0, durationSecon
     lastSavedPositionRef.current = durationSeconds;
     lastSavedAtRef.current = Date.now();
     await updateVideoProgress(videoId, 100, durationSeconds);
+    if (nextVideoId) {
+      setCountdown(AUTOPLAY_SECONDS);
+      setShowAutoplayPrompt(true);
+    }
+  };
+
+  useEffect(() => {
+    if (!showAutoplayPrompt || !nextVideoId) return;
+
+    if (countdown <= 0) {
+      router.push(`/dashboard/watch/${nextVideoId}`);
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      setCountdown((current) => current - 1);
+    }, 1000);
+
+    return () => window.clearTimeout(timeout);
+  }, [countdown, nextVideoId, router, showAutoplayPrompt]);
+
+  const handleCancelAutoplay = () => {
+    setShowAutoplayPrompt(false);
+    setCountdown(AUTOPLAY_SECONDS);
+  };
+
+  const handlePlayNext = () => {
+    if (!nextVideoId) return;
+    router.push(`/dashboard/watch/${nextVideoId}`);
   };
 
   return (
@@ -142,6 +187,49 @@ export function VideoPlayer({ videoId, s3Key, initialPosition = 0, durationSecon
           style={{ maxHeight: "calc(100vh - 200px)" }}
         />
       )}
+
+      {showAutoplayPrompt && nextVideoId ? (
+        <div className="absolute inset-x-4 bottom-4 rounded-[24px] border border-orange-200/40 bg-[rgba(22,16,10,0.84)] p-4 text-white shadow-[0_24px_60px_rgba(0,0,0,0.28)] backdrop-blur-xl sm:inset-x-auto sm:right-4 sm:w-[360px]">
+          <div className="flex items-start gap-3">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-orange-300/35 bg-gradient-to-br from-[#f6a14a] via-[#ea8a25] to-[#cf6f14] shadow-[0_14px_28px_rgba(232,135,30,0.28),inset_0_2px_1px_rgba(255,255,255,0.45),inset_0_-6px_10px_rgba(155,82,10,0.2)]">
+              <Play className="ml-0.5 h-4 w-4 fill-white text-white" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-orange-200">Next lesson</p>
+              <p className="mt-1 text-sm font-semibold">{nextVideoTitle ?? "Starting the next lesson"}</p>
+              <p className="mt-1 text-xs text-white/75">
+                Starting automatically in <span className="font-bold text-orange-200">{countdown}s</span>
+              </p>
+
+              <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/15">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-[#f6a14a] via-[#ea8a25] to-[#cf6f14] transition-all"
+                  style={{ width: `${((AUTOPLAY_SECONDS - countdown) / AUTOPLAY_SECONDS) * 100}%` }}
+                />
+              </div>
+
+              <div className="mt-4 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handlePlayNext}
+                  className="inline-flex items-center gap-2 rounded-full border border-orange-300/40 bg-gradient-to-br from-[#f6a14a] via-[#ea8a25] to-[#cf6f14] px-4 py-2 text-sm font-semibold text-white shadow-[0_12px_26px_rgba(232,135,30,0.26)]"
+                >
+                  <Play className="h-3.5 w-3.5 fill-white text-white" />
+                  Play now
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCancelAutoplay}
+                  className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-white/85 transition hover:bg-white/15"
+                >
+                  <X className="h-3.5 w-3.5" />
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

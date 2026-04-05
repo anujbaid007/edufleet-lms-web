@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { PageBreadcrumbs } from "@/components/dashboard/page-breadcrumbs";
 import { VideoPlayer } from "@/components/video/video-player";
 import { ChapterPlaylist } from "@/components/video/chapter-playlist";
 
@@ -35,7 +36,7 @@ export default async function WatchPage({ params }: { params: { id: string } }) 
   // Get chapter info
   const { data: chapter } = await supabase
     .from("chapters")
-    .select("id, title, chapter_no, subjects(name)")
+    .select("id, title, chapter_no, subject_id, subjects(id, name)")
     .eq("id", video.chapter_id)
     .single();
 
@@ -61,7 +62,9 @@ export default async function WatchPage({ params }: { params: { id: string } }) 
   const progressMap = new Map(progressData?.map((p) => [p.video_id, p]) ?? []);
   const currentProgress = progressMap.get(video.id);
 
-  const subjectName = (chapter.subjects as unknown as { name: string } | null)?.name ?? "";
+  const subjectMeta = chapter.subjects as unknown as { id: string; name: string } | null;
+  const subjectName = subjectMeta?.name ?? "";
+  const subjectId = subjectMeta?.id ?? "";
 
   const playlistVideos = (chapterVideos ?? []).map((v) => ({
     id: v.id,
@@ -71,15 +74,34 @@ export default async function WatchPage({ params }: { params: { id: string } }) 
     watchedPercentage: progressMap.get(v.id)?.watched_percentage ?? 0,
   }));
 
+  const activeIndex = playlistVideos.findIndex((item) => item.id === video.id);
+  const nextVideo = activeIndex >= 0 && activeIndex < playlistVideos.length - 1
+    ? playlistVideos[activeIndex + 1]
+    : null;
+
   return (
-    <div className="flex gap-6 -mt-2">
+    <div>
+      <PageBreadcrumbs
+        backHref={`/dashboard/chapters/${chapter.id}`}
+        backLabel="Back to Chapter"
+        crumbs={[
+          { href: "/dashboard/subjects", label: "Subjects" },
+          ...(subjectId ? [{ href: `/dashboard/subjects/${subjectId}`, label: subjectName }] : []),
+          { href: `/dashboard/chapters/${chapter.id}`, label: `Ch. ${chapter.chapter_no}` },
+          { href: `/dashboard/watch/${video.id}`, label: videoTitle },
+        ]}
+      />
+
+      <div className="flex flex-col gap-6 -mt-2 lg:flex-row">
       {/* Video Player */}
-      <div className="flex-1 min-w-0">
+      <div className="min-w-0 flex-1">
         <VideoPlayer
           videoId={video.id}
           s3Key={videoS3Key}
           initialPosition={currentProgress?.last_position ?? 0}
           durationSeconds={videoDuration}
+          nextVideoId={nextVideo?.id ?? null}
+          nextVideoTitle={nextVideo?.title ?? null}
         />
         <div className="mt-4">
           <h1 className="text-xl font-bold text-heading font-poppins">{videoTitle}</h1>
@@ -90,7 +112,7 @@ export default async function WatchPage({ params }: { params: { id: string } }) 
       </div>
 
       {/* Playlist Sidebar */}
-      <div className="w-80 shrink-0 hidden lg:block">
+      <div className="w-full shrink-0 lg:hidden">
         <ChapterPlaylist
           chapterTitle={chapter.title}
           chapterNo={chapter.chapter_no}
@@ -98,6 +120,17 @@ export default async function WatchPage({ params }: { params: { id: string } }) 
           videos={playlistVideos}
           activeVideoId={video.id}
         />
+      </div>
+
+      <div className="hidden w-80 shrink-0 lg:block">
+        <ChapterPlaylist
+          chapterTitle={chapter.title}
+          chapterNo={chapter.chapter_no}
+          subjectName={subjectName}
+          videos={playlistVideos}
+          activeVideoId={video.id}
+        />
+      </div>
       </div>
     </div>
   );
