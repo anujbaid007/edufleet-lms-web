@@ -5,13 +5,27 @@ import { createClient } from "@/lib/supabase/server";
 
 let s3: S3Client | null = null;
 
+function getEnv(name: string, fallback?: string) {
+  const value = process.env[name]?.trim();
+  if (value) return value;
+  return fallback;
+}
+
 function getS3() {
   if (!s3) {
+    const region = getEnv("AWS_REGION", "ap-south-1");
+    const accessKeyId = getEnv("AWS_ACCESS_KEY_ID");
+    const secretAccessKey = getEnv("AWS_SECRET_ACCESS_KEY");
+
+    if (!region || !accessKeyId || !secretAccessKey) {
+      throw new Error("Missing AWS S3 configuration");
+    }
+
     s3 = new S3Client({
-      region: process.env.AWS_REGION || "ap-south-1",
+      region,
       credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+        accessKeyId,
+        secretAccessKey,
       },
     });
   }
@@ -33,8 +47,13 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    const bucketName = getEnv("S3_BUCKET_NAME");
+    if (!bucketName) {
+      return NextResponse.json({ error: "Missing S3 bucket configuration" }, { status: 500 });
+    }
+
     const command = new GetObjectCommand({
-      Bucket: process.env.S3_BUCKET_NAME,
+      Bucket: bucketName,
       Key: key,
     });
 
