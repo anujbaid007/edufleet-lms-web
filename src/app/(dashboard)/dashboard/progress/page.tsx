@@ -154,9 +154,9 @@ export default async function ProgressPage() {
       <div className="space-y-6">
         <h2 className="text-lg font-bold text-heading font-poppins">Subject Progress</h2>
         <div className="space-y-4">
-          {subjectStats.map((sub, index) => (
+          {subjectStats.map((sub) => (
             <ClayCard key={sub.id} hover={false} className="overflow-hidden !p-0">
-              <details className="group" open={index === 0}>
+              <details className="group">
                 <summary className="flex cursor-pointer list-none items-center gap-4 px-6 py-5 marker:content-none">
                   <ProgressRing percentage={sub.percent} size={58} strokeWidth={6}>
                     <span className="text-xs font-bold text-heading">{sub.percent}%</span>
