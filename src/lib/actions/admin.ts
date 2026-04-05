@@ -112,7 +112,9 @@ export async function createUser(formData: FormData) {
   const orgId = (formData.get("org_id") as string) || null;
   const centreId = (formData.get("centre_id") as string) || null;
   const teacherId = (formData.get("teacher_id") as string) || null;
-  const classNum = role === "student" && formData.get("class") ? Number(formData.get("class")) : null;
+  const classNum = (role === "student" || role === "teacher") && formData.get("class")
+    ? Number(formData.get("class"))
+    : null;
   const board = (formData.get("board") as string) || null;
   const medium = (formData.get("medium") as string) || null;
   const phone = (formData.get("phone") as string) || null;
@@ -168,7 +170,9 @@ export async function updateUser(id: string, formData: FormData) {
   const orgId = (formData.get("org_id") as string) || null;
   const centreId = (formData.get("centre_id") as string) || null;
   const teacherId = (formData.get("teacher_id") as string) || null;
-  const classNum = role === "student" && formData.get("class") ? Number(formData.get("class")) : null;
+  const classNum = (role === "student" || role === "teacher") && formData.get("class")
+    ? Number(formData.get("class"))
+    : null;
   const board = (formData.get("board") as string) || null;
   const medium = (formData.get("medium") as string) || null;
   const phone = (formData.get("phone") as string) || null;

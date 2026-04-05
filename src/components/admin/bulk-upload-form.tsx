@@ -79,7 +79,7 @@ export function BulkUploadForm({ defaultOrgId, defaultCentreId }: BulkUploadForm
           password: cols[passwordIdx] || "",
           role: (roleIdx !== -1 ? (cols[roleIdx] || "student") : "student") as UserRole,
           class:
-            (roleIdx !== -1 ? (cols[roleIdx] || "student") : "student") === "student" && classIdx !== -1 && cols[classIdx]
+            ["student", "teacher"].includes(roleIdx !== -1 ? (cols[roleIdx] || "student") : "student") && classIdx !== -1 && cols[classIdx]
               ? Number(cols[classIdx])
               : null,
           board: boardIdx !== -1 ? (cols[boardIdx] || null) : null,
@@ -156,7 +156,7 @@ export function BulkUploadForm({ defaultOrgId, defaultCentreId }: BulkUploadForm
                 <span className="font-medium text-heading w-40 truncate">{u.name}</span>
                 <span className="text-muted flex-1 truncate">{u.email}</span>
                 <span className="text-xs text-muted">{u.role}</span>
-                {u.role === "student" && u.class !== null && <span className="text-xs text-muted">Class {u.class}</span>}
+                {(u.role === "student" || u.role === "teacher") && u.class !== null && <span className="text-xs text-muted">Class {u.class}</span>}
               </div>
             ))}
           </div>

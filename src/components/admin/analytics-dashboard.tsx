@@ -116,6 +116,16 @@ function formatDate(value: string | null) {
   });
 }
 
+function formatTimestamp(value: string) {
+  return new Date(value).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 function formatDuration(seconds: number) {
   if (!seconds) return "0m";
   const mins = Math.floor(seconds / 60);
@@ -157,6 +167,12 @@ function nextLevelLabel(level: AnalyticsLevel) {
   if (level === "classes") return "View subjects";
   if (level === "subjects") return "View chapters";
   return "Details";
+}
+
+function scopeSummary(viewer: AnalyticsPageData["viewer"]) {
+  if (viewer.roleScope === "platform") return "Platform-wide view across all organizations";
+  if (viewer.roleScope === "organization") return `Organization scope: ${viewer.orgName ?? "Current organization"}`;
+  return `Centre scope: ${viewer.centreName ?? "Current centre"}`;
 }
 
 function EmptyChapterSelectionState() {
@@ -888,9 +904,11 @@ function AlertsPanel({
 }
 
 export function AnalyticsDashboard({
+  viewer,
   rootLabel,
   initialRequest,
   initialDataset,
+  generatedAt,
 }: AnalyticsPageData) {
   const [history, setHistory] = useState<HistoryEntry[]>([
     {
@@ -899,6 +917,7 @@ export function AnalyticsDashboard({
       dataset: initialDataset,
     },
   ]);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState(generatedAt);
   const [comparisonMetric, setComparisonMetric] = useState<ComparisonMetric>("students");
   const [loadingRowId, setLoadingRowId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -971,6 +990,7 @@ export function AnalyticsDashboard({
               dataset,
             },
           ]);
+          setLastUpdatedAt(new Date().toISOString());
           setSelectedChapterId(null);
           setSelectedStudentId(null);
         })
@@ -1010,6 +1030,17 @@ export function AnalyticsDashboard({
             </div>
             <h1 className="font-poppins text-2xl font-bold text-heading">{current.dataset.title}</h1>
             <p className="mt-2 max-w-3xl text-sm text-muted">{current.dataset.subtitle}</p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <span className="rounded-full bg-orange-primary/10 px-3 py-1 text-xs font-semibold text-orange-primary">
+                {scopeSummary(viewer)}
+              </span>
+              <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-muted shadow-[inset_0_0_0_1px_rgba(232,135,30,0.08)]">
+                Updated {formatTimestamp(lastUpdatedAt)}
+              </span>
+              <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-muted shadow-[inset_0_0_0_1px_rgba(232,135,30,0.08)]">
+                Completion is based on accessible chapters in the current scope
+              </span>
+            </div>
           </div>
 
           <div className="rounded-clay bg-gradient-to-br from-orange-primary/10 via-white to-amber-50 px-4 py-3 shadow-clay">

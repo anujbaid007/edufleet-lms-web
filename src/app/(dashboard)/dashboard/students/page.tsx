@@ -1,10 +1,19 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { Header } from "@/components/dashboard/header";
 import { ClayCard } from "@/components/ui/clay-card";
+import { AssignStudentForm } from "@/components/dashboard/assign-student-form";
 import { Users, User } from "lucide-react";
 
 export const metadata = { title: "My Students" };
+
+function formatLastActiveLabel(daysSinceActive: number | null) {
+  if (daysSinceActive === null) return "Never active";
+  if (daysSinceActive === 0) return "Active today";
+  if (daysSinceActive === 1) return "Active yesterday";
+  return `${daysSinceActive}d ago`;
+}
 
 export default async function MyStudentsPage() {
   const supabase = await createClient();
@@ -14,11 +23,36 @@ export default async function MyStudentsPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role")
+    .select("role, org_id, centre_id, class, board, medium")
     .eq("id", userId)
     .single();
 
   if (!profile || profile.role !== "teacher") redirect("/dashboard");
+
+  const adminClient = createAdminClient();
+  let assignableStudentsQuery = adminClient
+    .from("profiles")
+    .select("id, name, class, board, medium")
+    .eq("role", "student")
+    .eq("is_active", true)
+    .eq("org_id", profile.org_id)
+    .eq("centre_id", profile.centre_id)
+    .is("teacher_id", null)
+    .order("name");
+
+  if (profile.class !== null) {
+    assignableStudentsQuery = assignableStudentsQuery.eq("class", profile.class);
+  }
+
+  if (profile.board) {
+    assignableStudentsQuery = assignableStudentsQuery.eq("board", profile.board);
+  }
+
+  if (profile.medium) {
+    assignableStudentsQuery = assignableStudentsQuery.eq("medium", profile.medium);
+  }
+
+  const { data: assignableStudents } = await assignableStudentsQuery;
 
   // Get students assigned to this teacher
   const { data: students } = await supabase
@@ -50,7 +84,7 @@ export default async function MyStudentsPage() {
     classes.length > 0 && boards.length > 0 && media.length > 0
       ? supabase
           .from("chapters")
-          .select("id, class, board, medium")
+          .select("id, title, chapter_no, class, board, medium, subject_id, subjects(id, name)")
           .in("class", classes)
           .in("board", boards)
           .in("medium", media)
@@ -59,9 +93,9 @@ export default async function MyStudentsPage() {
 
   const chapterIds = (chapters ?? []).map((chapter) => chapter.id);
   const { data: videos } = chapterIds.length > 0
-    ? await supabase
+      ? await supabase
         .from("videos")
-        .select("id, chapter_id")
+        .select("id, chapter_id, title")
         .in("chapter_id", chapterIds)
     : { data: [] };
 
@@ -87,6 +121,23 @@ export default async function MyStudentsPage() {
   }
 
   const chaptersByCombo = new Map<string, Array<{ id: string; class: number; board: string; medium: string }>>();
+  const chapterById = new Map(
+    (chapters ?? []).map((chapter) => [
+      chapter.id,
+      {
+        id: chapter.id,
+        title: chapter.title,
+        chapterNo: chapter.chapter_no,
+        subjectId: (chapter.subjects as unknown as { id: string; name: string } | null)?.id ?? "",
+        subjectName: (chapter.subjects as unknown as { id: string; name: string } | null)?.name ?? "Unknown",
+        class: chapter.class,
+        board: chapter.board,
+        medium: chapter.medium,
+      },
+    ])
+  );
+  const videoById = new Map((videos ?? []).map((video) => [video.id, video]));
+
   for (const chapter of chapters ?? []) {
     const comboKey = `${chapter.class}|${chapter.board}|${chapter.medium}`;
     const matchingChapters = chaptersByCombo.get(comboKey) ?? [];
@@ -102,10 +153,47 @@ export default async function MyStudentsPage() {
     const blockedChapterIds = student.org_id ? blockedChapterIdsByOrg.get(student.org_id) ?? new Set<string>() : new Set<string>();
     const accessibleChapters = (chaptersByCombo.get(comboKey) ?? []).filter((chapter) => !blockedChapterIds.has(chapter.id));
     const trackableChapters = accessibleChapters.filter((chapter) => (videoIdsByChapter.get(chapter.id)?.length ?? 0) > 0);
+    const accessibleVideoIds = new Set(trackableChapters.flatMap((chapter) => videoIdsByChapter.get(chapter.id) ?? []));
+    const subjectBreakdownMap = new Map<string, { subjectId: string; subjectName: string; completedChapters: number; totalChapters: number }>();
+
+    for (const chapter of trackableChapters) {
+      const chapterMeta = chapterById.get(chapter.id);
+      if (!chapterMeta) continue;
+
+      const subjectEntry = subjectBreakdownMap.get(chapterMeta.subjectId) ?? {
+        subjectId: chapterMeta.subjectId,
+        subjectName: chapterMeta.subjectName,
+        completedChapters: 0,
+        totalChapters: 0,
+      };
+
+      subjectEntry.totalChapters += 1;
+      subjectBreakdownMap.set(chapterMeta.subjectId, subjectEntry);
+    }
+
     const completedChapters = trackableChapters.filter((chapter) => {
       const chapterVideoIds = videoIdsByChapter.get(chapter.id) ?? [];
-      return chapterVideoIds.length > 0 && chapterVideoIds.every((videoId) => completedVideoIds.has(videoId));
+      const chapterCompleted = chapterVideoIds.length > 0 && chapterVideoIds.every((videoId) => completedVideoIds.has(videoId));
+      if (chapterCompleted) {
+        const chapterMeta = chapterById.get(chapter.id);
+        if (chapterMeta) {
+          const subjectEntry = subjectBreakdownMap.get(chapterMeta.subjectId);
+          if (subjectEntry) subjectEntry.completedChapters += 1;
+        }
+      }
+      return chapterCompleted;
     }).length;
+
+    const latestProgress = [...studentProgress]
+      .filter((progress) => Boolean(progress.last_watched_at) && accessibleVideoIds.has(progress.video_id))
+      .sort((left, right) => (right.last_watched_at ?? "").localeCompare(left.last_watched_at ?? ""))[0];
+
+    const latestVideo = latestProgress ? videoById.get(latestProgress.video_id) : null;
+    const latestChapter = latestVideo ? chapterById.get(latestVideo.chapter_id) : null;
+    const lastLessonLabel = latestVideo && latestChapter
+      ? `${latestChapter.subjectName} · Ch. ${latestChapter.chapterNo} · ${latestVideo.title}`
+      : null;
+
     const lastActive = studentProgress
       .map((p) => p.last_watched_at)
       .filter(Boolean)
@@ -123,6 +211,10 @@ export default async function MyStudentsPage() {
       lastActive,
       daysSinceActive,
       isInactive: daysSinceActive !== null && daysSinceActive > 7,
+      lastLessonLabel,
+      subjectBreakdown: Array.from(subjectBreakdownMap.values()).sort((left, right) =>
+        left.subjectName.localeCompare(right.subjectName)
+      ),
     };
   });
 
@@ -135,6 +227,8 @@ export default async function MyStudentsPage() {
         title="My Students"
         subtitle={`${students?.length ?? 0} students in your batch`}
       />
+
+      <AssignStudentForm students={assignableStudents ?? []} />
 
       {/* Summary */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -173,6 +267,9 @@ export default async function MyStudentsPage() {
                   <p className="text-xs text-muted">
                     {student.class === 0 ? "KG" : student.class === 99 ? "General" : `Class ${student.class}`} · {student.board} · {student.medium}
                   </p>
+                  <p className="mt-1 text-xs text-muted">
+                    {student.lastLessonLabel ? `Last lesson: ${student.lastLessonLabel}` : "No lesson started yet"}
+                  </p>
                 </div>
               </div>
 
@@ -181,14 +278,23 @@ export default async function MyStudentsPage() {
                   {student.completedChapters}/{student.totalChapters} chapters
                 </p>
                 <p className={`text-xs ${student.isInactive ? "text-red-500 font-semibold" : "text-muted"}`}>
-                  {student.daysSinceActive === null
-                    ? "Never active"
-                    : student.daysSinceActive === 0
-                    ? "Active today"
-                    : `${student.daysSinceActive}d ago`}
+                  {formatLastActiveLabel(student.daysSinceActive)}
                 </p>
               </div>
             </div>
+
+            {student.subjectBreakdown.length > 0 ? (
+              <div className="mt-4 flex flex-wrap gap-2">
+                {student.subjectBreakdown.map((subject) => (
+                  <span
+                    key={`${student.id}-${subject.subjectId}`}
+                    className="rounded-full bg-orange-50 px-3 py-1.5 text-xs font-medium text-orange-700 shadow-[inset_0_0_0_1px_rgba(232,135,30,0.08)]"
+                  >
+                    {subject.subjectName}: {subject.completedChapters}/{subject.totalChapters} chapters
+                  </span>
+                ))}
+              </div>
+            ) : null}
           </ClayCard>
         ))}
 

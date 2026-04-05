@@ -52,7 +52,7 @@ export function CreateUserForm({
   const filteredCentres = centres.filter((c) => c.org_id === selectedOrgId);
   const filteredTeachers = teachers.filter((t) => t.centre_id === selectedCentreId);
   const showAcademicDetails = selectedRole === "student" || selectedRole === "teacher";
-  const showClass = selectedRole === "student";
+  const showClass = selectedRole === "student" || selectedRole === "teacher";
   const showTeacher = selectedRole === "student";
   const availableRoles = roleOptions[currentUserRole] ?? [];
 

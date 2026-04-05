@@ -81,14 +81,16 @@ export default async function UsersPage() {
     <div className="space-y-6">
       <Header title="Users" subtitle={`${users.length} users`} />
 
-      <CreateUserForm
-        organizations={orgList}
-        centres={centreList}
-        teachers={teacherProfiles ?? []}
-        currentUserRole={profile.role}
-        currentUserOrgId={profile.org_id}
-        currentUserCentreId={profile.centre_id}
-      />
+      {profile.role === "platform_admin" ? (
+        <CreateUserForm
+          organizations={orgList}
+          centres={centreList}
+          teachers={teacherProfiles ?? []}
+          currentUserRole={profile.role}
+          currentUserOrgId={profile.org_id}
+          currentUserCentreId={profile.centre_id}
+        />
+      ) : null}
 
       <UserTree
         tree={tree}

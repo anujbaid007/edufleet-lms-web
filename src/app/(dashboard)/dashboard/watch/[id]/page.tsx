@@ -108,6 +108,9 @@ export default async function WatchPage({ params }: { params: { id: string } }) 
           <p className="text-sm text-muted mt-1">
             {subjectName} · Ch. {chapter.chapter_no}: {chapter.title}
           </p>
+          <p className="mt-3 inline-flex rounded-full bg-orange-50 px-3 py-1.5 text-xs font-medium text-orange-700">
+            Progress saves automatically when you pause, finish, or leave this page.
+          </p>
         </div>
       </div>
 

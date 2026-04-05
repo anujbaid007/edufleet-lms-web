@@ -9,6 +9,13 @@ const MIN_SAVE_INTERVAL_MS = 60_000;
 const MIN_PROGRESS_DELTA_SECONDS = 15;
 const AUTOPLAY_SECONDS = 5;
 
+function formatClock(seconds: number) {
+  const safeSeconds = Math.max(0, Math.round(seconds));
+  const minutes = Math.floor(safeSeconds / 60);
+  const remainingSeconds = safeSeconds % 60;
+  return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
+}
+
 interface VideoPlayerProps {
   videoId: string;
   s3Key: string;
@@ -33,6 +40,10 @@ export function VideoPlayer({
   const [error, setError] = useState(false);
   const [showAutoplayPrompt, setShowAutoplayPrompt] = useState(false);
   const [countdown, setCountdown] = useState(AUTOPLAY_SECONDS);
+  const [playbackState, setPlaybackState] = useState<"ready" | "playing" | "paused" | "completed">("ready");
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [currentTime, setCurrentTime] = useState(initialPosition);
+  const [lastSavedPercentage, setLastSavedPercentage] = useState(Math.round((initialPosition / Math.max(durationSeconds, 1)) * 100));
   const lastSavedPositionRef = useRef(initialPosition);
   const lastSavedAtRef = useRef(0);
 
@@ -40,6 +51,10 @@ export function VideoPlayer({
   useEffect(() => {
     setLoading(true);
     setError(false);
+    setSaveState("idle");
+    setPlaybackState("ready");
+    setCurrentTime(initialPosition);
+    setLastSavedPercentage(Math.round((initialPosition / Math.max(durationSeconds, 1)) * 100));
     setShowAutoplayPrompt(false);
     setCountdown(AUTOPLAY_SECONDS);
     fetch(`/api/presign?key=${encodeURIComponent(s3Key)}`)
@@ -50,7 +65,7 @@ export function VideoPlayer({
       })
       .catch(() => setError(true))
       .finally(() => setLoading(false));
-  }, [s3Key]);
+  }, [durationSeconds, initialPosition, s3Key]);
 
   const saveProgress = useCallback(async (force = false) => {
     const video = videoRef.current;
@@ -66,9 +81,21 @@ export function VideoPlayer({
     if (!force && !(isCompleted || (movedEnough && elapsedEnough))) return;
     if (force && !isCompleted && Math.abs(currentTime - lastSavedPositionRef.current) < 5) return;
 
+    setSaveState("saving");
     lastSavedPositionRef.current = currentTime;
     lastSavedAtRef.current = now;
-    await updateVideoProgress(videoId, percentage, currentTime);
+    const result = await updateVideoProgress(videoId, percentage, currentTime);
+
+    if (result?.error) {
+      setSaveState("error");
+      return;
+    }
+
+    setLastSavedPercentage((current) => Math.max(current, Math.round(percentage)));
+    setSaveState("saved");
+    window.setTimeout(() => {
+      setSaveState((current) => (current === "saved" ? "idle" : current));
+    }, 1800);
   }, [videoId]);
 
   // Set up progress tracking
@@ -114,13 +141,19 @@ export function VideoPlayer({
     if (videoRef.current && initialPosition > 0) {
       videoRef.current.currentTime = initialPosition;
     }
+    setPlaybackState("paused");
   };
 
   // Save on video end (100% completion)
   const handleEnded = async () => {
+    setPlaybackState("completed");
+    setSaveState("saving");
+    setCurrentTime(durationSeconds);
+    setLastSavedPercentage(100);
     lastSavedPositionRef.current = durationSeconds;
     lastSavedAtRef.current = Date.now();
     await updateVideoProgress(videoId, 100, durationSeconds);
+    setSaveState("saved");
     if (nextVideoId) {
       setCountdown(AUTOPLAY_SECONDS);
       setShowAutoplayPrompt(true);
@@ -151,6 +184,22 @@ export function VideoPlayer({
     if (!nextVideoId) return;
     router.push(`/dashboard/watch/${nextVideoId}`);
   };
+
+  const statusLabel = playbackState === "playing"
+    ? "Now playing"
+    : playbackState === "completed"
+      ? "Lesson completed"
+      : playbackState === "paused"
+        ? "Paused"
+        : "Ready to play";
+
+  const saveLabel = saveState === "saving"
+    ? "Saving progress..."
+    : saveState === "saved"
+      ? `Progress saved at ${lastSavedPercentage}%`
+      : saveState === "error"
+        ? "Could not save progress"
+        : "Progress auto-saves while you learn";
 
   return (
     <div className="relative bg-gray-950 rounded-clay overflow-hidden" style={{ minHeight: 360 }}>
@@ -183,10 +232,21 @@ export function VideoPlayer({
           onContextMenu={(e) => e.preventDefault()}
           onLoadedMetadata={handleLoadedMetadata}
           onEnded={handleEnded}
+          onPlay={() => setPlaybackState("playing")}
+          onPause={() => setPlaybackState((current) => (current === "completed" ? current : "paused"))}
+          onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}
           className="w-full h-full object-contain"
           style={{ maxHeight: "calc(100vh - 200px)" }}
         />
       )}
+
+      {videoUrl ? (
+        <div className="pointer-events-none absolute left-4 top-4 rounded-[22px] border border-white/10 bg-black/55 px-4 py-3 text-white shadow-[0_18px_36px_rgba(0,0,0,0.24)] backdrop-blur-xl">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-orange-200">{statusLabel}</p>
+          <p className="mt-1 text-sm font-semibold">{formatClock(currentTime)} / {formatClock(durationSeconds)}</p>
+          <p className={`mt-1 text-xs ${saveState === "error" ? "text-red-300" : "text-white/75"}`}>{saveLabel}</p>
+        </div>
+      ) : null}
 
       {showAutoplayPrompt && nextVideoId ? (
         <div className="absolute inset-x-4 bottom-4 rounded-[24px] border border-orange-200/40 bg-[rgba(22,16,10,0.84)] p-4 text-white shadow-[0_24px_60px_rgba(0,0,0,0.28)] backdrop-blur-xl sm:inset-x-auto sm:right-4 sm:w-[360px]">

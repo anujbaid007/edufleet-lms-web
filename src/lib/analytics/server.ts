@@ -1412,6 +1412,7 @@ export async function loadInitialAnalyticsPageData(): Promise<AnalyticsPageData>
     rootLabel: buildRootLabel(viewer),
     initialRequest,
     initialDataset,
+    generatedAt: new Date().toISOString(),
   };
 }
 

@@ -124,4 +124,5 @@ export type AnalyticsPageData = {
   rootLabel: string;
   initialRequest: AnalyticsRequest;
   initialDataset: AnalyticsDataset;
+  generatedAt: string;
 };
