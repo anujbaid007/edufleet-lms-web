@@ -182,8 +182,8 @@ function scheduleWhenIdle(callback: () => void) {
     return () => window.cancelIdleCallback(idleId);
   }
 
-  const timeoutId = window.setTimeout(callback, 150);
-  return () => window.clearTimeout(timeoutId);
+  const timeoutId = setTimeout(callback, 150);
+  return () => clearTimeout(timeoutId);
 }
 
 async function getPresignedUrl(key: string) {
@@ -579,12 +579,13 @@ function VideoModal({
       return;
     }
 
+    const currentVideoKey = activeVideo.s3Key;
     let cancelled = false;
 
     async function loadVideo() {
       setLoadingVideo(true);
       setError(null);
-      const url = await getPresignedUrl(activeVideo.s3Key!);
+      const url = await getPresignedUrl(currentVideoKey);
 
       if (cancelled) return;
       if (!url) {

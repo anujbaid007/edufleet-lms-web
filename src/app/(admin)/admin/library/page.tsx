@@ -98,7 +98,7 @@ const loadContentLibraryData = unstable_cache(
     const classMap = new Map<number, Map<string, Map<string, ChapterItem[]>>>();
 
     const chapterCards = chapters
-      .map((chapter) => {
+      .map<LibraryChapterCard | null>((chapter) => {
         const subjectName = (chapter.subjects as { name: string } | null)?.name ?? "Unknown";
         const chapterVideos = (videosByChapter.get(chapter.id) ?? []).sort((left, right) => left.sort_order - right.sort_order);
         if (chapterVideos.length === 0) return null;
