@@ -243,6 +243,7 @@ function getDatasetLevel(viewer: AnalyticsViewer, request: AnalyticsRequest): An
   if (request.subjectId) return "chapters";
   if (request.classNum !== undefined) return "subjects";
   if (request.centreId) return "classes";
+  if (request.orgId) return "centres";
   if (viewer.roleScope === "platform") return "organizations";
   return "centres";
 }
