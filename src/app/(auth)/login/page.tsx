@@ -49,9 +49,9 @@ export default function LoginPage() {
             alt="EduFleet"
             width={180}
             height={50}
-            className="mx-auto mt-3"
+            className="mx-auto mt-1.5"
           />
-          <p className="text-muted text-sm mt-1">Learning Management System</p>
+          <p className="text-muted text-sm mt-0.5">Learning Management System</p>
         </div>
 
         {/* Login Card */}

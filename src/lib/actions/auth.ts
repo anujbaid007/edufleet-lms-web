@@ -44,6 +44,7 @@ export async function login(formData: FormData) {
 
 export async function logout() {
   const supabase = await createClient();
-  await supabase.auth.signOut();
+  // Keep other active device/browser sessions alive for the same admin account.
+  await supabase.auth.signOut({ scope: "local" });
   redirect("/login");
 }
