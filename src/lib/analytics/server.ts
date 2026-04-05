@@ -656,21 +656,38 @@ function getScopedMetrics(snapshot: StudentSnapshot, filter?: ScopeFilter): Scop
 function buildSummary(snapshots: StudentSnapshot[], filter?: ScopeFilter): AnalyticsSummary {
   let activeStudents = 0;
   let completedChapters = 0;
-  let trackedChapters = 0;
   let completionNumerator = 0;
   let completionDenominator = 0;
   let watchSum = 0;
   let progressCount = 0;
+  const trackedChapterIds = new Set<string>();
 
   for (const snapshot of snapshots) {
     const metrics = getScopedMetrics(snapshot, filter);
     if (metrics.active) activeStudents += 1;
     completedChapters += metrics.completedChapters;
-    trackedChapters += metrics.trackedChapters;
     completionNumerator += metrics.completionNumerator;
     completionDenominator += metrics.completionDenominator;
     watchSum += metrics.watchSum;
     progressCount += metrics.progressCount;
+
+    if (!filter) {
+      for (const chapterId of Array.from(snapshot.chapterTotals.keys())) {
+        trackedChapterIds.add(chapterId);
+      }
+      continue;
+    }
+
+    if ("subjectId" in filter) {
+      for (const chapter of snapshot.chaptersBySubject.get(filter.subjectId) ?? []) {
+        trackedChapterIds.add(chapter.id);
+      }
+      continue;
+    }
+
+    if ((snapshot.chapterTotals.get(filter.chapterId) ?? 0) > 0) {
+      trackedChapterIds.add(filter.chapterId);
+    }
   }
 
   return {
@@ -679,7 +696,7 @@ function buildSummary(snapshots: StudentSnapshot[], filter?: ScopeFilter): Analy
     completedChapters,
     completionRate: toPercentage(completionNumerator, completionDenominator),
     avgWatchPercentage: progressCount ? Math.round(watchSum / progressCount) : 0,
-    trackedChapters,
+    trackedChapters: trackedChapterIds.size,
   };
 }
 
