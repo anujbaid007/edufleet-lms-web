@@ -101,7 +101,7 @@ function CentreSection({
   organizations,
   centres,
   teachers,
-  defaultExpanded = true,
+  defaultExpanded = false,
 }: {
   centre: { id: string; name: string };
   users: UserData[];
@@ -163,7 +163,7 @@ export function UserTree({ tree, unlinkedUsers, roleBadgeColors, organizations, 
           organizations={organizations}
           centres={centres}
           teachers={teachers}
-          defaultExpanded
+          defaultExpanded={false}
         />
       ))}
 
@@ -200,7 +200,7 @@ function OrgSection({
   organizations,
   centres,
   teachers,
-  defaultExpanded = true,
+  defaultExpanded = false,
 }: {
   org: { id: string; name: string };
   orgAdmins: UserData[];
@@ -256,7 +256,7 @@ function OrgSection({
               organizations={organizations}
               centres={centres}
               teachers={teachers}
-              defaultExpanded
+              defaultExpanded={false}
             />
           ))}
 
