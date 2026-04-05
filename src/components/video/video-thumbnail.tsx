@@ -4,14 +4,14 @@ import { useEffect, useRef, useState } from "react";
 import { Play } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const subjectAccent: Record<string, { gradient: string; accent: string }> = {
-  English: { gradient: "from-violet-200 via-violet-100 to-white", accent: "text-violet-700" },
-  Mathematics: { gradient: "from-sky-200 via-sky-100 to-white", accent: "text-sky-700" },
-  Maths: { gradient: "from-sky-200 via-sky-100 to-white", accent: "text-sky-700" },
-  EVS: { gradient: "from-emerald-200 via-emerald-100 to-white", accent: "text-emerald-700" },
-  Science: { gradient: "from-emerald-200 via-emerald-100 to-white", accent: "text-emerald-700" },
-  Hindi: { gradient: "from-rose-200 via-rose-100 to-white", accent: "text-rose-700" },
-  default: { gradient: "from-orange-200 via-orange-100 to-white", accent: "text-orange-primary" },
+const subjectAccent: Record<string, { gradient: string }> = {
+  English: { gradient: "from-violet-200 via-violet-100 to-white" },
+  Mathematics: { gradient: "from-sky-200 via-sky-100 to-white" },
+  Maths: { gradient: "from-sky-200 via-sky-100 to-white" },
+  EVS: { gradient: "from-emerald-200 via-emerald-100 to-white" },
+  Science: { gradient: "from-emerald-200 via-emerald-100 to-white" },
+  Hindi: { gradient: "from-rose-200 via-rose-100 to-white" },
+  default: { gradient: "from-orange-200 via-orange-100 to-white" },
 };
 
 function accentForSubject(subjectName: string) {
@@ -36,7 +36,7 @@ export function VideoThumbnail({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [url, setUrl] = useState<string | null>(null);
   const [frameReady, setFrameReady] = useState(false);
-  const { gradient, accent } = accentForSubject(subjectName);
+  const { gradient } = accentForSubject(subjectName);
 
   useEffect(() => {
     const element = containerRef.current;
@@ -131,8 +131,8 @@ export function VideoThumbnail({
       ) : null}
 
       <div className="absolute inset-0 flex items-center justify-center">
-        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/92 shadow-lg transition duration-300 group-hover/thumbnail:scale-105">
-          <Play className={cn("ml-0.5 h-5 w-5", accent)} />
+        <div className="flex h-14 w-14 items-center justify-center rounded-full border border-orange-300/40 bg-gradient-to-br from-[#f6a14a] via-[#ea8a25] to-[#cf6f14] shadow-[0_16px_30px_rgba(232,135,30,0.32),inset_0_2px_1px_rgba(255,255,255,0.45),inset_0_-6px_10px_rgba(155,82,10,0.22)] transition duration-300 group-hover/thumbnail:scale-105 group-hover/thumbnail:shadow-[0_20px_38px_rgba(232,135,30,0.4),inset_0_2px_1px_rgba(255,255,255,0.5),inset_0_-6px_10px_rgba(155,82,10,0.24)]">
+          <Play className="ml-0.5 h-5 w-5 fill-white text-white drop-shadow-[0_1px_1px_rgba(136,70,8,0.35)]" />
         </div>
       </div>
 

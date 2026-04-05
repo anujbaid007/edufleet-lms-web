@@ -34,8 +34,8 @@ export default async function DashboardLayout({
   return (
     <div className="min-h-screen">
       <Sidebar userRole={profile.role} userName={profile.name} />
-      <main className="ml-64 p-8 transition-all duration-300">
-        <div className="mb-4 flex justify-end">
+      <main className="px-4 pb-6 pt-20 transition-all duration-300 sm:px-6 sm:pb-8 lg:ml-64 lg:px-8 lg:pb-10 lg:pt-8">
+        <div className="mb-4 flex justify-end lg:mb-6">
           <ProfileDrawer
             userId={user.id}
             name={profile.name}
