@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import {
   Activity,
   AlertTriangle,
@@ -159,9 +159,22 @@ function nextLevelLabel(level: AnalyticsLevel) {
   return "Details";
 }
 
-function defaultChapterFocus(dataset: AnalyticsDataset) {
-  if (dataset.level !== "chapters") return null;
-  return dataset.rows.find((row) => row.activeStudents > 0 || row.completionRate > 0)?.id ?? dataset.rows[0]?.id ?? null;
+function EmptyChapterSelectionState() {
+  return (
+    <ClayCard hover={false} className="!p-6">
+      <div className="flex items-center gap-3">
+        <div className="flex h-11 w-11 items-center justify-center rounded-clay-sm bg-orange-50 shadow-clay-pill">
+          <BookOpen className="h-5 w-5 text-orange-primary" />
+        </div>
+        <div>
+          <h3 className="font-poppins text-lg font-bold text-heading">Select A Chapter</h3>
+          <p className="text-sm text-muted">
+            Click a chapter card above to drill into that chapter and review the student watchlist.
+          </p>
+        </div>
+      </div>
+    </ClayCard>
+  );
 }
 
 function comparisonValue(row: AnalyticsRow, metric: ComparisonMetric) {
@@ -889,17 +902,20 @@ export function AnalyticsDashboard({
   const [comparisonMetric, setComparisonMetric] = useState<ComparisonMetric>("students");
   const [loadingRowId, setLoadingRowId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [selectedChapterId, setSelectedChapterId] = useState<string | null>(defaultChapterFocus(initialDataset));
+  const [selectedChapterId, setSelectedChapterId] = useState<string | null>(null);
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const chapterStudentSectionRef = useRef<HTMLDivElement | null>(null);
 
   const current = history[history.length - 1];
   const currentChapterView =
     current.dataset.level === "chapters" && selectedChapterId
       ? current.dataset.chapterViews?.[selectedChapterId] ?? null
       : null;
-  const visibleStudents = currentChapterView?.students ?? current.dataset.students;
-  const visibleInactiveStudents = currentChapterView?.inactiveStudents ?? current.dataset.inactiveStudents;
+  const visibleStudents =
+    current.dataset.level === "chapters" ? currentChapterView?.students : current.dataset.students;
+  const visibleInactiveStudents =
+    current.dataset.level === "chapters" ? currentChapterView?.inactiveStudents ?? [] : current.dataset.inactiveStudents;
   const selectedStudent = selectedStudentId ? visibleStudents?.find((student) => student.id === selectedStudentId) ?? null : null;
   const selectedStudentDetail = selectedStudentId
     ? currentChapterView?.studentDetails.find((detail) => detail.studentId === selectedStudentId) ?? null
@@ -911,14 +927,9 @@ export function AnalyticsDashboard({
       if (selectedStudentId !== null) setSelectedStudentId(null);
       return;
     }
-
-    const nextChapterId =
-      selectedChapterId && current.dataset.chapterViews?.[selectedChapterId]
-        ? selectedChapterId
-        : defaultChapterFocus(current.dataset);
-
-    if (nextChapterId !== selectedChapterId) {
-      setSelectedChapterId(nextChapterId);
+    if (selectedChapterId && !current.dataset.chapterViews?.[selectedChapterId]) {
+      setSelectedChapterId(null);
+      setSelectedStudentId(null);
     }
   }, [current.dataset, selectedChapterId, selectedStudentId]);
 
@@ -934,6 +945,12 @@ export function AnalyticsDashboard({
     if (current.dataset.level === "chapters") {
       setSelectedChapterId(row.id);
       setSelectedStudentId(null);
+      window.requestAnimationFrame(() => {
+        chapterStudentSectionRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      });
       return;
     }
 
@@ -954,7 +971,7 @@ export function AnalyticsDashboard({
               dataset,
             },
           ]);
-          setSelectedChapterId(defaultChapterFocus(dataset));
+          setSelectedChapterId(null);
           setSelectedStudentId(null);
         })
         .catch((caughtError) => {
@@ -1058,25 +1075,33 @@ export function AnalyticsDashboard({
         selectedRowId={current.dataset.level === "chapters" ? selectedChapterId : null}
       />
 
-      {visibleStudents && (
-        <StudentTable
-          title={current.dataset.level === "chapters" && currentChapterView ? `${currentChapterView.chapterLabel} student watchlist` : "Student watchlist"}
-          subtitle={
-            current.dataset.level === "chapters" && currentChapterView
-              ? `${currentChapterView.chapterTitle} · ${currentChapterView.lessonCount} lessons. Click a learner to review lesson-level progress.`
-              : "Learner-level progress for the selected subject."
-          }
-          rows={visibleStudents}
-          onSelect={current.dataset.level === "chapters" ? (student) => setSelectedStudentId(student.id) : undefined}
-          selectedStudentId={selectedStudentId}
-        />
-      )}
+      <div ref={chapterStudentSectionRef}>
+        {current.dataset.level === "chapters" && !currentChapterView ? (
+          <EmptyChapterSelectionState />
+        ) : (
+          <>
+            {visibleStudents && (
+              <StudentTable
+                title={current.dataset.level === "chapters" && currentChapterView ? `${currentChapterView.chapterLabel} student watchlist` : "Student watchlist"}
+                subtitle={
+                  current.dataset.level === "chapters" && currentChapterView
+                    ? `${currentChapterView.chapterTitle} · ${currentChapterView.lessonCount} lessons. Click a learner to review lesson-level progress.`
+                    : "Learner-level progress for the selected subject."
+                }
+                rows={visibleStudents}
+                onSelect={current.dataset.level === "chapters" ? (student) => setSelectedStudentId(student.id) : undefined}
+                selectedStudentId={selectedStudentId}
+              />
+            )}
 
-      <AlertsPanel
-        rows={visibleInactiveStudents}
-        onSelect={current.dataset.level === "chapters" ? (student) => setSelectedStudentId(student.id) : undefined}
-        selectedStudentId={selectedStudentId}
-      />
+            <AlertsPanel
+              rows={visibleInactiveStudents}
+              onSelect={current.dataset.level === "chapters" ? (student) => setSelectedStudentId(student.id) : undefined}
+              selectedStudentId={selectedStudentId}
+            />
+          </>
+        )}
+      </div>
 
       {current.dataset.level === "chapters" && (
         <StudentDetailDrawer
