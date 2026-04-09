@@ -31,24 +31,28 @@ export default async function DashboardLayout({
       : Promise.resolve({ data: null }),
   ]);
 
+  const profileDrawer = (
+    <ProfileDrawer
+      userId={user.id}
+      name={profile.name}
+      email={user.email ?? null}
+      role={profile.role}
+      classNum={profile.class}
+      board={profile.board}
+      medium={profile.medium}
+      phone={profile.phone}
+      avatarUrl={profile.avatar_url}
+      organizationName={orgResult.data?.name ?? null}
+      centreName={centreResult.data?.name ?? null}
+    />
+  );
+
   return (
     <div className="min-h-screen">
-      <Sidebar userRole={profile.role} userName={profile.name} />
+      <Sidebar userRole={profile.role} userName={profile.name} mobileSlot={profileDrawer} />
       <main className="px-4 pb-6 pt-20 transition-all duration-300 sm:px-6 sm:pb-8 lg:ml-64 lg:px-8 lg:pb-10 lg:pt-8">
-        <div className="mb-4 flex justify-end lg:mb-6">
-          <ProfileDrawer
-            userId={user.id}
-            name={profile.name}
-            email={user.email ?? null}
-            role={profile.role}
-            classNum={profile.class}
-            board={profile.board}
-            medium={profile.medium}
-            phone={profile.phone}
-            avatarUrl={profile.avatar_url}
-            organizationName={orgResult.data?.name ?? null}
-            centreName={centreResult.data?.name ?? null}
-          />
+        <div className="mb-4 hidden justify-end lg:mb-6 lg:flex">
+          {profileDrawer}
         </div>
         {children}
       </main>

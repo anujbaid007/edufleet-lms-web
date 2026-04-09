@@ -11,6 +11,7 @@ import {
   ChevronLeft,
   ChevronRight,
   BookOpen,
+  Trophy,
   Menu,
   X,
 } from "lucide-react";
@@ -21,22 +22,49 @@ import Image from "next/image";
 interface SidebarProps {
   userRole: string;
   userName: string;
+  mobileSlot?: React.ReactNode;
+}
+
+type DashboardLink = {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  isActive?: (pathname: string) => boolean;
+};
+
+function isHomeActive(pathname: string) {
+  return pathname === "/dashboard";
+}
+
+function isSubjectsActive(pathname: string) {
+  return (
+    pathname === "/dashboard/subjects" ||
+    pathname.startsWith("/dashboard/subjects/") ||
+    pathname.startsWith("/dashboard/chapters/") ||
+    pathname.startsWith("/dashboard/watch/")
+  ) && !pathname.includes("/quiz");
+}
+
+function isQuizActive(pathname: string) {
+  return pathname === "/dashboard/quizzes" || pathname.startsWith("/dashboard/chapters/") && pathname.endsWith("/quiz");
 }
 
 const studentLinks = [
-  { href: "/dashboard", label: "Home", icon: Home },
-  { href: "/dashboard/subjects", label: "Subjects", icon: BookOpen },
+  { href: "/dashboard", label: "Home", icon: Home, isActive: isHomeActive },
+  { href: "/dashboard/subjects", label: "Subjects", icon: BookOpen, isActive: isSubjectsActive },
+  { href: "/dashboard/quizzes", label: "Quiz", icon: Trophy, isActive: isQuizActive },
   { href: "/dashboard/progress", label: "My Progress", icon: BarChart3 },
-];
+] satisfies DashboardLink[];
 
 const teacherLinks = [
-  { href: "/dashboard", label: "Home", icon: Home },
-  { href: "/dashboard/subjects", label: "Subjects", icon: BookOpen },
+  { href: "/dashboard", label: "Home", icon: Home, isActive: isHomeActive },
+  { href: "/dashboard/subjects", label: "Subjects", icon: BookOpen, isActive: isSubjectsActive },
+  { href: "/dashboard/quizzes", label: "Quiz", icon: Trophy, isActive: isQuizActive },
   { href: "/dashboard/students", label: "My Students", icon: Users },
   { href: "/dashboard/progress", label: "My Progress", icon: BarChart3 },
-];
+] satisfies DashboardLink[];
 
-export function Sidebar({ userRole, userName }: SidebarProps) {
+export function Sidebar({ userRole, userName, mobileSlot }: SidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -54,25 +82,29 @@ export function Sidebar({ userRole, userName }: SidebarProps) {
               height={36}
               className="rounded-lg shadow-md"
             />
-            <div>
-              <Image
-                src="/logo.png"
-                alt="EduFleet"
-                width={108}
-                height={30}
-                className="brightness-90 contrast-125"
-              />
-              <p className="text-[11px] capitalize text-muted">{userRole.replaceAll("_", " ")}</p>
-            </div>
+            <Image
+              src="/logo.png"
+              alt="EduFleet"
+              width={108}
+              height={30}
+              className="brightness-90 contrast-125"
+            />
           </div>
-          <button
-            type="button"
-            onClick={() => setMobileOpen((current) => !current)}
-            className="flex h-11 w-11 items-center justify-center rounded-2xl border border-orange-primary/15 bg-white/90 text-heading shadow-[0_10px_24px_rgba(214,153,68,0.12)]"
-            aria-label={mobileOpen ? "Close navigation" : "Open navigation"}
-          >
-            {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
+          <div className="flex items-center gap-2">
+            {mobileSlot && (
+              <div className="flex h-11 items-center overflow-visible">
+                {mobileSlot}
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => setMobileOpen((current) => !current)}
+              className="flex h-11 w-11 items-center justify-center rounded-2xl border border-orange-primary/15 bg-white/90 text-heading shadow-[0_10px_24px_rgba(214,153,68,0.12)]"
+              aria-label={mobileOpen ? "Close navigation" : "Open navigation"}
+            >
+              {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -125,9 +157,11 @@ export function Sidebar({ userRole, userName }: SidebarProps) {
 
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
           {links.map((link) => {
-            const isActive = link.href === "/dashboard"
-              ? pathname === "/dashboard"
-              : pathname === link.href || pathname.startsWith(`${link.href}/`);
+            const isActive = link.isActive
+              ? link.isActive(pathname)
+              : link.href === "/dashboard"
+                ? pathname === "/dashboard"
+                : pathname === link.href || pathname.startsWith(`${link.href}/`);
             return (
               <Link
                 key={link.href}

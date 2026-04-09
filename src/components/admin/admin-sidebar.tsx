@@ -79,16 +79,13 @@ export function AdminSidebar({ userRole, userName }: AdminSidebarProps) {
               height={36}
               className="rounded-lg shadow-md"
             />
-            <div>
-              <Image
-                src="/logo.png"
-                alt="EduFleet"
-                width={108}
-                height={30}
-                className="brightness-90 contrast-125"
-              />
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-orange-primary">Admin</p>
-            </div>
+            <Image
+              src="/logo.png"
+              alt="EduFleet"
+              width={108}
+              height={30}
+              className="brightness-90 contrast-125"
+            />
           </div>
           <button
             type="button"
