@@ -115,6 +115,24 @@ function parseCorrectOption(value: unknown): 1 | 2 | 3 | 4 | null {
   return null;
 }
 
+function getQuestionSignature(question: {
+  questionText: string;
+  optionA: string;
+  optionB: string;
+  optionC: string;
+  optionD: string;
+  correctOption: 1 | 2 | 3 | 4;
+}) {
+  return [
+    normalizeKey(question.questionText),
+    normalizeKey(question.optionA),
+    normalizeKey(question.optionB),
+    normalizeKey(question.optionC),
+    normalizeKey(question.optionD),
+    String(question.correctOption),
+  ].join("::");
+}
+
 function getSubjectName(folderSubject: string) {
   return SUBJECT_ALIASES.get(normalizeKey(folderSubject)) ?? null;
 }
@@ -189,6 +207,7 @@ function parseWorkbookQuestions(filePath: string) {
     : null;
 
   const questions: ParsedQuestion[] = [];
+  const seenQuestionSignatures = new Set<string>();
   let skippedRows = 0;
   const startingRow = isHeaderRow ? firstContentIndex + 1 : firstContentIndex;
 
@@ -209,6 +228,22 @@ function parseWorkbookQuestions(filePath: string) {
       skippedRows += 1;
       continue;
     }
+
+    const signature = getQuestionSignature({
+      questionText,
+      optionA,
+      optionB,
+      optionC,
+      optionD,
+      correctOption,
+    });
+
+    if (seenQuestionSignatures.has(signature)) {
+      skippedRows += 1;
+      continue;
+    }
+
+    seenQuestionSignatures.add(signature);
 
     questions.push({
       questionText,

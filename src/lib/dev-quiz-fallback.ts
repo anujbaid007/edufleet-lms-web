@@ -134,6 +134,18 @@ function parseCorrectOption(value: unknown): 1 | 2 | 3 | 4 | null {
   return null;
 }
 
+function getQuestionSignature(question: {
+  questionText: string;
+  options: [string, string, string, string];
+  correctOption: 1 | 2 | 3 | 4;
+}) {
+  return [
+    normalizeKey(question.questionText),
+    ...question.options.map((option) => normalizeKey(option)),
+    String(question.correctOption),
+  ].join("::");
+}
+
 function parseCatalogEntry(filePath: string): CatalogEntry | null {
   const relativePath = filePath.replace(`${MCQ_ROOT}/`, "");
   const parts = relativePath.split("/");
@@ -304,6 +316,7 @@ async function parseFallbackQuiz(entry: CatalogEntry, chapter: ChapterInput): Pr
     : null;
 
   const questions: FallbackQuizQuestion[] = [];
+  const seenQuestionSignatures = new Set<string>();
   const startingRow = isHeaderRow ? firstContentIndex + 1 : firstContentIndex;
 
   for (let rowIndex = startingRow; rowIndex < rows.length; rowIndex += 1) {
@@ -322,6 +335,18 @@ async function parseFallbackQuiz(entry: CatalogEntry, chapter: ChapterInput): Pr
     if (!questionText || !optionA || !optionB || !optionC || !optionD || !correctOption) {
       continue;
     }
+
+    const signature = getQuestionSignature({
+      questionText,
+      options: [optionA, optionB, optionC, optionD],
+      correctOption,
+    });
+
+    if (seenQuestionSignatures.has(signature)) {
+      continue;
+    }
+
+    seenQuestionSignatures.add(signature);
 
     questions.push({
       id: getQuestionId(chapter.id, questions.length + 1),
