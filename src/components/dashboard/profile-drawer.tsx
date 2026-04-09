@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 import {
   Building2,
   Camera,
@@ -77,11 +78,16 @@ export function ProfileDrawer({
   compact = false,
 }: ProfileDrawerProps) {
   const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState(avatarUrl || defaultAvatarIdForUser(userId));
   const [feedback, setFeedback] = useState<string | null>(null);
   const [feedbackTone, setFeedbackTone] = useState<"error" | "success">("success");
   const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     setAvatarPreview(avatarUrl || defaultAvatarIdForUser(userId));
@@ -162,8 +168,8 @@ export function ProfileDrawer({
         )}
       </button>
 
-      {open && (
-        <div className="fixed inset-0 z-50">
+      {open && mounted && createPortal(
+        <div className="fixed inset-0 z-[100]">
           <button
             type="button"
             className="absolute inset-0 bg-black/45 backdrop-blur-sm"
@@ -273,7 +279,8 @@ export function ProfileDrawer({
               </section>
             </div>
           </aside>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );

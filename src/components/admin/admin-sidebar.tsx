@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
@@ -20,7 +21,6 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { logout } from "@/lib/actions/auth";
-import Image from "next/image";
 
 interface AdminSidebarProps {
   userRole: string;
@@ -71,7 +71,12 @@ export function AdminSidebar({ userRole, userName }: AdminSidebarProps) {
     <>
       <div className="fixed inset-x-0 top-0 z-50 border-b border-orange-primary/10 bg-[rgba(253,248,243,0.92)] px-4 py-3 backdrop-blur-xl lg:hidden">
         <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
+          <Link
+            href="/admin"
+            onClick={() => setMobileOpen(false)}
+            className="flex items-center gap-3 rounded-xl transition hover:opacity-90"
+            aria-label="Go to admin overview"
+          >
             <Image
               src="/logo-icon.png"
               alt="EduFleet"
@@ -86,7 +91,7 @@ export function AdminSidebar({ userRole, userName }: AdminSidebarProps) {
               height={30}
               className="brightness-90 contrast-125"
             />
-          </div>
+          </Link>
           <button
             type="button"
             onClick={() => setMobileOpen((current) => !current)}
@@ -119,25 +124,32 @@ export function AdminSidebar({ userRole, userName }: AdminSidebarProps) {
         }}
       >
         <div className="relative flex items-center gap-3 border-b border-orange-primary/10 px-5 py-5">
-          <Image
-            src="/logo-icon.png"
-            alt="EduFleet"
-            width={40}
-            height={40}
-            className="shrink-0 rounded-lg shadow-md"
-          />
-          {!collapsed && (
-            <div>
-              <Image
-                src="/logo.png"
-                alt="EduFleet"
-                width={120}
-                height={33}
-                className="brightness-90 contrast-125"
-              />
-              <p className="-mt-0.5 text-[10px] font-bold tracking-wide text-orange-primary">ADMIN</p>
-            </div>
-          )}
+          <Link
+            href="/admin"
+            onClick={() => setMobileOpen(false)}
+            className="flex items-center gap-3 rounded-xl transition hover:opacity-90"
+            aria-label="Go to admin overview"
+          >
+            <Image
+              src="/logo-icon.png"
+              alt="EduFleet"
+              width={40}
+              height={40}
+              className="shrink-0 rounded-lg shadow-md"
+            />
+            {!collapsed && (
+              <div>
+                <Image
+                  src="/logo.png"
+                  alt="EduFleet"
+                  width={120}
+                  height={33}
+                  className="brightness-90 contrast-125"
+                />
+                <p className="-mt-0.5 text-[10px] font-bold tracking-wide text-orange-primary">ADMIN</p>
+              </div>
+            )}
+          </Link>
           <button
             type="button"
             onClick={() => setCollapsed(!collapsed)}

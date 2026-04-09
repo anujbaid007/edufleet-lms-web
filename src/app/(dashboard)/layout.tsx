@@ -52,7 +52,7 @@ export default async function DashboardLayout({
         userName={profile.name}
         mobileSlot={<ProfileDrawer {...drawerProps} compact />}
       />
-      <main className="px-4 pb-6 pt-20 transition-all duration-300 sm:px-6 sm:pb-8 lg:ml-64 lg:px-8 lg:pb-10 lg:pt-8">
+      <main className="px-4 pb-6 pt-24 transition-all duration-300 sm:px-6 sm:pb-8 lg:ml-64 lg:px-8 lg:pb-10 lg:pt-8">
         <div className="mb-4 hidden justify-end lg:mb-6 lg:flex">
           <ProfileDrawer {...drawerProps} />
         </div>

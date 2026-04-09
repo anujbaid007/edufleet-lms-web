@@ -74,7 +74,12 @@ export function Sidebar({ userRole, userName, mobileSlot }: SidebarProps) {
     <>
       <div className="fixed inset-x-0 top-0 z-50 border-b border-orange-primary/10 bg-[rgba(253,248,243,0.92)] px-4 py-3 backdrop-blur-xl lg:hidden">
         <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
+          <Link
+            href="/dashboard"
+            onClick={() => setMobileOpen(false)}
+            className="flex items-center gap-3 rounded-xl transition hover:opacity-90"
+            aria-label="Go to dashboard"
+          >
             <Image
               src="/logo-icon.png"
               alt="EduFleet"
@@ -89,7 +94,7 @@ export function Sidebar({ userRole, userName, mobileSlot }: SidebarProps) {
               height={30}
               className="brightness-90 contrast-125"
             />
-          </div>
+          </Link>
           <div className="flex items-center gap-2">
             {mobileSlot}
             <button
@@ -125,22 +130,29 @@ export function Sidebar({ userRole, userName, mobileSlot }: SidebarProps) {
         }}
       >
         <div className="flex items-center gap-3 border-b border-orange-primary/10 px-5 py-5 relative">
-          <Image
-            src="/logo-icon.png"
-            alt="EduFleet"
-            width={40}
-            height={40}
-            className="shrink-0 rounded-lg shadow-md"
-          />
-          {!collapsed && (
+          <Link
+            href="/dashboard"
+            onClick={() => setMobileOpen(false)}
+            className="flex items-center gap-3 rounded-xl transition hover:opacity-90"
+            aria-label="Go to dashboard"
+          >
             <Image
-              src="/logo.png"
+              src="/logo-icon.png"
               alt="EduFleet"
-              width={120}
-              height={33}
-              className="brightness-90 contrast-125"
+              width={40}
+              height={40}
+              className="shrink-0 rounded-lg shadow-md"
             />
-          )}
+            {!collapsed && (
+              <Image
+                src="/logo.png"
+                alt="EduFleet"
+                width={120}
+                height={33}
+                className="brightness-90 contrast-125"
+              />
+            )}
+          </Link>
           <button
             type="button"
             onClick={() => setCollapsed(!collapsed)}
