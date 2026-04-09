@@ -93,6 +93,47 @@ export type Database = {
           },
         ]
       }
+      chapter_quizzes: {
+        Row: {
+          chapter_id: string
+          created_at: string
+          id: string
+          is_published: boolean
+          question_count: number
+          source_medium: string | null
+          source_path: string | null
+          source_subject: string | null
+        }
+        Insert: {
+          chapter_id: string
+          created_at?: string
+          id?: string
+          is_published?: boolean
+          question_count?: number
+          source_medium?: string | null
+          source_path?: string | null
+          source_subject?: string | null
+        }
+        Update: {
+          chapter_id?: string
+          created_at?: string
+          id?: string
+          is_published?: boolean
+          question_count?: number
+          source_medium?: string | null
+          source_path?: string | null
+          source_subject?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chapter_quizzes_chapter_id_fkey"
+            columns: ["chapter_id"]
+            isOneToOne: false
+            referencedRelation: "chapters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       content_restrictions: {
         Row: {
           chapter_id: string
@@ -252,6 +293,158 @@ export type Database = {
           name_hindi?: string | null
         }
         Relationships: []
+      }
+      quiz_attempt_answers: {
+        Row: {
+          attempt_id: string
+          created_at: string
+          id: string
+          is_correct: boolean
+          question_id: string
+          selected_option: number | null
+        }
+        Insert: {
+          attempt_id: string
+          created_at?: string
+          id?: string
+          is_correct: boolean
+          question_id: string
+          selected_option?: number | null
+        }
+        Update: {
+          attempt_id?: string
+          created_at?: string
+          id?: string
+          is_correct?: boolean
+          question_id?: string
+          selected_option?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_attempt_answers_attempt_id_fkey"
+            columns: ["attempt_id"]
+            isOneToOne: false
+            referencedRelation: "quiz_attempts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quiz_attempt_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "quiz_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quiz_attempts: {
+        Row: {
+          completed_at: string
+          correct_answers: number
+          created_at: string
+          id: string
+          mastery_level: string
+          percent: number
+          quiz_id: string
+          started_at: string
+          total_questions: number
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string
+          correct_answers: number
+          created_at?: string
+          id?: string
+          mastery_level: string
+          percent: number
+          quiz_id: string
+          started_at?: string
+          total_questions: number
+          user_id: string
+        }
+        Update: {
+          completed_at?: string
+          correct_answers?: number
+          created_at?: string
+          id?: string
+          mastery_level?: string
+          percent?: number
+          quiz_id?: string
+          started_at?: string
+          total_questions?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_attempts_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "chapter_quizzes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quiz_attempts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quiz_questions: {
+        Row: {
+          cognitive_level: string | null
+          correct_option: number
+          created_at: string
+          difficulty: string | null
+          id: string
+          option_a: string
+          option_b: string
+          option_c: string
+          option_d: string
+          question_text: string
+          quiz_id: string
+          sort_order: number
+          source_row: number | null
+        }
+        Insert: {
+          cognitive_level?: string | null
+          correct_option: number
+          created_at?: string
+          difficulty?: string | null
+          id?: string
+          option_a: string
+          option_b: string
+          option_c: string
+          option_d: string
+          question_text: string
+          quiz_id: string
+          sort_order?: number
+          source_row?: number | null
+        }
+        Update: {
+          cognitive_level?: string | null
+          correct_option?: number
+          created_at?: string
+          difficulty?: string | null
+          id?: string
+          option_a?: string
+          option_b?: string
+          option_c?: string
+          option_d?: string
+          question_text?: string
+          quiz_id?: string
+          sort_order?: number
+          source_row?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quiz_questions_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "chapter_quizzes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       video_progress: {
         Row: {

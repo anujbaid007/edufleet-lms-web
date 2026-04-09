@@ -23,7 +23,7 @@ const config: Config = {
         },
         heading: "#1A1A2E",
         body: "#4A4A68",
-        muted: "#8E8EA0",
+        muted: "#666782",
         cream: "#FFF9F2",
         peach: "#FFF5EB",
         sand: "#F5EDE4",

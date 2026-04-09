@@ -6,6 +6,7 @@ import {
   AlertTriangle,
   BookOpen,
   CheckCircle2,
+  ChevronDown,
   ChevronRight,
   CirclePlay,
   Clock3,
@@ -300,6 +301,12 @@ function TrendChart({ dataset }: { dataset: AnalyticsDataset }) {
 
 function SummaryCards({ dataset }: { dataset: AnalyticsDataset }) {
   const { summary } = dataset;
+  const scopedCompletionRate =
+    dataset.level === "chapters"
+      ? summary.trackedChapters
+        ? Math.round((dataset.rows.filter((row) => row.completedChapters > 0).length / summary.trackedChapters) * 100)
+        : 0
+      : summary.completionRate;
 
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
@@ -329,12 +336,11 @@ function SummaryCards({ dataset }: { dataset: AnalyticsDataset }) {
 
       <ClayCard hover={false} className="!p-5">
         <div className="flex items-center gap-4">
-          <ProgressRing percentage={summary.completionRate} size={60} strokeWidth={7}>
-            <span className="text-xs font-bold text-heading">{summary.completionRate}%</span>
+          <ProgressRing percentage={scopedCompletionRate} size={60} strokeWidth={7}>
+            <span className="text-xs font-bold text-heading">{scopedCompletionRate}%</span>
           </ProgressRing>
           <div>
-            <p className="text-lg font-bold text-heading">{summary.completedChapters}</p>
-            <p className="text-xs text-muted">Completed chapters</p>
+            <p className="text-lg font-bold text-heading">Content completion</p>
           </div>
         </div>
       </ClayCard>
@@ -807,7 +813,76 @@ function AlertsPanel({
   onSelect?: (student: AnalyticsStudentRow) => void;
   selectedStudentId?: string | null;
 }) {
-  if (!rows.length) {
+  const neverLoggedInRows = rows.filter((student) => !student.lastWatchedAt);
+  const dropOffRows = rows.filter((student) => Boolean(student.lastWatchedAt));
+  const averageCompletion = rows.length
+    ? Math.round(rows.reduce((sum, student) => sum + student.completionRate, 0) / rows.length)
+    : 0;
+
+  const renderStudentRow = (student: AnalyticsStudentRow) => {
+    const selected = selectedStudentId === student.id;
+    const interactive = Boolean(onSelect);
+    const className = [
+      "w-full rounded-clay-sm border border-red-100 bg-red-50/60 px-4 py-3 text-left",
+      interactive ? "transition hover:border-red-200 hover:bg-red-50" : "",
+      selected ? "border-orange-primary/30 bg-white shadow-clay-orange" : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
+
+    const content = (
+      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <div>
+          <p className="font-semibold text-heading">{student.name}</p>
+          <p className="text-sm text-muted">
+            {[student.centreName, student.classLabel, student.board, student.medium].filter(Boolean).join(" · ")}
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 text-sm md:grid-cols-4">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Completion</p>
+            <p className="mt-1 font-bold text-heading">{student.completionRate}%</p>
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">
+              {student.unitLabel === "lessons" ? "Lessons" : "Chapters"}
+            </p>
+            <p className="mt-1 font-bold text-heading">
+              {student.completedUnits}/{student.trackedUnits}
+            </p>
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Last active</p>
+            <p className="mt-1 font-bold text-heading">{formatDate(student.lastWatchedAt)}</p>
+          </div>
+          <div className="hidden md:block">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Review</p>
+            <p className="mt-1 inline-flex items-center gap-1 font-bold text-orange-primary">
+              Open
+              {interactive && <ChevronRight className="h-4 w-4" />}
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+
+    if (!interactive) {
+      return (
+        <div key={student.id} className={className}>
+          {content}
+        </div>
+      );
+    }
+
+    return (
+      <button key={student.id} type="button" className={className} onClick={() => onSelect?.(student)}>
+        {content}
+      </button>
+    );
+  };
+
+  if (!dropOffRows.length && !neverLoggedInRows.length) {
     return (
       <ClayCard hover={false} className="!p-6">
         <div className="flex items-center gap-3">
@@ -824,81 +899,74 @@ function AlertsPanel({
   }
 
   return (
-    <ClayCard hover={false} className="!p-6">
-      <div className="mb-4 flex items-center gap-3">
-        <div className="flex h-11 w-11 items-center justify-center rounded-clay-sm bg-red-50 shadow-clay-pill">
-          <AlertTriangle className="h-5 w-5 text-red-500" />
-        </div>
-        <div>
-          <h3 className="font-poppins text-lg font-bold text-heading">Drop-off alerts</h3>
-          <p className="text-sm text-muted">Students who have gone quiet in the current scope.</p>
-        </div>
-      </div>
-
-      <div className="space-y-3">
-        {rows.map((student) => {
-          const selected = selectedStudentId === student.id;
-          const interactive = Boolean(onSelect);
-          const className = [
-            "w-full rounded-clay-sm border border-red-100 bg-red-50/60 px-4 py-3 text-left",
-            interactive ? "transition hover:border-red-200 hover:bg-red-50" : "",
-            selected ? "border-orange-primary/30 bg-white shadow-clay-orange" : "",
-          ]
-            .filter(Boolean)
-            .join(" ");
-
-          const content = (
-            <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-              <div>
-                <p className="font-semibold text-heading">{student.name}</p>
-                <p className="text-sm text-muted">
-                  {[student.centreName, student.classLabel, student.board, student.medium].filter(Boolean).join(" · ")}
-                </p>
+    <ClayCard hover={false} className="!p-0 overflow-hidden">
+      <details className="group">
+        <summary className="list-none cursor-pointer px-6 py-6 marker:content-none">
+          <div className="flex flex-col gap-5">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-clay-sm bg-red-50 shadow-clay-pill">
+                  <AlertTriangle className="h-5 w-5 text-red-500" />
+                </div>
+                <div>
+                  <h3 className="font-poppins text-lg font-bold text-heading">Drop-off alerts</h3>
+                  <p className="text-sm text-muted">Students who have gone quiet or never started in the current scope.</p>
+                </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 text-sm md:grid-cols-4">
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Completion</p>
-                  <p className="mt-1 font-bold text-heading">{student.completionRate}%</p>
-                </div>
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">
-                    {student.unitLabel === "lessons" ? "Lessons" : "Chapters"}
-                  </p>
-                  <p className="mt-1 font-bold text-heading">
-                    {student.completedUnits}/{student.trackedUnits}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Last active</p>
-                  <p className="mt-1 font-bold text-heading">{formatDate(student.lastWatchedAt)}</p>
-                </div>
-                <div className="hidden md:block">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Review</p>
-                  <p className="mt-1 inline-flex items-center gap-1 font-bold text-orange-primary">
-                    Open
-                    {interactive && <ChevronRight className="h-4 w-4" />}
-                  </p>
-                </div>
+              <div className="flex h-11 w-11 items-center justify-center rounded-clay-sm bg-white shadow-clay-pill transition-transform group-open:rotate-180">
+                <ChevronDown className="h-5 w-5 text-orange-primary" />
               </div>
             </div>
-          );
 
-          if (!interactive) {
-            return (
-              <div key={student.id} className={className}>
-                {content}
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+              <div className="rounded-2xl bg-red-50/70 px-4 py-3 shadow-clay-pill">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Students at risk</p>
+                <p className="mt-1 text-2xl font-bold text-heading">{rows.length}</p>
               </div>
-            );
-          }
+              <div className="rounded-2xl bg-orange-50/70 px-4 py-3 shadow-clay-pill">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Gone quiet</p>
+                <p className="mt-1 text-2xl font-bold text-heading">{dropOffRows.length}</p>
+              </div>
+              <div className="rounded-2xl bg-slate-50 px-4 py-3 shadow-clay-pill">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Never logged in</p>
+                <p className="mt-1 text-2xl font-bold text-heading">{neverLoggedInRows.length}</p>
+                <p className="mt-1 text-xs text-muted">Avg completion {averageCompletion}%</p>
+              </div>
+            </div>
+          </div>
+        </summary>
 
-          return (
-            <button key={student.id} type="button" className={className} onClick={() => onSelect?.(student)}>
-              {content}
-            </button>
-          );
-        })}
-      </div>
+        <div className="border-t border-orange-primary/10 px-6 pb-6 pt-2">
+          <div className="space-y-6">
+            {dropOffRows.length ? (
+              <section>
+                <div className="mb-3">
+                  <h4 className="font-poppins text-base font-bold text-heading">Gone quiet</h4>
+                  <p className="text-sm text-muted">Students who were active before, but have gone inactive in the current scope.</p>
+                </div>
+
+                <div className="space-y-3">
+                  {dropOffRows.map(renderStudentRow)}
+                </div>
+              </section>
+            ) : null}
+
+            {neverLoggedInRows.length ? (
+              <section>
+                <div className="mb-3">
+                  <h4 className="font-poppins text-base font-bold text-heading">Never logged in</h4>
+                  <p className="text-sm text-muted">Students with no learning activity recorded yet in the current scope.</p>
+                </div>
+
+                <div className="space-y-3">
+                  {neverLoggedInRows.map(renderStudentRow)}
+                </div>
+              </section>
+            ) : null}
+          </div>
+        </div>
+      </details>
     </ClayCard>
   );
 }

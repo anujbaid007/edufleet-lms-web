@@ -1,0 +1,319 @@
+{
+  "generatedAt": "2026-04-05T13:25:00.756Z",
+  "appUrl": "http://localhost:3002",
+  "runId": "apr05",
+  "passwords": {
+    "platformAdmin": "EduFleetAdmin!2026",
+    "cohortUsers": "EduFleetAgents!2026"
+  },
+  "users": [
+    {
+      "role": "platform_admin",
+      "email": "admin@edufleet.in",
+      "password": "EduFleetAdmin!2026",
+      "name": "EduFleet Admin",
+      "organization": null,
+      "centre": null,
+      "class": null,
+      "board": null,
+      "medium": null
+    },
+    {
+      "role": "org_admin",
+      "email": "org1.admin.apr05@test.edufleet.in",
+      "password": "EduFleetAgents!2026",
+      "name": "Org Admin 1",
+      "organization": "AI Swarm North NGO APR05",
+      "centre": null,
+      "class": null,
+      "board": null,
+      "medium": null
+    },
+    {
+      "role": "centre_admin",
+      "email": "org1.centre1.head.apr05@test.edufleet.in",
+      "password": "EduFleetAgents!2026",
+      "name": "Centre Head 1.1",
+      "organization": "AI Swarm North NGO APR05",
+      "centre": "Gurugram Learning Hub",
+      "class": null,
+      "board": null,
+      "medium": null
+    },
+    {
+      "role": "teacher",
+      "email": "org1.centre1.teacher.apr05@test.edufleet.in",
+      "password": "EduFleetAgents!2026",
+      "name": "Teacher 1.1",
+      "organization": "AI Swarm North NGO APR05",
+      "centre": "Gurugram Learning Hub",
+      "class": 1,
+      "board": "CBSE",
+      "medium": "English"
+    },
+    {
+      "role": "student",
+      "email": "org1.centre1.student1.apr05@test.edufleet.in",
+      "password": "EduFleetAgents!2026",
+      "name": "Student 1.1.1",
+      "organization": "AI Swarm North NGO APR05",
+      "centre": "Gurugram Learning Hub",
+      "class": 1,
+      "board": "CBSE",
+      "medium": "English"
+    },
+    {
+      "role": "student",
+      "email": "org1.centre1.student2.apr05@test.edufleet.in",
+      "password": "EduFleetAgents!2026",
+      "name": "Student 1.1.2",
+      "organization": "AI Swarm North NGO APR05",
+      "centre": "Gurugram Learning Hub",
+      "class": 1,
+      "board": "CBSE",
+      "medium": "English"
+    },
+    {
+      "role": "centre_admin",
+      "email": "org1.centre2.head.apr05@test.edufleet.in",
+      "password": "EduFleetAgents!2026",
+      "name": "Centre Head 1.2",
+      "organization": "AI Swarm North NGO APR05",
+      "centre": "Noida Community Lab",
+      "class": null,
+      "board": null,
+      "medium": null
+    },
+    {
+      "role": "teacher",
+      "email": "org1.centre2.teacher.apr05@test.edufleet.in",
+      "password": "EduFleetAgents!2026",
+      "name": "Teacher 1.2",
+      "organization": "AI Swarm North NGO APR05",
+      "centre": "Noida Community Lab",
+      "class": 1,
+      "board": "CBSE",
+      "medium": "English"
+    },
+    {
+      "role": "student",
+      "email": "org1.centre2.student1.apr05@test.edufleet.in",
+      "password": "EduFleetAgents!2026",
+      "name": "Student 1.2.1",
+      "organization": "AI Swarm North NGO APR05",
+      "centre": "Noida Community Lab",
+      "class": 1,
+      "board": "CBSE",
+      "medium": "English"
+    },
+    {
+      "role": "student",
+      "email": "org1.centre2.student2.apr05@test.edufleet.in",
+      "password": "EduFleetAgents!2026",
+      "name": "Student 1.2.2",
+      "organization": "AI Swarm North NGO APR05",
+      "centre": "Noida Community Lab",
+      "class": 1,
+      "board": "CBSE",
+      "medium": "English"
+    },
+    {
+      "role": "org_admin",
+      "email": "org2.admin.apr05@test.edufleet.in",
+      "password": "EduFleetAgents!2026",
+      "name": "Org Admin 2",
+      "organization": "AI Swarm West CSR APR05",
+      "centre": null,
+      "class": null,
+      "board": null,
+      "medium": null
+    },
+    {
+      "role": "centre_admin",
+      "email": "org2.centre1.head.apr05@test.edufleet.in",
+      "password": "EduFleetAgents!2026",
+      "name": "Centre Head 2.1",
+      "organization": "AI Swarm West CSR APR05",
+      "centre": "Mumbai Coastal Centre",
+      "class": null,
+      "board": null,
+      "medium": null
+    },
+    {
+      "role": "teacher",
+      "email": "org2.centre1.teacher.apr05@test.edufleet.in",
+      "password": "EduFleetAgents!2026",
+      "name": "Teacher 2.1",
+      "organization": "AI Swarm West CSR APR05",
+      "centre": "Mumbai Coastal Centre",
+      "class": 1,
+      "board": "CBSE",
+      "medium": "English"
+    },
+    {
+      "role": "student",
+      "email": "org2.centre1.student1.apr05@test.edufleet.in",
+      "password": "EduFleetAgents!2026",
+      "name": "Student 2.1.1",
+      "organization": "AI Swarm West CSR APR05",
+      "centre": "Mumbai Coastal Centre",
+      "class": 1,
+      "board": "CBSE",
+      "medium": "English"
+    },
+    {
+      "role": "student",
+      "email": "org2.centre1.student2.apr05@test.edufleet.in",
+      "password": "EduFleetAgents!2026",
+      "name": "Student 2.1.2",
+      "organization": "AI Swarm West CSR APR05",
+      "centre": "Mumbai Coastal Centre",
+      "class": 1,
+      "board": "CBSE",
+      "medium": "English"
+    },
+    {
+      "role": "centre_admin",
+      "email": "org2.centre2.head.apr05@test.edufleet.in",
+      "password": "EduFleetAgents!2026",
+      "name": "Centre Head 2.2",
+      "organization": "AI Swarm West CSR APR05",
+      "centre": "Pune Growth Centre",
+      "class": null,
+      "board": null,
+      "medium": null
+    },
+    {
+      "role": "teacher",
+      "email": "org2.centre2.teacher.apr05@test.edufleet.in",
+      "password": "EduFleetAgents!2026",
+      "name": "Teacher 2.2",
+      "organization": "AI Swarm West CSR APR05",
+      "centre": "Pune Growth Centre",
+      "class": 1,
+      "board": "CBSE",
+      "medium": "English"
+    },
+    {
+      "role": "student",
+      "email": "org2.centre2.student1.apr05@test.edufleet.in",
+      "password": "EduFleetAgents!2026",
+      "name": "Student 2.2.1",
+      "organization": "AI Swarm West CSR APR05",
+      "centre": "Pune Growth Centre",
+      "class": 1,
+      "board": "CBSE",
+      "medium": "English"
+    },
+    {
+      "role": "student",
+      "email": "org2.centre2.student2.apr05@test.edufleet.in",
+      "password": "EduFleetAgents!2026",
+      "name": "Student 2.2.2",
+      "organization": "AI Swarm West CSR APR05",
+      "centre": "Pune Growth Centre",
+      "class": 1,
+      "board": "CBSE",
+      "medium": "English"
+    },
+    {
+      "role": "org_admin",
+      "email": "org3.admin.apr05@test.edufleet.in",
+      "password": "EduFleetAgents!2026",
+      "name": "Org Admin 3",
+      "organization": "AI Swarm South NGO APR05",
+      "centre": null,
+      "class": null,
+      "board": null,
+      "medium": null
+    },
+    {
+      "role": "centre_admin",
+      "email": "org3.centre1.head.apr05@test.edufleet.in",
+      "password": "EduFleetAgents!2026",
+      "name": "Centre Head 3.1",
+      "organization": "AI Swarm South NGO APR05",
+      "centre": "Bengaluru Bridge Centre",
+      "class": null,
+      "board": null,
+      "medium": null
+    },
+    {
+      "role": "teacher",
+      "email": "org3.centre1.teacher.apr05@test.edufleet.in",
+      "password": "EduFleetAgents!2026",
+      "name": "Teacher 3.1",
+      "organization": "AI Swarm South NGO APR05",
+      "centre": "Bengaluru Bridge Centre",
+      "class": 1,
+      "board": "CBSE",
+      "medium": "English"
+    },
+    {
+      "role": "student",
+      "email": "org3.centre1.student1.apr05@test.edufleet.in",
+      "password": "EduFleetAgents!2026",
+      "name": "Student 3.1.1",
+      "organization": "AI Swarm South NGO APR05",
+      "centre": "Bengaluru Bridge Centre",
+      "class": 1,
+      "board": "CBSE",
+      "medium": "English"
+    },
+    {
+      "role": "student",
+      "email": "org3.centre1.student2.apr05@test.edufleet.in",
+      "password": "EduFleetAgents!2026",
+      "name": "Student 3.1.2",
+      "organization": "AI Swarm South NGO APR05",
+      "centre": "Bengaluru Bridge Centre",
+      "class": 1,
+      "board": "CBSE",
+      "medium": "English"
+    },
+    {
+      "role": "centre_admin",
+      "email": "org3.centre2.head.apr05@test.edufleet.in",
+      "password": "EduFleetAgents!2026",
+      "name": "Centre Head 3.2",
+      "organization": "AI Swarm South NGO APR05",
+      "centre": "Chennai Rising Centre",
+      "class": null,
+      "board": null,
+      "medium": null
+    },
+    {
+      "role": "teacher",
+      "email": "org3.centre2.teacher.apr05@test.edufleet.in",
+      "password": "EduFleetAgents!2026",
+      "name": "Teacher 3.2",
+      "organization": "AI Swarm South NGO APR05",
+      "centre": "Chennai Rising Centre",
+      "class": 1,
+      "board": "CBSE",
+      "medium": "English"
+    },
+    {
+      "role": "student",
+      "email": "org3.centre2.student1.apr05@test.edufleet.in",
+      "password": "EduFleetAgents!2026",
+      "name": "Student 3.2.1",
+      "organization": "AI Swarm South NGO APR05",
+      "centre": "Chennai Rising Centre",
+      "class": 1,
+      "board": "CBSE",
+      "medium": "English"
+    },
+    {
+      "role": "student",
+      "email": "org3.centre2.student2.apr05@test.edufleet.in",
+      "password": "EduFleetAgents!2026",
+      "name": "Student 3.2.2",
+      "organization": "AI Swarm South NGO APR05",
+      "centre": "Chennai Rising Centre",
+      "class": 1,
+      "board": "CBSE",
+      "medium": "English"
+    }
+  ]
+}

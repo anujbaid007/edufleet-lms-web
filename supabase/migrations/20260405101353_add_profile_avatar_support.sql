@@ -1,0 +1,4 @@
+-- Historical placeholder for the remote migration already applied on the shared
+-- Supabase project. The equivalent schema change is represented locally in
+-- 011_add_profile_personal_fields.sql, so this migration intentionally performs
+-- no additional DDL.

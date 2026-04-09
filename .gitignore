@@ -38,3 +38,8 @@ next-env.d.ts
 
 # seed data (large binary)
 supabase/seed/TOC_updated.xlsx
+
+# local dev data & caches
+.local-data/
+.next-dev/
+.playwright-cli/
