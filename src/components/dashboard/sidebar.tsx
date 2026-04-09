@@ -91,15 +91,11 @@ export function Sidebar({ userRole, userName, mobileSlot }: SidebarProps) {
             />
           </div>
           <div className="flex items-center gap-2">
-            {mobileSlot && (
-              <div className="flex h-11 items-center overflow-visible">
-                {mobileSlot}
-              </div>
-            )}
+            {mobileSlot}
             <button
               type="button"
               onClick={() => setMobileOpen((current) => !current)}
-              className="flex h-11 w-11 items-center justify-center rounded-2xl border border-orange-primary/15 bg-white/90 text-heading shadow-[0_10px_24px_rgba(214,153,68,0.12)]"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-orange-primary/15 bg-white/90 text-heading shadow-[0_10px_24px_rgba(214,153,68,0.12)]"
               aria-label={mobileOpen ? "Close navigation" : "Open navigation"}
             >
               {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}

@@ -28,6 +28,7 @@ type ProfileDrawerProps = {
   avatarUrl: string | null;
   organizationName: string | null;
   centreName: string | null;
+  compact?: boolean;
 };
 
 function displayClass(classNum: number | null) {
@@ -73,6 +74,7 @@ export function ProfileDrawer({
   avatarUrl,
   organizationName,
   centreName,
+  compact = false,
 }: ProfileDrawerProps) {
   const [open, setOpen] = useState(false);
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
@@ -131,17 +133,33 @@ export function ProfileDrawer({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="group flex items-center gap-3 rounded-full border border-orange-primary/10 bg-white/90 px-2.5 py-2 shadow-[0_14px_32px_rgba(214,153,68,0.10)] transition hover:border-orange-primary/20 hover:bg-white"
+        className={
+          compact
+            ? "group relative flex h-11 w-11 items-center justify-center rounded-full border border-orange-primary/15 bg-white/90 p-0.5 shadow-[0_10px_24px_rgba(214,153,68,0.12)] transition hover:border-orange-primary/25 hover:bg-white"
+            : "group flex items-center gap-3 rounded-full border border-orange-primary/10 bg-white/90 px-2.5 py-2 shadow-[0_14px_32px_rgba(214,153,68,0.10)] transition hover:border-orange-primary/20 hover:bg-white"
+        }
         aria-label="Open profile"
       >
         <div className="relative">
-          <ProfileAvatar avatarId={avatarPreview} size={44} className="rounded-full" />
-          <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white bg-emerald-400" />
+          <ProfileAvatar
+            avatarId={avatarPreview}
+            size={compact ? 38 : 44}
+            className="rounded-full"
+          />
+          <span
+            className={
+              compact
+                ? "absolute -bottom-0 -right-0 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-400"
+                : "absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white bg-emerald-400"
+            }
+          />
         </div>
-        <div className="hidden text-left sm:block">
-          <p className="text-sm font-semibold text-heading">{name}</p>
-          <p className="text-xs capitalize text-muted">{role.replaceAll("_", " ")}</p>
-        </div>
+        {!compact && (
+          <div className="hidden text-left sm:block">
+            <p className="text-sm font-semibold text-heading">{name}</p>
+            <p className="text-xs capitalize text-muted">{role.replaceAll("_", " ")}</p>
+          </div>
+        )}
       </button>
 
       {open && (

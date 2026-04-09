@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { Header } from "@/components/dashboard/header";
+import { WelcomeHero } from "@/components/dashboard/welcome-hero";
 import { StatsOverview } from "@/components/dashboard/stats-overview";
 import { ContinueWatching } from "@/components/dashboard/continue-watching";
 import { RecommendedLessons } from "@/components/dashboard/recommended-lessons";
@@ -179,9 +179,11 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-8">
-      <Header
-        title={`Welcome back, ${profile.name}`}
-        subtitle="Here's your learning overview"
+      <WelcomeHero
+        name={profile.name}
+        streak={streak}
+        completedChapters={completedChapters}
+        totalChapters={totalChapters}
       />
 
       <StatsOverview
