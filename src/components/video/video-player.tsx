@@ -7,14 +7,6 @@ import { updateVideoProgress } from "@/lib/actions/progress";
 
 const MIN_SAVE_INTERVAL_MS = 60_000;
 const MIN_PROGRESS_DELTA_SECONDS = 15;
-const AUTOPLAY_SECONDS = 5;
-
-function formatClock(seconds: number) {
-  const safeSeconds = Math.max(0, Math.round(seconds));
-  const minutes = Math.floor(safeSeconds / 60);
-  const remainingSeconds = safeSeconds % 60;
-  return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
-}
 
 interface VideoPlayerProps {
   videoId: string;
@@ -39,11 +31,8 @@ export function VideoPlayer({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [showAutoplayPrompt, setShowAutoplayPrompt] = useState(false);
-  const [countdown, setCountdown] = useState(AUTOPLAY_SECONDS);
   const [playbackState, setPlaybackState] = useState<"ready" | "playing" | "paused" | "completed">("ready");
-  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
-  const [currentTime, setCurrentTime] = useState(initialPosition);
-  const [lastSavedPercentage, setLastSavedPercentage] = useState(Math.round((initialPosition / Math.max(durationSeconds, 1)) * 100));
+  const [, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const lastSavedPositionRef = useRef(initialPosition);
   const lastSavedAtRef = useRef(0);
 
@@ -53,10 +42,7 @@ export function VideoPlayer({
     setError(false);
     setSaveState("idle");
     setPlaybackState("ready");
-    setCurrentTime(initialPosition);
-    setLastSavedPercentage(Math.round((initialPosition / Math.max(durationSeconds, 1)) * 100));
     setShowAutoplayPrompt(false);
-    setCountdown(AUTOPLAY_SECONDS);
     fetch(`/api/presign?key=${encodeURIComponent(s3Key)}`)
       .then((r) => r.json())
       .then((d) => {
@@ -91,7 +77,6 @@ export function VideoPlayer({
       return;
     }
 
-    setLastSavedPercentage((current) => Math.max(current, Math.round(percentage)));
     setSaveState("saved");
     window.setTimeout(() => {
       setSaveState((current) => (current === "saved" ? "idle" : current));
@@ -148,61 +133,31 @@ export function VideoPlayer({
   const handleEnded = async () => {
     setPlaybackState("completed");
     setSaveState("saving");
-    setCurrentTime(durationSeconds);
-    setLastSavedPercentage(100);
     lastSavedPositionRef.current = durationSeconds;
     lastSavedAtRef.current = Date.now();
     await updateVideoProgress(videoId, 100, durationSeconds);
     setSaveState("saved");
     if (nextVideoId) {
-      setCountdown(AUTOPLAY_SECONDS);
       setShowAutoplayPrompt(true);
     }
   };
 
-  useEffect(() => {
-    if (!showAutoplayPrompt || !nextVideoId) return;
-
-    if (countdown <= 0) {
-      router.push(`/dashboard/watch/${nextVideoId}`);
-      return;
-    }
-
-    const timeout = window.setTimeout(() => {
-      setCountdown((current) => current - 1);
-    }, 1000);
-
-    return () => window.clearTimeout(timeout);
-  }, [countdown, nextVideoId, router, showAutoplayPrompt]);
-
   const handleCancelAutoplay = () => {
     setShowAutoplayPrompt(false);
-    setCountdown(AUTOPLAY_SECONDS);
   };
 
   const handlePlayNext = () => {
     if (!nextVideoId) return;
     router.push(`/dashboard/watch/${nextVideoId}`);
   };
-
-  const statusLabel = playbackState === "playing"
-    ? "Now playing"
-    : playbackState === "completed"
-      ? "Lesson completed"
-      : playbackState === "paused"
-        ? "Paused"
-        : "Ready to play";
-
-  const saveLabel = saveState === "saving"
-    ? "Saving progress..."
-    : saveState === "saved"
-      ? `Progress saved at ${lastSavedPercentage}%`
-      : saveState === "error"
-        ? "Could not save progress"
-        : "Progress auto-saves while you learn";
+  const handleResumePlayback = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    void video.play();
+  };
 
   return (
-    <div className="relative bg-gray-950 rounded-clay overflow-hidden" style={{ minHeight: 360 }}>
+    <div className="relative aspect-video bg-gray-950 rounded-clay overflow-hidden">
       {loading && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
           <Loader2 className="w-8 h-8 text-orange-400 animate-spin" />
@@ -234,18 +189,23 @@ export function VideoPlayer({
           onEnded={handleEnded}
           onPlay={() => setPlaybackState("playing")}
           onPause={() => setPlaybackState((current) => (current === "completed" ? current : "paused"))}
-          onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}
-          className="w-full h-full object-contain"
-          style={{ maxHeight: "calc(100vh - 200px)" }}
+          className="absolute inset-0 h-full w-full object-contain"
         />
       )}
 
-      {videoUrl ? (
-        <div className="pointer-events-none absolute left-4 top-4 rounded-[22px] border border-white/10 bg-black/55 px-4 py-3 text-white shadow-[0_18px_36px_rgba(0,0,0,0.24)] backdrop-blur-xl">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-orange-200">{statusLabel}</p>
-          <p className="mt-1 text-sm font-semibold">{formatClock(currentTime)} / {formatClock(durationSeconds)}</p>
-          <p className={`mt-1 text-xs ${saveState === "error" ? "text-red-300" : "text-white/75"}`}>{saveLabel}</p>
-        </div>
+      {videoUrl && playbackState === "paused" ? (
+        <button
+          type="button"
+          onClick={handleResumePlayback}
+          className="absolute inset-0 flex items-center justify-center bg-black/10 transition hover:bg-black/20"
+          aria-label="Resume video"
+        >
+          <span className="flex h-28 w-28 items-center justify-center rounded-full bg-black/18 shadow-[0_24px_60px_rgba(0,0,0,0.26)] backdrop-blur-sm transition duration-200 hover:scale-[1.03]">
+            <span className="flex h-20 w-20 items-center justify-center rounded-[28px] border border-orange-300/35 bg-gradient-to-br from-[#f6a14a] via-[#ea8a25] to-[#cf6f14] shadow-[0_18px_36px_rgba(232,135,30,0.34),inset_0_2px_1px_rgba(255,255,255,0.45),inset_0_-6px_10px_rgba(155,82,10,0.2)]">
+              <Play className="ml-1 h-8 w-8 fill-white text-white" />
+            </span>
+          </span>
+        </button>
       ) : null}
 
       {showAutoplayPrompt && nextVideoId ? (
@@ -257,16 +217,6 @@ export function VideoPlayer({
             <div className="min-w-0 flex-1">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-orange-200">Next lesson</p>
               <p className="mt-1 text-sm font-semibold">{nextVideoTitle ?? "Starting the next lesson"}</p>
-              <p className="mt-1 text-xs text-white/75">
-                Starting automatically in <span className="font-bold text-orange-200">{countdown}s</span>
-              </p>
-
-              <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/15">
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-[#f6a14a] via-[#ea8a25] to-[#cf6f14] transition-all"
-                  style={{ width: `${((AUTOPLAY_SECONDS - countdown) / AUTOPLAY_SECONDS) * 100}%` }}
-                />
-              </div>
 
               <div className="mt-4 flex items-center gap-2">
                 <button
