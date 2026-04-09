@@ -12,6 +12,7 @@ import {
   isQuizSchemaUnavailableError,
 } from "@/lib/quiz";
 import { getFallbackQuizMeta, listFallbackAttemptsForUser } from "@/lib/dev-quiz-fallback";
+import { ScrollResetOnMount } from "@/components/ui/scroll-reset-on-mount";
 
 export default async function WatchPage({ params }: { params: { id: string } }) {
   const supabase = await createClient();
@@ -136,8 +137,47 @@ export default async function WatchPage({ params }: { params: { id: string } }) 
     ? playlistVideos[activeIndex + 1]
     : null;
 
+  const quizCard = activeQuiz || fallbackQuiz ? (
+    <ClayCard hover={false} className="!p-5">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.15em] text-orange-primary">Take Quiz</p>
+          <h2 className="mt-2 text-lg font-bold text-heading font-poppins">
+            Test this chapter right after watching
+          </h2>
+          <p className="mt-1 text-sm text-body">
+            {(activeQuiz?.question_count ?? fallbackQuiz?.questionCount ?? 0)} questions available for Chapter{" "}
+            {chapter.chapter_no}.
+          </p>
+          {bestAttempt ? (
+            <div className="mt-3 flex flex-wrap gap-2">
+              <span
+                className={`rounded-full px-3 py-1 text-xs font-semibold ${getQuizMasteryClasses(
+                  getQuizMasteryLevel(bestAttempt.percent)
+                )}`}
+              >
+                {getQuizMasteryLabel(getQuizMasteryLevel(bestAttempt.percent))}
+              </span>
+              <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-heading shadow-[inset_0_0_0_1px_rgba(15,23,42,0.08)]">
+                Best score: {bestAttempt.percent}% · {bestAttempt.correct_answers}/{bestAttempt.total_questions}
+              </span>
+            </div>
+          ) : null}
+        </div>
+
+        <Link
+          href={`/dashboard/chapters/${chapter.id}/quiz`}
+          className="inline-flex items-center justify-center gap-2 rounded-full bg-orange-primary px-4 py-2.5 text-sm font-semibold text-white shadow-clay-orange"
+        >
+          {bestAttempt ? "Retake quiz" : "Start quiz"}
+        </Link>
+      </div>
+    </ClayCard>
+  ) : null;
+
   return (
     <div>
+      <ScrollResetOnMount />
       <PageBreadcrumbs
         backHref={`/dashboard/chapters/${chapter.id}`}
         backLabel="Back to Chapter"
@@ -166,46 +206,7 @@ export default async function WatchPage({ params }: { params: { id: string } }) 
             {subjectName} · Ch. {chapter.chapter_no}: {chapter.title}
           </p>
         </div>
-
-        {activeQuiz || fallbackQuiz ? (
-          <div className="mt-5">
-            <ClayCard hover={false} className="!p-5">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.15em] text-orange-primary">Take Quiz</p>
-                  <h2 className="mt-2 text-lg font-bold text-heading font-poppins">
-                    Test this chapter right after watching
-                  </h2>
-                  <p className="mt-1 text-sm text-body">
-                    {(activeQuiz?.question_count ?? fallbackQuiz?.questionCount ?? 0)} questions available for Chapter{" "}
-                    {chapter.chapter_no}.
-                  </p>
-                  {bestAttempt ? (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <span
-                        className={`rounded-full px-3 py-1 text-xs font-semibold ${getQuizMasteryClasses(
-                          getQuizMasteryLevel(bestAttempt.percent)
-                        )}`}
-                      >
-                        {getQuizMasteryLabel(getQuizMasteryLevel(bestAttempt.percent))}
-                      </span>
-                      <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-heading shadow-[inset_0_0_0_1px_rgba(15,23,42,0.08)]">
-                        Best score: {bestAttempt.percent}% · {bestAttempt.correct_answers}/{bestAttempt.total_questions}
-                      </span>
-                    </div>
-                  ) : null}
-                </div>
-
-                <Link
-                  href={`/dashboard/chapters/${chapter.id}/quiz`}
-                  className="inline-flex items-center justify-center gap-2 rounded-full bg-orange-primary px-4 py-2.5 text-sm font-semibold text-white shadow-clay-orange"
-                >
-                  {bestAttempt ? "Retake quiz" : "Start quiz"}
-                </Link>
-              </div>
-            </ClayCard>
-          </div>
-        ) : null}
+        {quizCard ? <div className="mt-5 hidden lg:block">{quizCard}</div> : null}
       </div>
 
       {/* Playlist Sidebar */}
@@ -218,6 +219,8 @@ export default async function WatchPage({ params }: { params: { id: string } }) 
           activeVideoId={video.id}
         />
       </div>
+
+      {quizCard ? <div className="w-full lg:hidden">{quizCard}</div> : null}
 
       <div className="hidden w-80 shrink-0 lg:block">
         <ChapterPlaylist

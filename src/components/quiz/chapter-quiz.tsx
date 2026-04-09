@@ -88,6 +88,8 @@ export function ChapterQuiz({
   recentAttempts: QuizAttemptSummary[];
 }) {
   const router = useRouter();
+  const pageTopRef = useRef<HTMLDivElement | null>(null);
+  const questionPanelRef = useRef<HTMLDivElement | null>(null);
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const [submittedAttempt, setSubmittedAttempt] = useState<AttemptSummary>(null);
@@ -140,6 +142,25 @@ export function ChapterQuiz({
     setPendingAutoAdvanceQuestionId(null);
   };
 
+  const scrollToElement = (element: HTMLElement | null) => {
+    if (!element) return;
+
+    requestAnimationFrame(() => {
+      element.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+  };
+
+  const scrollToPageTop = () => {
+    scrollToElement(pageTopRef.current);
+  };
+
+  const scrollToQuestionPanel = () => {
+    scrollToElement(questionPanelRef.current);
+  };
+
   useEffect(() => () => {
     if (autoAdvanceTimeoutRef.current) {
       clearTimeout(autoAdvanceTimeoutRef.current);
@@ -154,11 +175,14 @@ export function ChapterQuiz({
     setVisibleRecentAttempts((current) => mergeRecentAttempts([...recentAttempts, ...current]));
   }, [recentAttempts]);
 
-  const goToQuestion = (index: number) => {
+  const goToQuestion = (index: number, options?: { scrollToQuestion?: boolean }) => {
     if (questions.length === 0) return;
     clearAutoAdvance();
     const nextIndex = Math.max(0, Math.min(index, questions.length - 1));
     setCurrentQuestionIndex(nextIndex);
+    if (options?.scrollToQuestion) {
+      scrollToQuestionPanel();
+    }
   };
 
   const handleAnswerChange = (questionId: string, selectedOption: number) => {
@@ -206,6 +230,7 @@ export function ChapterQuiz({
         setVisibleRecentAttempts((current) => mergeRecentAttempts([result.attempt, ...current]));
         setIsReviewMode(false);
         setCurrentQuestionIndex(0);
+        scrollToPageTop();
         router.refresh();
       }
     });
@@ -218,17 +243,21 @@ export function ChapterQuiz({
     setSubmittedAttempt(null);
     setIsReviewMode(false);
     setCurrentQuestionIndex(0);
+    scrollToQuestionPanel();
   };
 
   const handleOpenReview = () => {
     clearAutoAdvance();
     setIsReviewMode(true);
-    goToQuestion(firstIncorrectQuestionIndex === -1 ? 0 : firstIncorrectQuestionIndex);
+    goToQuestion(firstIncorrectQuestionIndex === -1 ? 0 : firstIncorrectQuestionIndex, {
+      scrollToQuestion: true,
+    });
   };
 
   const handleCloseReview = () => {
     clearAutoAdvance();
     setIsReviewMode(false);
+    scrollToPageTop();
   };
 
   if (!activeQuestion) {
@@ -287,7 +316,7 @@ export function ChapterQuiz({
     ) : null;
 
   return (
-    <div className="space-y-6">
+    <div ref={pageTopRef} className="space-y-6">
       <ClayCard hover={false} className="!p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
@@ -354,7 +383,7 @@ export function ChapterQuiz({
                   <button
                     key={question.id}
                     type="button"
-                    onClick={() => goToQuestion(index)}
+                    onClick={() => goToQuestion(index, { scrollToQuestion: true })}
                     className={cn(
                       "flex h-11 w-11 items-center justify-center rounded-2xl text-sm font-semibold transition-all",
                       hasSubmittedCurrentRun
@@ -434,7 +463,7 @@ export function ChapterQuiz({
           </div>
         </ClayCard>
 
-        <div className="order-first xl:order-last">
+        <div ref={questionPanelRef} className="order-first xl:order-last">
         {hasSubmittedCurrentRun && !isReviewMode ? (
           <ClayCard hover={false} className="!p-6">
             <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">

@@ -5,6 +5,7 @@ import { StatsOverview } from "@/components/dashboard/stats-overview";
 import { ContinueWatching } from "@/components/dashboard/continue-watching";
 import { RecommendedLessons } from "@/components/dashboard/recommended-lessons";
 import { SubjectGrid } from "@/components/dashboard/subject-grid";
+import { ScrollResetOnMount } from "@/components/ui/scroll-reset-on-mount";
 
 export const metadata = { title: "Dashboard" };
 
@@ -179,6 +180,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-8">
+      <ScrollResetOnMount />
       <WelcomeHero
         name={profile.name}
         streak={streak}

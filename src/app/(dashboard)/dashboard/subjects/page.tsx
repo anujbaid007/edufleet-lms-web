@@ -4,6 +4,7 @@ import { Header } from "@/components/dashboard/header";
 import { SubjectGrid } from "@/components/dashboard/subject-grid";
 import { ClayCard } from "@/components/ui/clay-card";
 import { BookOpen } from "lucide-react";
+import { ScrollResetOnMount } from "@/components/ui/scroll-reset-on-mount";
 
 export const metadata = { title: "Subjects" };
 
@@ -103,6 +104,7 @@ export default async function SubjectsPage() {
 
   return (
     <div className="space-y-8">
+      <ScrollResetOnMount />
       <Header
         title="Your Subjects"
         subtitle={`${subjects.length} subjects available in your learning path`}

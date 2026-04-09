@@ -5,6 +5,7 @@ import { Header } from "@/components/dashboard/header";
 import { ClayCard } from "@/components/ui/clay-card";
 import { AssignStudentForm } from "@/components/dashboard/assign-student-form";
 import { Users, User } from "lucide-react";
+import { ScrollResetOnMount } from "@/components/ui/scroll-reset-on-mount";
 
 export const metadata = { title: "My Students" };
 
@@ -223,6 +224,7 @@ export default async function MyStudentsPage() {
 
   return (
     <div className="space-y-8">
+      <ScrollResetOnMount />
       <Header
         title="My Students"
         subtitle={`${students?.length ?? 0} students in your batch`}

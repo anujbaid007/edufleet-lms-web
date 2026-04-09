@@ -6,6 +6,7 @@ import { ClayCard } from "@/components/ui/clay-card";
 import { ProgressRing } from "@/components/ui/progress-ring";
 import { PageBreadcrumbs } from "@/components/dashboard/page-breadcrumbs";
 import { ChevronRight, BookOpen } from "lucide-react";
+import { ScrollResetOnMount } from "@/components/ui/scroll-reset-on-mount";
 
 export default async function SubjectPage({ params }: { params: { id: string } }) {
   const supabase = await createClient();
@@ -86,6 +87,7 @@ export default async function SubjectPage({ params }: { params: { id: string } }
 
   return (
     <div>
+      <ScrollResetOnMount />
       <PageBreadcrumbs
         backHref="/dashboard/subjects"
         backLabel="All Subjects"

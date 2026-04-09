@@ -6,6 +6,7 @@ import { ClayCard } from "@/components/ui/clay-card";
 import { PageBreadcrumbs } from "@/components/dashboard/page-breadcrumbs";
 import { Play, CheckCircle2, Trophy } from "lucide-react";
 import { formatDuration } from "@/lib/utils";
+import { ScrollResetOnMount } from "@/components/ui/scroll-reset-on-mount";
 import {
   getQuizMasteryClasses,
   getQuizMasteryLabel,
@@ -100,6 +101,7 @@ export default async function ChapterPage({ params }: { params: { id: string } }
 
   return (
     <div>
+      <ScrollResetOnMount />
       <PageBreadcrumbs
         backHref={subjectId ? `/dashboard/subjects/${subjectId}` : "/dashboard/subjects"}
         backLabel={subjectId ? `${subjectName} Chapters` : "All Subjects"}

@@ -6,6 +6,7 @@ import { ProgressRing } from "@/components/ui/progress-ring";
 import { formatDuration } from "@/lib/utils";
 import { ChevronDown, Clock, Flame, Target, Trophy } from "lucide-react";
 import Link from "next/link";
+import { ScrollResetOnMount } from "@/components/ui/scroll-reset-on-mount";
 import {
   getQuizMasteryClasses,
   getQuizMasteryLabel,
@@ -252,6 +253,7 @@ export default async function ProgressPage() {
 
   return (
     <div className="space-y-8">
+      <ScrollResetOnMount />
       <Header title="My Progress" subtitle="Track your learning journey" />
 
       {/* Overall Stats */}

@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Header } from "@/components/dashboard/header";
 import { ClayCard } from "@/components/ui/clay-card";
 import { PageBreadcrumbs } from "@/components/dashboard/page-breadcrumbs";
+import { ScrollResetOnMount } from "@/components/ui/scroll-reset-on-mount";
 import { ChapterQuiz } from "@/components/quiz/chapter-quiz";
 import {
   getQuizMasteryLevel,
@@ -165,6 +166,7 @@ export default async function ChapterQuizPage({ params }: { params: { id: string
 
   return (
     <div className="space-y-6">
+      <ScrollResetOnMount />
       <PageBreadcrumbs
         backHref={`/dashboard/chapters/${chapter.id}`}
         backLabel={`Back to Chapter ${chapter.chapter_no}`}

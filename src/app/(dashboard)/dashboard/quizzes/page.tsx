@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { Header } from "@/components/dashboard/header";
 import { ClayCard } from "@/components/ui/clay-card";
 import { ProgressRing } from "@/components/ui/progress-ring";
+import { QuizHubScrollManager } from "@/components/quiz/quiz-hub-scroll-manager";
+import { ScrollResetOnMount } from "@/components/ui/scroll-reset-on-mount";
 import { ArrowRight, BookOpen, ChevronDown, Sparkles, Target, Trophy } from "lucide-react";
 import {
   getQuizMasteryClasses,
@@ -414,6 +416,8 @@ export default async function QuizzesPage() {
 
   return (
     <div className="space-y-8">
+      <ScrollResetOnMount />
+      <QuizHubScrollManager />
       <Header title="Quiz" />
 
       <ClayCard hover={false} className="overflow-hidden !p-0">
@@ -440,6 +444,7 @@ export default async function QuizzesPage() {
                     <a
                       key={subject.anchor}
                       href={`#${subject.anchor}`}
+                      data-quiz-subject-jump={subject.anchor}
                       className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold shadow-[inset_0_0_0_1px_rgba(15,23,42,0.08)] ${theme.badgeClassName}`}
                     >
                       <span>{subject.name}</span>
@@ -488,7 +493,7 @@ export default async function QuizzesPage() {
             return (
               <section key={subject.anchor} id={subject.anchor} className="scroll-mt-24">
                 <ClayCard hover={false} className="overflow-hidden !p-0">
-                  <details className="group">
+                  <details className="group" data-quiz-subject-section={subject.anchor}>
                     <summary className={`list-none cursor-pointer bg-gradient-to-r ${theme.sectionGradientClassName} marker:content-none`}>
                       <div className="flex flex-col gap-6 px-6 py-6 sm:px-8 sm:py-8 lg:flex-row lg:items-center lg:justify-between">
                         <div className="min-w-0">
@@ -557,11 +562,15 @@ export default async function QuizzesPage() {
                       </div>
                     </summary>
 
-                    <div className="border-t border-orange-primary/10 bg-white/35 px-4 py-4 sm:px-6 sm:py-6">
+                    <div
+                      className="border-t border-orange-primary/10 bg-white/35 px-4 py-4 sm:px-6 sm:py-6"
+                      data-quiz-section-content={subject.anchor}
+                    >
                       <div className="grid gap-4 xl:grid-cols-2">
-                        {subject.quizzes.map((quiz) => (
+                        {subject.quizzes.map((quiz, index) => (
                           <div
                             key={quiz.quizId}
+                            data-quiz-first-card={index === 0 ? subject.anchor : undefined}
                             className="rounded-clay-sm bg-white/90 p-5 shadow-[inset_0_0_0_1px_rgba(15,23,42,0.06)]"
                           >
                             <div className="flex flex-wrap items-center gap-2">
