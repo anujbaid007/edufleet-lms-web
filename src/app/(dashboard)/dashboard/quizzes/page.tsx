@@ -516,14 +516,22 @@ export default async function QuizzesPage() {
                         </div>
 
                         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-                          <ProgressRing
-                            percentage={subject.attemptRate}
-                            size={88}
-                            strokeWidth={7}
-                            color={theme.color}
-                          >
-                            <span className="text-xs font-bold text-heading">{subject.attemptRate}%</span>
-                          </ProgressRing>
+                          <div className="flex flex-col items-center gap-2 rounded-[24px] bg-white/70 px-4 py-3 shadow-[inset_0_0_0_1px_rgba(15,23,42,0.06)]">
+                            <ProgressRing
+                              percentage={subject.attemptRate}
+                              size={88}
+                              strokeWidth={7}
+                              color={theme.color}
+                            >
+                              <span className="text-xs font-bold text-heading">{subject.attemptRate}%</span>
+                            </ProgressRing>
+                            <div className="text-center">
+                              <p className="text-[11px] font-semibold uppercase tracking-wide text-body">Attempt rate</p>
+                              <p className="text-xs text-body">
+                                {subject.attemptedQuizzes} of {subject.totalQuizzes} chapters attempted
+                              </p>
+                            </div>
+                          </div>
                           <div className="grid grid-cols-2 gap-3 sm:min-w-[260px]">
                             <div className="rounded-[20px] bg-white/85 px-4 py-3 shadow-[inset_0_0_0_1px_rgba(15,23,42,0.06)]">
                               <p className="text-[11px] font-semibold uppercase tracking-wide text-body">Avg score</p>
