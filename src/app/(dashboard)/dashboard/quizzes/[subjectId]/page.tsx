@@ -15,6 +15,14 @@ import { getQuizHubData, getQuizSubjectHref } from "@/lib/quiz-hub";
 export const metadata = { title: "Subject Quizzes" };
 export const dynamic = "force-dynamic";
 
+function formatQuizRuns(count: number) {
+  return `${count} ${count === 1 ? "quiz run" : "quiz runs"}`;
+}
+
+function formatStartedChapters(count: number) {
+  return `${count} ${count === 1 ? "chapter started" : "chapters started"}`;
+}
+
 export default async function QuizSubjectPage({ params }: { params: { subjectId: string } }) {
   noStore();
   const supabase = await createClient();
@@ -56,10 +64,10 @@ export default async function QuizSubjectPage({ params }: { params: { subjectId:
               {subject.totalQuizzes} quizzes
             </span>
             <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-body shadow-[inset_0_0_0_1px_rgba(15,23,42,0.08)]">
-              {subject.attemptedQuizzes} chapters attempted
+              {formatStartedChapters(subject.attemptedQuizzes)}
             </span>
             <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-body shadow-[inset_0_0_0_1px_rgba(15,23,42,0.08)]">
-              {subject.totalAttempts} attempts
+              {formatQuizRuns(subject.totalAttempts)}
             </span>
           </div>
 
@@ -78,9 +86,9 @@ export default async function QuizSubjectPage({ params }: { params: { subjectId:
                   <span className="text-xs font-bold text-heading">{subject.attemptRate}%</span>
                 </ProgressRing>
                 <div className="text-center">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-body">Attempt rate</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-body">Coverage</p>
                   <p className="text-xs text-body">
-                    {subject.attemptedQuizzes} of {subject.totalQuizzes} chapters attempted
+                    Started {subject.attemptedQuizzes} of {subject.totalQuizzes} chapters
                   </p>
                 </div>
               </div>
@@ -142,7 +150,7 @@ export default async function QuizSubjectPage({ params }: { params: { subjectId:
               </span>
               {quiz.totalAttempts > 0 ? (
                 <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-heading">
-                  {quiz.totalAttempts} attempts
+                  {formatQuizRuns(quiz.totalAttempts)}
                 </span>
               ) : null}
               {quiz.bestAttempt ? (

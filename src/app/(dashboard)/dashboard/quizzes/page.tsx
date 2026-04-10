@@ -13,6 +13,14 @@ import { getQuizHubData, getQuizSubjectHref } from "@/lib/quiz-hub";
 export const metadata = { title: "Quiz" };
 export const dynamic = "force-dynamic";
 
+function formatQuizRuns(count: number) {
+  return `${count} ${count === 1 ? "quiz run" : "quiz runs"}`;
+}
+
+function formatStartedChapters(count: number) {
+  return `${count} ${count === 1 ? "chapter started" : "chapters started"}`;
+}
+
 export default async function QuizzesPage() {
   noStore();
   const supabase = await createClient();
@@ -82,13 +90,13 @@ export default async function QuizzesPage() {
             <ClayCard hover={false} className="!p-4 text-center">
               <Trophy className="mx-auto mb-2 h-7 w-7 text-orange-primary" />
               <p className="text-2xl font-bold text-heading">{totalAttempts}</p>
-              <p className="text-xs font-medium text-body">Total Attempts</p>
+              <p className="text-xs font-medium text-body">Quiz Runs</p>
             </ClayCard>
             <ClayCard hover={false} className="!p-4 text-center">
               <Sparkles className="mx-auto mb-2 h-7 w-7 text-orange-primary" />
               <p className="text-2xl font-bold text-heading">{averageQuizScore}%</p>
               <p className="text-xs font-medium text-body">
-                {attemptedQuizzes} chapters attempted · {masteredQuizzes} mastered
+                {formatStartedChapters(attemptedQuizzes)} · {masteredQuizzes} mastered
               </p>
             </ClayCard>
           </div>
@@ -101,7 +109,7 @@ export default async function QuizzesPage() {
             const theme = getSubjectTheme(subject.name);
 
             return (
-              <Link key={subject.id} href={getQuizSubjectHref(subject.id)} className="block h-full">
+              <Link key={subject.id} href={getQuizSubjectHref(subject.id)} className="group block h-full">
                 <ClayCard hover className="h-full overflow-hidden !p-0">
                   <div className={`flex h-full flex-col bg-gradient-to-r ${theme.sectionGradientClassName} px-6 py-6 sm:px-8 sm:py-8`}>
                     <div className="flex flex-wrap items-center gap-2">
@@ -112,59 +120,82 @@ export default async function QuizzesPage() {
                         {subject.totalQuizzes} quizzes
                       </span>
                       <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-body shadow-[inset_0_0_0_1px_rgba(15,23,42,0.08)]">
-                        {subject.attemptedQuizzes} chapters attempted
+                        {formatStartedChapters(subject.attemptedQuizzes)}
                       </span>
                       <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-body shadow-[inset_0_0_0_1px_rgba(15,23,42,0.08)]">
-                        {subject.totalAttempts} attempts
+                        {formatQuizRuns(subject.totalAttempts)}
                       </span>
                     </div>
 
-                    <div className="mt-4 flex flex-1 flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-                      <div className="min-w-0">
-                        <h2 className="text-2xl font-bold text-heading font-poppins">{subject.name} practice track</h2>
-                        <p className="mt-2 max-w-2xl text-sm leading-6 text-body">
-                          {subject.completedVideos}/{subject.totalVideos} lesson videos completed across this subject.
-                          Open the subject to browse all chapter quizzes in one place.
+                    <div className="mt-5 flex flex-1 flex-col">
+                      <div className="max-w-[30rem]">
+                        <h2 className="text-[2rem] font-bold leading-tight text-heading font-poppins">
+                          {subject.name}
+                        </h2>
+                        <p className="mt-3 text-sm leading-6 text-body">
+                          Practice this subject chapter by chapter, revisit weaker scores, and continue from where you left off.
                         </p>
                       </div>
 
-                      <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-                        <div className="flex flex-col items-center gap-2 rounded-[24px] bg-white/70 px-4 py-3 shadow-[inset_0_0_0_1px_rgba(15,23,42,0.06)]">
-                          <ProgressRing percentage={subject.attemptRate} size={88} strokeWidth={7} color={theme.color}>
-                            <span className="text-xs font-bold text-heading">{subject.attemptRate}%</span>
-                          </ProgressRing>
-                          <div className="text-center">
-                            <p className="text-[11px] font-semibold uppercase tracking-wide text-body">Attempt rate</p>
-                            <p className="text-xs text-body">
-                              {subject.attemptedQuizzes} of {subject.totalQuizzes} chapters attempted
-                            </p>
+                      <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                        <div className="rounded-[24px] bg-white/84 px-5 py-4 shadow-[inset_0_0_0_1px_rgba(15,23,42,0.06)]">
+                          <div className="flex items-center gap-4">
+                            <ProgressRing percentage={subject.attemptRate} size={68} strokeWidth={7} color={theme.color}>
+                              <span className="text-[11px] font-bold text-heading">{subject.attemptRate}%</span>
+                            </ProgressRing>
+                            <div>
+                              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-body">
+                                Coverage
+                              </p>
+                              <p className="mt-1 text-sm font-semibold text-heading">
+                                Started {subject.attemptedQuizzes} of {subject.totalQuizzes} chapters
+                              </p>
+                              <p className="mt-1 text-xs text-body">{formatQuizRuns(subject.totalAttempts)} logged</p>
+                            </div>
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3 sm:min-w-[260px]">
-                          <div className="rounded-[20px] bg-white/85 px-4 py-3 shadow-[inset_0_0_0_1px_rgba(15,23,42,0.06)]">
-                            <p className="text-[11px] font-semibold uppercase tracking-wide text-body">Avg score</p>
-                            <p className="mt-1 text-lg font-bold text-heading">{subject.averageQuizScore}%</p>
-                          </div>
-                          <div className="rounded-[20px] bg-white/85 px-4 py-3 shadow-[inset_0_0_0_1px_rgba(15,23,42,0.06)]">
-                            <p className="text-[11px] font-semibold uppercase tracking-wide text-body">Mastered</p>
-                            <p className="mt-1 text-lg font-bold text-heading">{subject.masteredQuizzes}</p>
-                          </div>
-                          <div className="rounded-[20px] bg-white/85 px-4 py-3 shadow-[inset_0_0_0_1px_rgba(15,23,42,0.06)]">
-                            <p className="text-[11px] font-semibold uppercase tracking-wide text-body">Lesson progress</p>
-                            <p className="mt-1 text-lg font-bold text-heading">{subject.lessonProgressPercent}%</p>
-                          </div>
-                          <div className="rounded-[20px] bg-white/85 px-4 py-3 shadow-[inset_0_0_0_1px_rgba(15,23,42,0.06)]">
-                            <p className="text-[11px] font-semibold uppercase tracking-wide text-body">Chapters ready</p>
-                            <p className="mt-1 text-lg font-bold text-heading">{subject.totalQuizzes}</p>
-                          </div>
+                        <div className="rounded-[22px] bg-white/88 px-4 py-4 shadow-[inset_0_0_0_1px_rgba(15,23,42,0.06)]">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-body">Avg score</p>
+                          <p className="mt-2 text-2xl font-bold text-heading">{subject.averageQuizScore}%</p>
+                        </div>
+                        <div className="rounded-[22px] bg-white/88 px-4 py-4 shadow-[inset_0_0_0_1px_rgba(15,23,42,0.06)]">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-body">Mastered</p>
+                          <p className="mt-2 text-2xl font-bold text-heading">{subject.masteredQuizzes}</p>
+                        </div>
+                        <div className="rounded-[22px] bg-white/88 px-4 py-4 shadow-[inset_0_0_0_1px_rgba(15,23,42,0.06)]">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-body">Activity</p>
+                          <p className="mt-2 text-2xl font-bold text-heading">{subject.totalAttempts}</p>
+                        </div>
+                        <div className="rounded-[22px] bg-white/88 px-4 py-4 shadow-[inset_0_0_0_1px_rgba(15,23,42,0.06)]">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-body">Chapters ready</p>
+                          <p className="mt-2 text-2xl font-bold text-heading">{subject.totalQuizzes}</p>
                         </div>
                       </div>
-                    </div>
 
-                    <div className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-orange-primary">
-                      <span>Open chapters</span>
-                      <ArrowRight className="h-4 w-4" />
+                      <div className="mt-5 rounded-[24px] bg-white/82 px-5 py-4 shadow-[inset_0_0_0_1px_rgba(15,23,42,0.06)]">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-body">Lesson progress</p>
+                            <p className="mt-1 text-sm font-semibold text-heading">
+                              {subject.completedVideos}/{subject.totalVideos} videos completed
+                            </p>
+                          </div>
+                          <div className="inline-flex items-center gap-2 self-start rounded-full bg-white/92 px-4 py-2.5 text-sm font-semibold text-orange-primary shadow-[inset_0_0_0_1px_rgba(232,135,30,0.18)] transition-transform duration-200 group-hover:translate-x-1">
+                            <span>Open chapters</span>
+                            <ArrowRight className="h-4 w-4" />
+                          </div>
+                        </div>
+                        <div className="mt-3 h-2 overflow-hidden rounded-full bg-orange-primary/10">
+                          <div
+                            className="h-full rounded-full transition-all"
+                            style={{
+                              width: `${subject.lessonProgressPercent}%`,
+                              backgroundColor: theme.color,
+                            }}
+                          />
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </ClayCard>
