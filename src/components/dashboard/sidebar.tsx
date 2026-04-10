@@ -14,6 +14,7 @@ import {
   Trophy,
   Menu,
   X,
+  MoreHorizontal,
 } from "lucide-react";
 import { useState } from "react";
 import { logout } from "@/lib/actions/auth";
@@ -46,7 +47,11 @@ function isSubjectsActive(pathname: string) {
 }
 
 function isQuizActive(pathname: string) {
-  return pathname === "/dashboard/quizzes" || pathname.startsWith("/dashboard/chapters/") && pathname.endsWith("/quiz");
+  return (
+    pathname === "/dashboard/quizzes" ||
+    pathname.startsWith("/dashboard/quizzes/") ||
+    (pathname.startsWith("/dashboard/chapters/") && pathname.endsWith("/quiz"))
+  );
 }
 
 const studentLinks = [
@@ -69,6 +74,13 @@ export function Sidebar({ userRole, userName, mobileSlot }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const links = userRole === "teacher" ? teacherLinks : studentLinks;
+
+  const isLinkActive = (link: DashboardLink) =>
+    link.isActive
+      ? link.isActive(pathname)
+      : link.href === "/dashboard"
+        ? pathname === "/dashboard"
+        : pathname === link.href || pathname.startsWith(`${link.href}/`);
 
   return (
     <>
@@ -165,11 +177,7 @@ export function Sidebar({ userRole, userName, mobileSlot }: SidebarProps) {
 
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
           {links.map((link) => {
-            const isActive = link.isActive
-              ? link.isActive(pathname)
-              : link.href === "/dashboard"
-                ? pathname === "/dashboard"
-                : pathname === link.href || pathname.startsWith(`${link.href}/`);
+            const isActive = isLinkActive(link);
             return (
               <Link
                 key={link.href}
@@ -207,6 +215,45 @@ export function Sidebar({ userRole, userName, mobileSlot }: SidebarProps) {
           </form>
         </div>
       </aside>
+
+      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-orange-primary/10 bg-[rgba(253,248,243,0.96)] px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 backdrop-blur-xl lg:hidden">
+        <div className="grid grid-cols-5 gap-1">
+          {links.map((link) => {
+            const isActive = isLinkActive(link);
+
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={cn(
+                  "flex min-h-[60px] flex-col items-center justify-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-medium transition-all",
+                  isActive
+                    ? "clay-surface-orange text-white shadow-clay-orange"
+                    : "text-body hover:bg-white/85 hover:text-heading"
+                )}
+              >
+                <link.icon className={cn("h-4.5 w-4.5 shrink-0", isActive && "text-white")} />
+                <span className="truncate">{link.label}</span>
+              </Link>
+            );
+          })}
+
+          <button
+            type="button"
+            onClick={() => setMobileOpen((current) => !current)}
+            className={cn(
+              "flex min-h-[60px] flex-col items-center justify-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-medium transition-all",
+              mobileOpen
+                ? "clay-surface-orange text-white shadow-clay-orange"
+                : "text-body hover:bg-white/85 hover:text-heading"
+            )}
+            aria-label={mobileOpen ? "Close navigation menu" : "Open navigation menu"}
+          >
+            <MoreHorizontal className={cn("h-4.5 w-4.5 shrink-0", mobileOpen && "text-white")} />
+            <span className="truncate">More</span>
+          </button>
+        </div>
+      </nav>
     </>
   );
 }
