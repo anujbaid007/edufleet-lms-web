@@ -10,11 +10,7 @@ interface LanguageContextValue {
   setLang: (lang: Lang) => void;
 }
 
-const LanguageContext = createContext<LanguageContextValue>({
-  lang: "en",
-  t: (key) => key,
-  setLang: () => {},
-});
+const LanguageContext = createContext<LanguageContextValue | null>(null);
 
 export function LanguageProvider({
   initialLang,
@@ -43,6 +39,8 @@ export function LanguageProvider({
   );
 }
 
-export function useLanguage() {
-  return useContext(LanguageContext);
+export function useLanguage(): LanguageContextValue {
+  const ctx = useContext(LanguageContext);
+  if (!ctx) throw new Error("useLanguage must be used inside <LanguageProvider>");
+  return ctx;
 }

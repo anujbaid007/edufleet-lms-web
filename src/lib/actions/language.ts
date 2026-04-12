@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { Lang } from "@/lib/i18n";
 
 export async function updateLanguage(lang: Lang): Promise<void> {
+  const cookieStore = cookies();
   const supabase = await createClient();
   const {
     data: { session },
@@ -16,10 +17,9 @@ export async function updateLanguage(lang: Lang): Promise<void> {
     .update({ ui_language: lang })
     .eq("id", session.user.id);
 
-  cookies().set("ui_language", lang, {
+  cookieStore.set("ui_language", lang, {
     path: "/",
     maxAge: 60 * 60 * 24 * 365,
     sameSite: "lax",
-    httpOnly: false,
   });
 }
