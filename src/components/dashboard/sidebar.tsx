@@ -19,6 +19,8 @@ import {
 import { useState } from "react";
 import { logout } from "@/lib/actions/auth";
 import Image from "next/image";
+import { useLanguage } from "@/context/language-context";
+import type { Lang } from "@/lib/i18n";
 
 interface SidebarProps {
   userRole: string;
@@ -54,25 +56,27 @@ function isQuizActive(pathname: string) {
   );
 }
 
-const studentLinks = [
-  { href: "/dashboard", label: "Home", icon: Home, isActive: isHomeActive },
-  { href: "/dashboard/subjects", label: "Subjects", icon: BookOpen, isActive: isSubjectsActive },
-  { href: "/dashboard/quizzes", label: "Quiz", icon: Trophy, isActive: isQuizActive },
-  { href: "/dashboard/progress", label: "My Progress", icon: BarChart3 },
-] satisfies DashboardLink[];
-
-const teacherLinks = [
-  { href: "/dashboard", label: "Home", icon: Home, isActive: isHomeActive },
-  { href: "/dashboard/subjects", label: "Subjects", icon: BookOpen, isActive: isSubjectsActive },
-  { href: "/dashboard/quizzes", label: "Quiz", icon: Trophy, isActive: isQuizActive },
-  { href: "/dashboard/students", label: "My Students", icon: Users },
-  { href: "/dashboard/progress", label: "My Progress", icon: BarChart3 },
-] satisfies DashboardLink[];
-
 export function Sidebar({ userRole, userName, mobileSlot }: SidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { lang, t, setLang } = useLanguage();
+
+  const studentLinks = [
+    { href: "/dashboard", label: t("nav.home"), icon: Home, isActive: isHomeActive },
+    { href: "/dashboard/subjects", label: t("nav.subjects"), icon: BookOpen, isActive: isSubjectsActive },
+    { href: "/dashboard/quizzes", label: t("nav.quiz"), icon: Trophy, isActive: isQuizActive },
+    { href: "/dashboard/progress", label: t("nav.progress"), icon: BarChart3 },
+  ] satisfies DashboardLink[];
+
+  const teacherLinks = [
+    { href: "/dashboard", label: t("nav.home"), icon: Home, isActive: isHomeActive },
+    { href: "/dashboard/subjects", label: t("nav.subjects"), icon: BookOpen, isActive: isSubjectsActive },
+    { href: "/dashboard/quizzes", label: t("nav.quiz"), icon: Trophy, isActive: isQuizActive },
+    { href: "/dashboard/students", label: t("nav.students"), icon: Users },
+    { href: "/dashboard/progress", label: t("nav.progress"), icon: BarChart3 },
+  ] satisfies DashboardLink[];
+
   const links = userRole === "teacher" ? teacherLinks : studentLinks;
 
   const isLinkActive = (link: DashboardLink) =>
@@ -204,13 +208,48 @@ export function Sidebar({ userRole, userName, mobileSlot }: SidebarProps) {
               <p className="text-xs capitalize text-muted">{userRole}</p>
             </div>
           )}
+
+          {/* Language toggle */}
+          {collapsed ? (
+            <button
+              type="button"
+              onClick={() => setLang(lang === "en" ? "hi" : "en")}
+              className="flex w-full items-center justify-center rounded-clay-sm px-4 py-3 text-xs font-bold text-muted transition-all hover:bg-cream/80 hover:text-heading"
+              aria-label="Switch language"
+              title={t("nav.language")}
+            >
+              {lang === "en" ? "हि" : "EN"}
+            </button>
+          ) : (
+            <div className="px-4 py-1">
+              <p className="mb-1.5 text-[11px] font-medium text-muted">{t("nav.language")}</p>
+              <div className="flex overflow-hidden rounded-full border border-orange-primary/20 bg-white/80">
+                {(["en", "hi"] as Lang[]).map((l) => (
+                  <button
+                    key={l}
+                    type="button"
+                    onClick={() => setLang(l)}
+                    className={cn(
+                      "flex-1 py-1.5 text-xs font-semibold transition-colors",
+                      lang === l
+                        ? "bg-orange-primary text-white"
+                        : "text-muted hover:text-heading"
+                    )}
+                  >
+                    {l === "en" ? "EN" : "हि"}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           <form action={logout}>
             <button
               type="submit"
               className="flex w-full items-center gap-3 rounded-clay-sm px-4 py-3 text-sm font-medium text-body transition-all hover:bg-red-50/80 hover:text-red-600"
             >
               <LogOut className="h-5 w-5 shrink-0" />
-              {!collapsed && <span>Sign Out</span>}
+              {!collapsed && <span>{t("nav.signOut")}</span>}
             </button>
           </form>
         </div>
