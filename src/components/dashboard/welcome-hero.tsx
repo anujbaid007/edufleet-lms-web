@@ -53,7 +53,7 @@ export function WelcomeHero({
       greetingLabel: t(greetingKey),
       GreetingIcon: icon,
       message: t(msgKey, { n: streak }),
-      displayName: firstWord(name),
+      displayName: firstWord(name) || t("hero.learner"),
       progressPercent:
         totalChapters > 0
           ? Math.round((completedChapters / totalChapters) * 100)
@@ -149,7 +149,7 @@ export function WelcomeHero({
             variants={item}
             className="mt-4 font-poppins text-[28px] font-bold leading-tight text-heading sm:text-4xl lg:text-[44px]"
           >
-            Hey{" "}
+            {t("hero.hey")}{" "}
             <span
               className="bg-clip-text text-transparent"
               style={{

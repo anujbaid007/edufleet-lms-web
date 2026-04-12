@@ -289,7 +289,7 @@ export function Sidebar({ userRole, userName, mobileSlot }: SidebarProps) {
             aria-label={mobileOpen ? "Close navigation menu" : "Open navigation menu"}
           >
             <MoreHorizontal className={cn("h-4.5 w-4.5 shrink-0", mobileOpen && "text-white")} />
-            <span className="truncate">More</span>
+            <span className="truncate">{t("nav.more")}</span>
           </button>
         </div>
       </nav>

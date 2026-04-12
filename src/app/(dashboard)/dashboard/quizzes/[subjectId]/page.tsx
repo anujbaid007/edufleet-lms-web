@@ -75,10 +75,9 @@ export default async function QuizSubjectPage({ params }: { params: { subjectId:
 
           <div className="mt-5 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
             <div className="min-w-0">
-              <h2 className="text-3xl font-bold text-heading font-poppins">{subject.name} practice track</h2>
+              <h2 className="text-3xl font-bold text-heading font-poppins">{t(lang, "quiz.subjectPracticeTrack", { name: subject.name })}</h2>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-body">
-                {subject.completedVideos}/{subject.totalVideos} lesson videos completed across this subject. Retake weaker
-                chapters and keep building toward mastery.
+                {t(lang, "quiz.subjectHeroDesc", { done: subject.completedVideos, total: subject.totalVideos })}
               </p>
             </div>
 
@@ -145,10 +144,10 @@ export default async function QuizSubjectPage({ params }: { params: { subjectId:
           <div key={quiz.quizId} className="rounded-clay-sm bg-white/90 p-5 shadow-[inset_0_0_0_1px_rgba(15,23,42,0.06)]">
             <div className="flex flex-wrap items-center gap-2">
               <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${theme.badgeClassName}`}>
-                Chapter {quiz.chapterNo}
+                {t(lang, "quiz.chapterLabel", { n: quiz.chapterNo })}
               </span>
               <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-heading">
-                {quiz.questionCount} questions
+                {t(lang, "quiz.questionsCount", { n: quiz.questionCount })}
               </span>
               {quiz.totalAttempts > 0 ? (
                 <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-heading">
@@ -165,7 +164,7 @@ export default async function QuizSubjectPage({ params }: { params: { subjectId:
                 </span>
               ) : (
                 <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${theme.softBadgeClassName}`}>
-                  Ready to attempt
+                  {t(lang, "quiz.readyToAttempt")}
                 </span>
               )}
             </div>
@@ -173,7 +172,7 @@ export default async function QuizSubjectPage({ params }: { params: { subjectId:
             <div className="mt-4">
               <h3 className="text-xl font-bold text-heading font-poppins">{quiz.chapterTitle}</h3>
               <p className="mt-1 text-sm text-body">
-                {quiz.completedVideos}/{quiz.totalVideos} videos completed · {quiz.lessonProgressPercent}% lesson progress
+                {t(lang, "quiz.lessonVideoProgress", { done: quiz.completedVideos, total: quiz.totalVideos, pct: quiz.lessonProgressPercent })}
               </p>
             </div>
 
@@ -189,8 +188,8 @@ export default async function QuizSubjectPage({ params }: { params: { subjectId:
 
             {quiz.bestAttempt ? (
               <div className="mt-4 rounded-[18px] bg-slate-50 px-4 py-3 text-sm text-body shadow-[inset_0_0_0_1px_rgba(15,23,42,0.05)]">
-                Best score <span className="font-bold text-heading">{quiz.bestAttempt.percent}%</span> ·{" "}
-                {quiz.bestAttempt.correctAnswers}/{quiz.bestAttempt.totalQuestions} correct
+                {t(lang, "quiz.bestScore")} <span className="font-bold text-heading">{quiz.bestAttempt.percent}%</span> ·{" "}
+                {quiz.bestAttempt.correctAnswers}/{quiz.bestAttempt.totalQuestions} {t(lang, "quiz.correct")}
               </div>
             ) : null}
 
@@ -199,14 +198,14 @@ export default async function QuizSubjectPage({ params }: { params: { subjectId:
                 href={`/dashboard/chapters/${quiz.chapterId}/quiz`}
                 className="inline-flex items-center gap-2 rounded-full bg-orange-primary px-4 py-2.5 text-sm font-semibold text-white shadow-clay-orange"
               >
-                {quiz.bestAttempt ? "Retake quiz" : "Start quiz"}
+                {quiz.bestAttempt ? t(lang, "quiz.retake") : t(lang, "quiz.start")}
                 <ArrowRight className="h-4 w-4" />
               </Link>
               <Link
                 href={`/dashboard/chapters/${quiz.chapterId}`}
                 className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-heading shadow-[inset_0_0_0_1px_rgba(15,23,42,0.12)]"
               >
-                Open chapter
+                {t(lang, "quiz.openChapter")}
               </Link>
             </div>
           </div>

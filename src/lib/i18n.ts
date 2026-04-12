@@ -119,6 +119,21 @@ const dict = {
     "quiz.subjectSubtitle": "All chapter quizzes for this subject are ready below.",
     "quiz.backToHub": "Back to Quiz Hub",
     "quiz.subjects": "Subjects",
+    // Missing keys
+    "nav.more": "More",
+    "hero.hey": "Hey",
+    "hero.learner": "learner",
+    "quiz.subjectPracticeTrack": "{name} practice track",
+    "quiz.subjectHeroDesc": "{done}/{total} lesson videos completed across this subject. Retake weaker chapters and keep building toward mastery.",
+    "quiz.chapterLabel": "Chapter {n}",
+    "quiz.questionsCount": "{n} questions",
+    "quiz.readyToAttempt": "Ready to attempt",
+    "quiz.lessonVideoProgress": "{done}/{total} videos completed · {pct}% lesson progress",
+    "quiz.bestScore": "Best score",
+    "quiz.correct": "correct",
+    "quiz.retake": "Retake quiz",
+    "quiz.start": "Start quiz",
+    "quiz.openChapter": "Open chapter",
   },
   hi: {
     // Navigation
@@ -236,6 +251,21 @@ const dict = {
     "quiz.subjectSubtitle": "इस विषय के सभी अध्याय क्विज़ नीचे तैयार हैं।",
     "quiz.backToHub": "क्विज़ हब पर वापस",
     "quiz.subjects": "विषय",
+    // Missing keys
+    "nav.more": "और",
+    "hero.hey": "हे",
+    "hero.learner": "छात्र",
+    "quiz.subjectPracticeTrack": "{name} practise ट्रैक",
+    "quiz.subjectHeroDesc": "इस विषय के {done}/{total} पाठ वीडियो पूरे हो गए। कमज़ोर अध्याय दोबारा करो और महारत की तरफ बढ़ते रहो।",
+    "quiz.chapterLabel": "अध्याय {n}",
+    "quiz.questionsCount": "{n} सवाल",
+    "quiz.readyToAttempt": "शुरू करें",
+    "quiz.lessonVideoProgress": "{done}/{total} वीडियो पूरे · {pct}% पाठ प्रगति",
+    "quiz.bestScore": "सर्वश्रेष्ठ",
+    "quiz.correct": "सही",
+    "quiz.retake": "दोबारा करें",
+    "quiz.start": "क्विज़ शुरू करें",
+    "quiz.openChapter": "अध्याय खोलें",
   },
 } satisfies Record<Lang, Record<string, string>>;
 
