@@ -1,9 +1,29 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
 import { getFallbackQuizMeta, listFallbackAttemptsForUserByChapterIds } from "@/lib/dev-quiz-fallback";
+import { getLearnerScopeManifest, type LearnerScopeChapter, type LearnerScopeProfile } from "@/lib/learner-scope";
 import { getQuizMasteryLevel, isQuizSchemaUnavailableError } from "@/lib/quiz";
 
 type AppSupabaseClient = SupabaseClient<Database>;
+
+type QuizRow = {
+  id: string;
+  chapter_id: string;
+  question_count: number;
+};
+
+type QuizAttemptRow = {
+  quiz_id: string;
+  percent: number;
+  correct_answers: number;
+  total_questions: number;
+  completed_at: string;
+};
+
+type VideoRow = {
+  id: string;
+  chapter_id: string;
+};
 
 export type QuizCardData = {
   quizId: string;
@@ -41,7 +61,7 @@ export type SubjectSection = {
 };
 
 export type QuizHubData = {
-  quizCards: QuizCardData[];
+  totalQuizzes: number;
   subjectSections: SubjectSection[];
   attemptedQuizzes: number;
   totalAttempts: number;
@@ -49,58 +69,27 @@ export type QuizHubData = {
   averageQuizScore: number;
 };
 
+export type QuizSubjectLink = {
+  id: string;
+  name: string;
+  totalQuizzes: number;
+};
+
+export type QuizSubjectPageData = {
+  subject: SubjectSection;
+  subjectLinks: QuizSubjectLink[];
+};
+
 export function getQuizSubjectHref(subjectId: string) {
   return `/dashboard/quizzes/${subjectId}`;
 }
 
-export async function getQuizHubData(supabase: AppSupabaseClient, userId: string): Promise<QuizHubData | null> {
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("class, board, medium, org_id")
-    .eq("id", userId)
-    .single();
-
-  if (!profile) return null;
-
-  const { data: allChapters } = await supabase
-    .from("chapters")
-    .select("id, title, title_hindi, chapter_no, subject_id, subjects(id, name)")
-    .eq("class", profile.class ?? 0)
-    .eq("board", profile.board ?? "CBSE")
-    .eq("medium", profile.medium ?? "English")
-    .order("chapter_no");
-
-  let chapters = allChapters ?? [];
-
-  if (profile.org_id) {
-    const { data: restrictions } = await supabase
-      .from("content_restrictions")
-      .select("chapter_id")
-      .eq("org_id", profile.org_id);
-    const blockedIds = new Set(restrictions?.map((row) => row.chapter_id) ?? []);
-    chapters = chapters.filter((chapter) => !blockedIds.has(chapter.id));
-  }
-
+async function getQuizRowsForChapters(
+  supabase: AppSupabaseClient,
+  profile: LearnerScopeProfile,
+  chapters: LearnerScopeChapter[]
+) {
   const chapterIds = chapters.map((chapter) => chapter.id);
-
-  const { data: videos } = chapterIds.length > 0
-    ? await supabase
-        .from("videos")
-        .select("id, chapter_id")
-        .in("chapter_id", chapterIds)
-    : { data: [] };
-
-  const videoIds = videos?.map((video) => video.id) ?? [];
-  const { data: progress } = videoIds.length > 0
-    ? await supabase
-        .from("video_progress")
-        .select("video_id, completed")
-        .eq("user_id", userId)
-        .in("video_id", videoIds)
-    : { data: [] };
-
-  const completedVideoIds = new Set((progress ?? []).filter((row) => row.completed).map((row) => row.video_id));
-
   const { data: quizzes, error: quizzesError } = chapterIds.length > 0
     ? await supabase
         .from("chapter_quizzes")
@@ -109,7 +98,7 @@ export async function getQuizHubData(supabase: AppSupabaseClient, userId: string
         .in("chapter_id", chapterIds)
     : { data: [] };
 
-  const dbQuizRows = isQuizSchemaUnavailableError(quizzesError) ? [] : quizzes ?? [];
+  const dbQuizRows = (isQuizSchemaUnavailableError(quizzesError) ? [] : quizzes ?? []) as QuizRow[];
   const dbQuizByChapterId = new Map(dbQuizRows.map((quiz) => [quiz.chapter_id, quiz]));
 
   const fallbackQuizRows = (
@@ -117,7 +106,7 @@ export async function getQuizHubData(supabase: AppSupabaseClient, userId: string
       chapters
         .filter((chapter) => !dbQuizByChapterId.has(chapter.id))
         .map(async (chapter) => {
-          const subjectMeta = chapter.subjects as unknown as { id: string; name: string } | null;
+          const subjectName = chapter.subjects?.name ?? "Subject";
           const meta = await getFallbackQuizMeta({
             id: chapter.id,
             class: profile.class ?? 0,
@@ -125,7 +114,7 @@ export async function getQuizHubData(supabase: AppSupabaseClient, userId: string
             chapterNo: chapter.chapter_no,
             title: chapter.title,
             titleHindi: chapter.title_hindi,
-            subjectName: subjectMeta?.name ?? "",
+            subjectName,
           });
 
           return meta
@@ -137,9 +126,21 @@ export async function getQuizHubData(supabase: AppSupabaseClient, userId: string
             : null;
         })
     )
-  ).filter((quiz): quiz is { id: string; chapter_id: string; question_count: number } => Boolean(quiz));
+  ).filter((quiz): quiz is QuizRow => Boolean(quiz));
 
-  const quizRows = [...dbQuizRows, ...fallbackQuizRows];
+  return {
+    dbQuizRows,
+    fallbackQuizRows,
+    quizRows: [...dbQuizRows, ...fallbackQuizRows],
+  };
+}
+
+async function getQuizAttemptState(
+  supabase: AppSupabaseClient,
+  userId: string,
+  dbQuizRows: QuizRow[],
+  fallbackQuizRows: QuizRow[]
+) {
   const dbQuizIds = dbQuizRows.map((quiz) => quiz.id);
 
   const { data: quizAttempts, error: quizAttemptsError } = dbQuizIds.length > 0
@@ -159,7 +160,7 @@ export async function getQuizHubData(supabase: AppSupabaseClient, userId: string
     : [];
 
   const quizAttemptRows = [
-    ...(isQuizSchemaUnavailableError(quizAttemptsError) ? [] : quizAttempts ?? []),
+    ...(isQuizSchemaUnavailableError(quizAttemptsError) ? [] : (quizAttempts ?? [])),
     ...fallbackQuizAttempts.map((attempt) => ({
       quiz_id: attempt.quizId,
       percent: attempt.percent,
@@ -167,7 +168,7 @@ export async function getQuizHubData(supabase: AppSupabaseClient, userId: string
       total_questions: attempt.totalQuestions,
       completed_at: attempt.completedAt,
     })),
-  ].sort((left, right) => right.completed_at.localeCompare(left.completed_at));
+  ].sort((left, right) => right.completed_at.localeCompare(left.completed_at)) as QuizAttemptRow[];
 
   const bestQuizAttemptByQuizId = new Map<
     string,
@@ -197,14 +198,51 @@ export async function getQuizHubData(supabase: AppSupabaseClient, userId: string
     }
   }
 
+  return {
+    quizAttemptRows,
+    bestQuizAttemptByQuizId,
+    attemptCountByQuizId,
+  };
+}
+
+function buildVideosByChapterId(videos: VideoRow[]) {
+  const videosByChapterId = new Map<string, VideoRow[]>();
+
+  for (const video of videos) {
+    if (!videosByChapterId.has(video.chapter_id)) {
+      videosByChapterId.set(video.chapter_id, []);
+    }
+    videosByChapterId.get(video.chapter_id)!.push(video);
+  }
+
+  return videosByChapterId;
+}
+
+function buildQuizCards(params: {
+  chapters: LearnerScopeChapter[];
+  videosByChapterId: Map<string, VideoRow[]>;
+  completedVideoIds: Set<string>;
+  quizRows: QuizRow[];
+  bestQuizAttemptByQuizId: Map<
+    string,
+    {
+      percent: number;
+      correctAnswers: number;
+      totalQuestions: number;
+      completedAt: string;
+    }
+  >;
+  attemptCountByQuizId: Map<string, number>;
+}) {
+  const { chapters, videosByChapterId, completedVideoIds, quizRows, bestQuizAttemptByQuizId, attemptCountByQuizId } = params;
   const quizByChapterId = new Map(quizRows.map((quiz) => [quiz.chapter_id, quiz]));
-  const quizCards = chapters
+
+  return chapters
     .map((chapter) => {
       const quiz = quizByChapterId.get(chapter.id);
       if (!quiz) return null;
 
-      const subjectMeta = chapter.subjects as unknown as { id: string; name: string } | null;
-      const chapterVideos = videos?.filter((video) => video.chapter_id === chapter.id) ?? [];
+      const chapterVideos = videosByChapterId.get(chapter.id) ?? [];
       const completedVideos = chapterVideos.filter((video) => completedVideoIds.has(video.id)).length;
       const bestAttempt = bestQuizAttemptByQuizId.get(quiz.id) ?? null;
       const totalAttempts = attemptCountByQuizId.get(quiz.id) ?? 0;
@@ -217,8 +255,8 @@ export async function getQuizHubData(supabase: AppSupabaseClient, userId: string
         chapterId: chapter.id,
         chapterNo: chapter.chapter_no,
         chapterTitle: chapter.title,
-        subjectId: subjectMeta?.id ?? chapter.subject_id,
-        subjectName: subjectMeta?.name ?? "Subject",
+        subjectId: chapter.subjects?.id ?? chapter.subject_id,
+        subjectName: chapter.subjects?.name ?? "Subject",
         questionCount: quiz.question_count,
         totalVideos: chapterVideos.length,
         completedVideos,
@@ -229,8 +267,11 @@ export async function getQuizHubData(supabase: AppSupabaseClient, userId: string
     })
     .filter((quiz): quiz is QuizCardData => Boolean(quiz))
     .sort((left, right) => left.subjectName.localeCompare(right.subjectName) || left.chapterNo - right.chapterNo);
+}
 
+function buildSubjectSections(quizCards: QuizCardData[]) {
   const subjectGroups = new Map<string, { id: string; name: string; quizzes: QuizCardData[] }>();
+
   for (const quiz of quizCards) {
     const key = quiz.subjectId || quiz.subjectName;
     if (!subjectGroups.has(key)) {
@@ -239,7 +280,7 @@ export async function getQuizHubData(supabase: AppSupabaseClient, userId: string
     subjectGroups.get(key)!.quizzes.push(quiz);
   }
 
-  const subjectSections: SubjectSection[] = Array.from(subjectGroups.values())
+  return Array.from(subjectGroups.values())
     .map((subject) => {
       const attemptedQuizzes = subject.quizzes.filter((quiz) => Boolean(quiz.bestAttempt)).length;
       const totalAttempts = subject.quizzes.reduce((sum, quiz) => sum + quiz.totalAttempts, 0);
@@ -271,9 +312,70 @@ export async function getQuizHubData(supabase: AppSupabaseClient, userId: string
         attemptRate,
       };
     })
-    .sort((left, right) => left.name.localeCompare(right.name));
+    .sort((left, right) => left.name.localeCompare(right.name)) satisfies SubjectSection[];
+}
 
-  const attemptedQuizzes = Array.from(bestQuizAttemptByQuizId.values()).length;
+function buildSubjectLinks(chapters: LearnerScopeChapter[], quizRows: QuizRow[]) {
+  const subjectByChapterId = new Map(
+    chapters.map((chapter) => [
+      chapter.id,
+      {
+        id: chapter.subjects?.id ?? chapter.subject_id,
+        name: chapter.subjects?.name ?? "Subject",
+      },
+    ])
+  );
+
+  const countsBySubjectId = new Map<string, QuizSubjectLink>();
+  for (const quiz of quizRows) {
+    const subject = subjectByChapterId.get(quiz.chapter_id);
+    if (!subject) continue;
+
+    const existing = countsBySubjectId.get(subject.id);
+    if (existing) {
+      existing.totalQuizzes += 1;
+    } else {
+      countsBySubjectId.set(subject.id, { ...subject, totalQuizzes: 1 });
+    }
+  }
+
+  return Array.from(countsBySubjectId.values()).sort((left, right) => left.name.localeCompare(right.name));
+}
+
+export async function getQuizHubData(supabase: AppSupabaseClient, userId: string): Promise<QuizHubData | null> {
+  const scope = await getLearnerScopeManifest(supabase, userId);
+  if (!scope) return null;
+
+  const [{ quizRows, dbQuizRows, fallbackQuizRows }, { data: videos }] = await Promise.all([
+    getQuizRowsForChapters(supabase, scope.profile, scope.chapters),
+    scope.chapterIds.length > 0
+      ? supabase.from("videos").select("id, chapter_id").in("chapter_id", scope.chapterIds)
+      : Promise.resolve({ data: [] as VideoRow[] }),
+  ]);
+
+  const videoRows = (videos ?? []) as VideoRow[];
+  const videoIds = videoRows.map((video) => video.id);
+
+  const [{ bestQuizAttemptByQuizId, attemptCountByQuizId, quizAttemptRows }, { data: progress }] = await Promise.all([
+    getQuizAttemptState(supabase, userId, dbQuizRows, fallbackQuizRows),
+    videoIds.length > 0
+      ? supabase.from("video_progress").select("video_id, completed").eq("user_id", userId).in("video_id", videoIds)
+      : Promise.resolve({ data: [] as Array<{ video_id: string; completed: boolean }> }),
+  ]);
+
+  const completedVideoIds = new Set((progress ?? []).filter((row) => row.completed).map((row) => row.video_id));
+  const videosByChapterId = buildVideosByChapterId(videoRows);
+  const quizCards = buildQuizCards({
+    chapters: scope.chapters,
+    videosByChapterId,
+    completedVideoIds,
+    quizRows,
+    bestQuizAttemptByQuizId,
+    attemptCountByQuizId,
+  });
+  const subjectSections = buildSubjectSections(quizCards);
+
+  const attemptedQuizzes = bestQuizAttemptByQuizId.size;
   const totalAttempts = quizAttemptRows.length;
   const masteredQuizzes = Array.from(bestQuizAttemptByQuizId.values()).filter(
     (attempt) => getQuizMasteryLevel(attempt.percent) === "mastered"
@@ -286,11 +388,60 @@ export async function getQuizHubData(supabase: AppSupabaseClient, userId: string
     : 0;
 
   return {
-    quizCards,
+    totalQuizzes: quizCards.length,
     subjectSections,
     attemptedQuizzes,
     totalAttempts,
     masteredQuizzes,
     averageQuizScore,
+  };
+}
+
+export async function getQuizSubjectPageData(
+  supabase: AppSupabaseClient,
+  userId: string,
+  subjectId: string
+): Promise<QuizSubjectPageData | null> {
+  const scope = await getLearnerScopeManifest(supabase, userId);
+  if (!scope) return null;
+
+  const subjectChapters = scope.chaptersBySubjectId.get(subjectId) ?? [];
+  if (subjectChapters.length === 0) return null;
+
+  const [{ quizRows: allQuizRows }, { quizRows: subjectQuizRows, dbQuizRows, fallbackQuizRows }, { data: videos }] =
+    await Promise.all([
+      getQuizRowsForChapters(supabase, scope.profile, scope.chapters),
+      getQuizRowsForChapters(supabase, scope.profile, subjectChapters),
+      supabase.from("videos").select("id, chapter_id").in("chapter_id", subjectChapters.map((chapter) => chapter.id)),
+    ]);
+
+  const subjectLinks = buildSubjectLinks(scope.chapters, allQuizRows);
+  const subjectVideoRows = (videos ?? []) as VideoRow[];
+  const subjectVideoIds = subjectVideoRows.map((video) => video.id);
+
+  const [{ bestQuizAttemptByQuizId, attemptCountByQuizId }, { data: progress }] = await Promise.all([
+    getQuizAttemptState(supabase, userId, dbQuizRows, fallbackQuizRows),
+    subjectVideoIds.length > 0
+      ? supabase.from("video_progress").select("video_id, completed").eq("user_id", userId).in("video_id", subjectVideoIds)
+      : Promise.resolve({ data: [] as Array<{ video_id: string; completed: boolean }> }),
+  ]);
+
+  const completedVideoIds = new Set((progress ?? []).filter((row) => row.completed).map((row) => row.video_id));
+  const videosByChapterId = buildVideosByChapterId(subjectVideoRows);
+  const quizCards = buildQuizCards({
+    chapters: subjectChapters,
+    videosByChapterId,
+    completedVideoIds,
+    quizRows: subjectQuizRows,
+    bestQuizAttemptByQuizId,
+    attemptCountByQuizId,
+  });
+  const [subject] = buildSubjectSections(quizCards);
+
+  if (!subject) return null;
+
+  return {
+    subject,
+    subjectLinks,
   };
 }
