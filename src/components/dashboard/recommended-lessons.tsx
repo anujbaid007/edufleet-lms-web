@@ -1,6 +1,9 @@
+"use client";
+
 import Link from "next/link";
 import { ClayCard } from "@/components/ui/clay-card";
 import { VideoThumbnail } from "@/components/video/video-thumbnail";
+import { useLanguage } from "@/context/language-context";
 
 interface RecommendedItem {
   videoId: string;
@@ -17,12 +20,14 @@ interface RecommendedLessonsProps {
 }
 
 export function RecommendedLessons({ items }: RecommendedLessonsProps) {
+  const { t } = useLanguage();
+
   if (items.length === 0) return null;
 
   return (
     <section>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-bold text-heading font-poppins">Up Next</h2>
+        <h2 className="text-lg font-bold text-heading font-poppins">{t("rec.title")}</h2>
       </div>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
         {items.map((item) => (

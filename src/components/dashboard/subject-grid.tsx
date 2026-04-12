@@ -1,8 +1,11 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import { ClayCard } from "@/components/ui/clay-card";
 import { ProgressRing } from "@/components/ui/progress-ring";
 import { ChevronRight } from "lucide-react";
+import { useLanguage } from "@/context/language-context";
 
 interface SubjectWithProgress {
   id: string;
@@ -104,11 +107,13 @@ function getArtwork(name: string) {
 }
 
 export function SubjectGrid({ subjects }: SubjectGridProps) {
+  const { t } = useLanguage();
+
   if (subjects.length === 0) return null;
 
   return (
     <section>
-      <h2 className="text-lg font-bold text-heading font-poppins mb-4">Your Subjects</h2>
+      <h2 className="text-lg font-bold text-heading font-poppins mb-4">{t("subjects.title")}</h2>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {subjects.map((subject) => {
           const percent = subject.totalChapters > 0
@@ -132,7 +137,7 @@ export function SubjectGrid({ subjects }: SubjectGridProps) {
                   <div className={`absolute inset-0 bg-gradient-to-r ${artwork.accent}`} />
                   <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#101828]/85 via-[#101828]/35 to-transparent px-4 pb-3 pt-10 sm:px-5 sm:pb-4 sm:pt-12">
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/70">
-                      Learning Path
+                      {t("subjects.learningPath")}
                     </p>
                     <p className="mt-1 text-lg font-bold text-white sm:text-xl">{subject.name}</p>
                   </div>
@@ -142,9 +147,9 @@ export function SubjectGrid({ subjects }: SubjectGridProps) {
                     <span className="text-[10px] font-bold text-heading">{percent}%</span>
                   </ProgressRing>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-bold text-heading">{subject.completedChapters}/{subject.totalChapters} chapters done</p>
+                    <p className="text-sm font-bold text-heading">{t("subjects.chaptersDone", { done: subject.completedChapters, total: subject.totalChapters })}</p>
                     <p className="mt-0.5 text-xs text-muted">
-                      {subject.completedVideos}/{subject.totalVideos} videos completed
+                      {t("subjects.videosCompleted", { done: subject.completedVideos, total: subject.totalVideos })}
                     </p>
                   </div>
                   <ChevronRight className="h-4 w-4 shrink-0 text-muted transition-colors group-hover:text-orange-primary" />

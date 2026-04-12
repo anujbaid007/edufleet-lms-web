@@ -1,7 +1,10 @@
+"use client";
+
 import { ClayCard } from "@/components/ui/clay-card";
 import { ProgressRing } from "@/components/ui/progress-ring";
 import { BookOpen, Clock, Flame } from "lucide-react";
 import { formatDuration } from "@/lib/utils";
+import { useLanguage } from "@/context/language-context";
 
 interface StatsOverviewProps {
   totalChapters: number;
@@ -18,11 +21,12 @@ export function StatsOverview({
   streak,
   activeSubjects,
 }: StatsOverviewProps) {
+  const { t } = useLanguage();
   const completionPercent = totalChapters > 0 ? Math.round((completedChapters / totalChapters) * 100) : 0;
   const streakStarted = streak > 0;
-  const streakLabel = streakStarted ? "On a roll" : "Streak";
-  const streakValue = streak === 1 ? "1 day" : `${streak} days`;
-  const streakSubtext = streakStarted ? "Keep the learning rhythm going." : "Start one lesson today to begin your streak.";
+  const streakLabel = streakStarted ? t("stats.onARoll") : t("stats.streak");
+  const streakValue = streak === 1 ? t("stats.streakDay") : t("stats.streakDays", { n: streak });
+  const streakSubtext = streakStarted ? t("stats.keepRhythm") : t("stats.startStreak");
 
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -32,9 +36,9 @@ export function StatsOverview({
           <span className="text-xs font-bold text-heading">{completionPercent}%</span>
         </ProgressRing>
         <div className="min-w-0">
-          <p className="text-xs text-muted font-medium">Overall</p>
+          <p className="text-xs text-muted font-medium">{t("stats.overall")}</p>
           <p className="text-lg font-bold text-heading">{completedChapters}/{totalChapters}</p>
-          <p className="text-xs text-muted">chapters done</p>
+          <p className="text-xs text-muted">{t("stats.chaptersDone")}</p>
         </div>
       </ClayCard>
 
@@ -44,9 +48,9 @@ export function StatsOverview({
           <Clock className="w-6 h-6 text-orange-primary" />
         </div>
         <div className="min-w-0">
-          <p className="text-xs text-muted font-medium">Watch Time</p>
+          <p className="text-xs text-muted font-medium">{t("stats.watchTime")}</p>
           <p className="text-lg font-bold text-heading">{formatDuration(totalWatchTimeSeconds)}</p>
-          <p className="text-xs text-muted">total</p>
+          <p className="text-xs text-muted">{t("stats.total")}</p>
         </div>
       </ClayCard>
 
@@ -77,9 +81,9 @@ export function StatsOverview({
           <BookOpen className="w-6 h-6 text-orange-primary" />
         </div>
         <div className="min-w-0">
-          <p className="text-xs text-muted font-medium">Subjects</p>
+          <p className="text-xs text-muted font-medium">{t("stats.subjects")}</p>
           <p className="text-lg font-bold text-heading">{activeSubjects}</p>
-          <p className="text-xs text-muted">in progress</p>
+          <p className="text-xs text-muted">{t("stats.inProgress")}</p>
         </div>
       </ClayCard>
     </div>

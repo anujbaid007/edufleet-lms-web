@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Flame, Sparkles, Sun, Sunrise, Moon, BookOpenCheck } from "lucide-react";
+import { useLanguage } from "@/context/language-context";
 
 interface WelcomeHeroProps {
   name: string;
@@ -11,22 +12,22 @@ interface WelcomeHeroProps {
   totalChapters: number;
 }
 
-function getGreeting(hour: number) {
-  if (hour < 5) return { label: "Burning the midnight oil", icon: Moon };
-  if (hour < 12) return { label: "Good morning", icon: Sunrise };
-  if (hour < 17) return { label: "Good afternoon", icon: Sun };
-  if (hour < 21) return { label: "Good evening", icon: Sun };
-  return { label: "Good night", icon: Moon };
+function getGreetingKey(hour: number): { key: string; icon: React.ComponentType<{ className?: string }> } {
+  if (hour < 5) return { key: "greeting.midnight", icon: Moon };
+  if (hour < 12) return { key: "greeting.morning", icon: Sunrise };
+  if (hour < 17) return { key: "greeting.afternoon", icon: Sun };
+  if (hour < 21) return { key: "greeting.evening", icon: Sun };
+  return { key: "greeting.night", icon: Moon };
 }
 
-function pickMessage(streak: number, completed: number, total: number) {
-  if (total === 0) return "Pick your first chapter and start the adventure.";
-  if (completed === 0) return "Your first chapter is waiting. One small step today.";
-  if (streak >= 7) return `${streak}-day streak — you're on fire. Keep it burning.`;
-  if (streak >= 3) return `You've shown up ${streak} days running. That's the stuff.`;
-  if (completed >= Math.floor(total * 0.75)) return "You're nearly there. Finish strong.";
-  if (completed >= Math.floor(total / 2)) return "Halfway through — the best part is next.";
-  return "Every minute on a chapter compounds. Let's stack another one.";
+function pickMessageKey(streak: number, completed: number, total: number): string {
+  if (total === 0) return "msg.noChapters";
+  if (completed === 0) return "msg.noProgress";
+  if (streak >= 7) return "msg.fireStreak";
+  if (streak >= 3) return "msg.goodStreak";
+  if (completed >= Math.floor(total * 0.75)) return "msg.nearlyDone";
+  if (completed >= Math.floor(total / 2)) return "msg.halfway";
+  return "msg.keepGoing";
 }
 
 function firstWord(name: string) {
@@ -41,19 +42,24 @@ export function WelcomeHero({
   completedChapters,
   totalChapters,
 }: WelcomeHeroProps) {
+  const { t } = useLanguage();
   const reduceMotion = useReducedMotion();
 
   const { greetingLabel, GreetingIcon, message, displayName, progressPercent } = useMemo(() => {
     const hour = new Date().getHours();
-    const { label, icon } = getGreeting(hour);
+    const { key: greetingKey, icon } = getGreetingKey(hour);
+    const msgKey = pickMessageKey(streak, completedChapters, totalChapters);
     return {
-      greetingLabel: label,
+      greetingLabel: t(greetingKey),
       GreetingIcon: icon,
-      message: pickMessage(streak, completedChapters, totalChapters),
+      message: t(msgKey, { n: streak }),
       displayName: firstWord(name),
-      progressPercent: totalChapters > 0 ? Math.round((completedChapters / totalChapters) * 100) : 0,
+      progressPercent:
+        totalChapters > 0
+          ? Math.round((completedChapters / totalChapters) * 100)
+          : 0,
     };
-  }, [name, streak, completedChapters, totalChapters]);
+  }, [name, streak, completedChapters, totalChapters, t]);
 
   const container = reduceMotion
     ? { hidden: { opacity: 1 }, show: { opacity: 1 } }
@@ -169,22 +175,22 @@ export function WelcomeHero({
           >
             <HeroPill
               icon={<Flame className="h-3.5 w-3.5" />}
-              label={streak > 0 ? `${streak}-day streak` : "Start a streak"}
+              label={streak > 0 ? t("hero.streak", { n: streak }) : t("hero.startStreak")}
               tone={streak > 0 ? "hot" : "muted"}
             />
             <HeroPill
               icon={<BookOpenCheck className="h-3.5 w-3.5" />}
               label={
                 totalChapters > 0
-                  ? `${completedChapters}/${totalChapters} chapters`
-                  : "No chapters yet"
+                  ? t("hero.chapters", { done: completedChapters, total: totalChapters })
+                  : t("hero.noChapters")
               }
               tone="muted"
             />
             {totalChapters > 0 && (
               <HeroPill
                 icon={<Sparkles className="h-3.5 w-3.5" />}
-                label={`${progressPercent}% complete`}
+                label={t("hero.complete", { pct: progressPercent })}
                 tone="muted"
               />
             )}
@@ -195,7 +201,7 @@ export function WelcomeHero({
           <motion.div variants={item} className="shrink-0 lg:max-w-[260px]">
             <div className="rounded-[22px] border border-white/70 bg-white/60 p-4 backdrop-blur-sm shadow-[6px_6px_18px_rgba(200,160,120,0.16),-4px_-4px_12px_rgba(255,255,255,0.9)]">
               <div className="flex items-center justify-between text-xs font-semibold text-body">
-                <span>Course progress</span>
+                <span>{t("hero.courseProgress")}</span>
                 <span className="text-orange-primary">{progressPercent}%</span>
               </div>
               <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-orange-primary/10">
@@ -217,8 +223,8 @@ export function WelcomeHero({
               </div>
               <p className="mt-2 text-[11px] text-muted">
                 {totalChapters - completedChapters > 0
-                  ? `${totalChapters - completedChapters} chapters to go`
-                  : "All chapters wrapped — legend."}
+                  ? t("hero.chaptersToGo", { n: totalChapters - completedChapters })
+                  : t("hero.allDone")}
               </p>
             </div>
           </motion.div>

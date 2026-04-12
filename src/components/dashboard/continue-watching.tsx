@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ClayCard } from "@/components/ui/clay-card";
 import { ChevronRight } from "lucide-react";
 import { VideoThumbnail } from "@/components/video/video-thumbnail";
+import { useLanguage } from "@/context/language-context";
 
 interface ContinueItem {
   videoId: string;
@@ -20,11 +21,13 @@ interface ContinueWatchingProps {
 }
 
 export function ContinueWatching({ items }: ContinueWatchingProps) {
+  const { t } = useLanguage();
+
   if (items.length === 0) return null;
 
   return (
     <section>
-      <h2 className="text-lg font-bold text-heading font-poppins mb-4">Continue Watching</h2>
+      <h2 className="text-lg font-bold text-heading font-poppins mb-4">{t("cw.title")}</h2>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
         {items.map((item) => (
           <Link key={item.videoId} href={`/dashboard/watch/${item.videoId}`}>
@@ -46,7 +49,7 @@ export function ContinueWatching({ items }: ContinueWatchingProps) {
                         style={{ width: `${item.watchedPercentage}%` }}
                       />
                     </div>
-                    <p className="mt-2 text-[11px] font-medium text-muted">{item.watchedPercentage}% watched</p>
+                    <p className="mt-2 text-[11px] font-medium text-muted">{t("cw.watched", { pct: item.watchedPercentage })}</p>
                   </div>
                   <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-muted" />
                 </div>
