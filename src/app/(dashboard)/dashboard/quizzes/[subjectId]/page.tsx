@@ -10,20 +10,23 @@ import { ProgressRing } from "@/components/ui/progress-ring";
 import { ScrollResetOnMount } from "@/components/ui/scroll-reset-on-mount";
 import { createClient } from "@/lib/supabase/server";
 import { getQuizMasteryClasses, getQuizMasteryLabel, getQuizMasteryLevel } from "@/lib/quiz";
-import { getQuizHubData, getQuizSubjectHref } from "@/lib/quiz-hub";
+import { getQuizSubjectHref, getQuizSubjectPageData } from "@/lib/quiz-hub";
+import { getServerLang, t } from "@/lib/i18n";
+import type { Lang } from "@/lib/i18n";
 
 export const metadata = { title: "Subject Quizzes" };
 export const dynamic = "force-dynamic";
 
-function formatQuizRuns(count: number) {
-  return `${count} ${count === 1 ? "quiz run" : "quiz runs"}`;
+function formatQuizRuns(count: number, lang: Lang): string {
+  return `${count} ${count === 1 ? t(lang, "quiz.quizRun") : t(lang, "quiz.quizRuns")}`;
 }
 
-function formatStartedChapters(count: number) {
-  return `${count} ${count === 1 ? "chapter started" : "chapters started"}`;
+function formatStartedChapters(count: number, lang: Lang): string {
+  return `${count} ${count === 1 ? t(lang, "quiz.chapterStarted") : t(lang, "quiz.chaptersStarted")}`;
 }
 
 export default async function QuizSubjectPage({ params }: { params: { subjectId: string } }) {
+  const lang = getServerLang();
   noStore();
   const supabase = await createClient();
   const {
@@ -32,11 +35,10 @@ export default async function QuizSubjectPage({ params }: { params: { subjectId:
 
   if (!session) redirect("/login");
 
-  const quizHubData = await getQuizHubData(supabase, session.user.id);
-  if (!quizHubData) redirect("/login");
+  const quizSubjectPageData = await getQuizSubjectPageData(supabase, session.user.id, params.subjectId);
+  if (!quizSubjectPageData) notFound();
 
-  const subject = quizHubData.subjectSections.find((section) => section.id === params.subjectId);
-  if (!subject) notFound();
+  const { subject, subjectLinks } = quizSubjectPageData;
 
   const theme = getSubjectTheme(subject.name);
 
@@ -45,14 +47,14 @@ export default async function QuizSubjectPage({ params }: { params: { subjectId:
       <ScrollResetOnMount />
       <PageBreadcrumbs
         backHref="/dashboard/quizzes"
-        backLabel="Back to Quiz Hub"
+        backLabel={t(lang, "quiz.backToHub")}
         crumbs={[
-          { href: "/dashboard/quizzes", label: "Quiz" },
+          { href: "/dashboard/quizzes", label: t(lang, "nav.quiz") },
           { href: getQuizSubjectHref(subject.id), label: subject.name },
         ]}
       />
 
-      <Header title={`${subject.name} quizzes`} subtitle="All chapter quizzes for this subject are ready below." />
+      <Header title={t(lang, "quiz.subjectTitle", { name: subject.name })} subtitle={t(lang, "quiz.subjectSubtitle")} />
 
       <ClayCard hover={false} className="overflow-hidden !p-0">
         <div className={`bg-gradient-to-r ${theme.sectionGradientClassName} px-6 py-6 sm:px-8 sm:py-8`}>
@@ -61,13 +63,13 @@ export default async function QuizSubjectPage({ params }: { params: { subjectId:
               {subject.name}
             </span>
             <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-body shadow-[inset_0_0_0_1px_rgba(15,23,42,0.08)]">
-              {subject.totalQuizzes} quizzes
+              {t(lang, "quiz.quizzesCount", { n: subject.totalQuizzes })}
             </span>
             <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-body shadow-[inset_0_0_0_1px_rgba(15,23,42,0.08)]">
-              {formatStartedChapters(subject.attemptedQuizzes)}
+              {formatStartedChapters(subject.attemptedQuizzes, lang)}
             </span>
             <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-body shadow-[inset_0_0_0_1px_rgba(15,23,42,0.08)]">
-              {formatQuizRuns(subject.totalAttempts)}
+              {formatQuizRuns(subject.totalAttempts, lang)}
             </span>
           </div>
 
@@ -86,28 +88,28 @@ export default async function QuizSubjectPage({ params }: { params: { subjectId:
                   <span className="text-xs font-bold text-heading">{subject.attemptRate}%</span>
                 </ProgressRing>
                 <div className="text-center">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-body">Coverage</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-body">{t(lang, "quiz.coverage")}</p>
                   <p className="text-xs text-body">
-                    Started {subject.attemptedQuizzes} of {subject.totalQuizzes} chapters
+                    {t(lang, "quiz.startedOf", { done: subject.attemptedQuizzes, total: subject.totalQuizzes })}
                   </p>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3 sm:min-w-[260px]">
                 <div className="rounded-[20px] bg-white/85 px-4 py-3 shadow-[inset_0_0_0_1px_rgba(15,23,42,0.06)]">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-body">Avg score</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-body">{t(lang, "quiz.avgScore")}</p>
                   <p className="mt-1 text-lg font-bold text-heading">{subject.averageQuizScore}%</p>
                 </div>
                 <div className="rounded-[20px] bg-white/85 px-4 py-3 shadow-[inset_0_0_0_1px_rgba(15,23,42,0.06)]">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-body">Mastered</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-body">{t(lang, "quiz.mastered")}</p>
                   <p className="mt-1 text-lg font-bold text-heading">{subject.masteredQuizzes}</p>
                 </div>
                 <div className="rounded-[20px] bg-white/85 px-4 py-3 shadow-[inset_0_0_0_1px_rgba(15,23,42,0.06)]">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-body">Lesson progress</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-body">{t(lang, "quiz.lessonProgress")}</p>
                   <p className="mt-1 text-lg font-bold text-heading">{subject.lessonProgressPercent}%</p>
                 </div>
                 <div className="rounded-[20px] bg-white/85 px-4 py-3 shadow-[inset_0_0_0_1px_rgba(15,23,42,0.06)]">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-body">Chapters ready</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-body">{t(lang, "quiz.chaptersReady")}</p>
                   <p className="mt-1 text-lg font-bold text-heading">{subject.totalQuizzes}</p>
                 </div>
               </div>
@@ -115,7 +117,7 @@ export default async function QuizSubjectPage({ params }: { params: { subjectId:
           </div>
 
           <div className="mt-5 flex flex-wrap gap-2">
-            {quizHubData.subjectSections.map((section) => {
+            {subjectLinks.map((section) => {
               const sectionTheme = getSubjectTheme(section.name);
               const isCurrent = section.id === subject.id;
 
@@ -150,7 +152,7 @@ export default async function QuizSubjectPage({ params }: { params: { subjectId:
               </span>
               {quiz.totalAttempts > 0 ? (
                 <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-heading">
-                  {formatQuizRuns(quiz.totalAttempts)}
+                  {formatQuizRuns(quiz.totalAttempts, lang)}
                 </span>
               ) : null}
               {quiz.bestAttempt ? (
