@@ -6,7 +6,8 @@ import { ClayCard } from "@/components/ui/clay-card";
 import { BookOpen } from "lucide-react";
 import { ScrollResetOnMount } from "@/components/ui/scroll-reset-on-mount";
 import { getLearnerScopeManifest, getLearnerVideoState } from "@/lib/learner-scope";
-import { getServerLang, t } from "@/lib/i18n";
+import { t } from "@/lib/i18n";
+import { getServerLang } from "@/lib/i18n-server";
 
 export const metadata = { title: "Subjects" };
 

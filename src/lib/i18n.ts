@@ -1,5 +1,3 @@
-import { cookies } from "next/headers";
-
 export type Lang = "en" | "hi";
 
 const dict = {
@@ -287,17 +285,3 @@ export function t(
   return raw.replace(/\{(\w+)\}/g, (_, k) => String(vars[k] ?? `{${k}}`));
 }
 
-/**
- * Read the current language from the ui_language cookie (server-side only).
- * In Next.js 14, cookies() is synchronous.
- * Falls back to "en" if cookie is missing or invalid.
- */
-export function getServerLang(): Lang {
-  try {
-    const val = cookies().get("ui_language")?.value;
-    if (val === "en" || val === "hi") return val;
-  } catch {
-    // cookies() throws outside a request context (e.g. during build)
-  }
-  return "en";
-}

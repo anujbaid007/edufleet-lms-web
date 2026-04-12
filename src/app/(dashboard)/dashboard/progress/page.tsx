@@ -14,7 +14,8 @@ import {
   isQuizSchemaUnavailableError,
 } from "@/lib/quiz";
 import { getFallbackQuizMeta, listFallbackAttemptsForUserByChapterIds } from "@/lib/dev-quiz-fallback";
-import { getServerLang, t } from "@/lib/i18n";
+import { t } from "@/lib/i18n";
+import { getServerLang } from "@/lib/i18n-server";
 
 export const metadata = { title: "My Progress" };
 

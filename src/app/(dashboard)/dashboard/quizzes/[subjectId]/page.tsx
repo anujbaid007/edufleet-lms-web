@@ -11,8 +11,8 @@ import { ScrollResetOnMount } from "@/components/ui/scroll-reset-on-mount";
 import { createClient } from "@/lib/supabase/server";
 import { getQuizMasteryClasses, getQuizMasteryLabel, getQuizMasteryLevel } from "@/lib/quiz";
 import { getQuizSubjectHref, getQuizSubjectPageData } from "@/lib/quiz-hub";
-import { getServerLang, t } from "@/lib/i18n";
-import type { Lang } from "@/lib/i18n";
+import { t, type Lang } from "@/lib/i18n";
+import { getServerLang } from "@/lib/i18n-server";
 
 export const metadata = { title: "Subject Quizzes" };
 export const dynamic = "force-dynamic";

@@ -9,8 +9,8 @@ import { ScrollResetOnMount } from "@/components/ui/scroll-reset-on-mount";
 import { getSubjectTheme } from "@/components/quiz/quiz-subject-theme";
 import { createClient } from "@/lib/supabase/server";
 import { getQuizHubData, getQuizSubjectHref } from "@/lib/quiz-hub";
-import { getServerLang, t } from "@/lib/i18n";
-import type { Lang } from "@/lib/i18n";
+import { t, type Lang } from "@/lib/i18n";
+import { getServerLang } from "@/lib/i18n-server";
 
 export const metadata = { title: "Quiz" };
 export const dynamic = "force-dynamic";
