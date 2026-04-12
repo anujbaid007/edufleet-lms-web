@@ -14,10 +14,12 @@ import {
   isQuizSchemaUnavailableError,
 } from "@/lib/quiz";
 import { getFallbackQuizMeta, listFallbackAttemptsForUserByChapterIds } from "@/lib/dev-quiz-fallback";
+import { getServerLang, t } from "@/lib/i18n";
 
 export const metadata = { title: "My Progress" };
 
 export default async function ProgressPage() {
+  const lang = getServerLang();
   const supabase = await createClient();
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) redirect("/login");
@@ -254,7 +256,7 @@ export default async function ProgressPage() {
   return (
     <div className="space-y-8">
       <ScrollResetOnMount />
-      <Header title="My Progress" subtitle="Track your learning journey" />
+      <Header title={t(lang, "progress.title")} subtitle={t(lang, "progress.subtitle")} />
 
       {/* Overall Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -262,42 +264,42 @@ export default async function ProgressPage() {
           <ProgressRing percentage={overallPercent} size={72} strokeWidth={7}>
             <span className="text-sm font-bold text-heading">{overallPercent}%</span>
           </ProgressRing>
-          <p className="mt-2 text-xs text-body">Chapter Completion</p>
+          <p className="mt-2 text-xs text-body">{t(lang, "progress.chapterCompletion")}</p>
         </ClayCard>
         <ClayCard hover={false} className="!p-5 flex flex-col items-center justify-center">
           <Trophy className="w-8 h-8 text-orange-primary mb-2" />
           <p className="text-2xl font-bold text-heading">{completedChapters}</p>
-          <p className="text-xs text-body">Chapters Completed</p>
+          <p className="text-xs text-body">{t(lang, "progress.chaptersCompleted")}</p>
         </ClayCard>
         <ClayCard hover={false} className="!p-5 flex flex-col items-center justify-center">
           <Clock className="w-8 h-8 text-orange-primary mb-2" />
           <p className="text-2xl font-bold text-heading">{formatDuration(totalWatchTime)}</p>
-          <p className="text-xs text-body">Total Watch Time</p>
+          <p className="text-xs text-body">{t(lang, "progress.totalWatchTime")}</p>
         </ClayCard>
         <ClayCard hover={false} className="!p-5 flex flex-col items-center justify-center">
           <Flame className="w-8 h-8 text-orange-500 mb-2" />
-          <p className="text-2xl font-bold text-heading">{streak} days</p>
-          <p className="text-xs text-body">Current Streak</p>
+          <p className="text-2xl font-bold text-heading">{t(lang, "progress.days", { n: streak })}</p>
+          <p className="text-xs text-body">{t(lang, "progress.currentStreak")}</p>
         </ClayCard>
       </div>
 
       <div className="space-y-4">
-        <h2 className="text-lg font-bold text-heading font-poppins">Quiz Analytics</h2>
+        <h2 className="text-lg font-bold text-heading font-poppins">{t(lang, "progress.quizAnalytics")}</h2>
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <ClayCard hover={false} className="!p-5 flex flex-col items-center justify-center">
             <Target className="mb-2 h-8 w-8 text-orange-primary" />
             <p className="text-2xl font-bold text-heading">{attemptedQuizzes}/{totalQuizzes}</p>
-            <p className="text-xs text-body">Quizzes Attempted</p>
+            <p className="text-xs text-body">{t(lang, "progress.quizzesAttempted")}</p>
           </ClayCard>
           <ClayCard hover={false} className="!p-5 flex flex-col items-center justify-center">
             <Trophy className="mb-2 h-8 w-8 text-orange-primary" />
             <p className="text-2xl font-bold text-heading">{averageQuizScore}%</p>
-            <p className="text-xs text-body">Average Quiz Score</p>
+            <p className="text-xs text-body">{t(lang, "progress.avgScore")}</p>
           </ClayCard>
           <ClayCard hover={false} className="!p-5 flex flex-col items-center justify-center">
             <Flame className="mb-2 h-8 w-8 text-orange-500" />
             <p className="text-2xl font-bold text-heading">{masteredQuizzes}</p>
-            <p className="text-xs text-body">Quizzes Mastered</p>
+            <p className="text-xs text-body">{t(lang, "progress.quizzesMastered")}</p>
           </ClayCard>
           <ClayCard hover={false} className="!p-5 flex flex-col items-center justify-center">
             <Clock className="mb-2 h-8 w-8 text-orange-primary" />
@@ -305,7 +307,7 @@ export default async function ProgressPage() {
               {latestQuizAttempt ? `${latestQuizAttempt.percent}%` : "—"}
             </p>
             <p className="text-xs text-body">
-              {latestQuizAttempt ? getQuizMasteryLabel(latestQuizAttempt.masteryLevel) : "Latest Quiz"}
+              {latestQuizAttempt ? getQuizMasteryLabel(latestQuizAttempt.masteryLevel) : t(lang, "progress.latestQuiz")}
             </p>
           </ClayCard>
         </div>
@@ -313,7 +315,7 @@ export default async function ProgressPage() {
 
       {/* Per-Subject Progress */}
       <div className="space-y-6">
-        <h2 className="text-lg font-bold text-heading font-poppins">Subject Progress</h2>
+        <h2 className="text-lg font-bold text-heading font-poppins">{t(lang, "progress.subjectProgress")}</h2>
         <div className="space-y-4">
           {subjectStats.map((sub) => (
             <ClayCard key={sub.id} hover={false} className="overflow-hidden !p-0">
@@ -327,26 +329,26 @@ export default async function ProgressPage() {
                       <div>
                         <h3 className="font-poppins text-lg font-bold text-heading">{sub.name}</h3>
                         <p className="text-sm text-body">
-                          {sub.completedChapters}/{sub.totalChapters} chapters completed
+                          {t(lang, "progress.chaptersCompletedOf", { done: sub.completedChapters, total: sub.totalChapters })}
                         </p>
                       </div>
                       <div className="flex flex-wrap items-center gap-2 text-xs text-body">
                         <span className="rounded-full bg-white/80 px-3 py-1 shadow-[inset_0_0_0_1px_rgba(232,135,30,0.08)]">
-                          {sub.completedVideos}/{sub.totalVideos} videos
+                          {t(lang, "progress.videosOf", { done: sub.completedVideos, total: sub.totalVideos })}
                         </span>
                         <span className="rounded-full bg-white/80 px-3 py-1 shadow-[inset_0_0_0_1px_rgba(232,135,30,0.08)]">
-                          {sub.percent === 100 ? "Mastered" : `${sub.totalChapters - sub.completedChapters} chapters to go`}
+                          {sub.percent === 100 ? t(lang, "progress.masteredLabel") : t(lang, "progress.chaptersToGo", { n: sub.totalChapters - sub.completedChapters })}
                         </span>
                         {sub.totalQuizzes > 0 ? (
                           <>
                             <span className="rounded-full bg-white/80 px-3 py-1 shadow-[inset_0_0_0_1px_rgba(232,135,30,0.08)]">
-                              {sub.attemptedQuizzes}/{sub.totalQuizzes} quizzes taken
+                              {t(lang, "progress.quizzesTaken", { done: sub.attemptedQuizzes, total: sub.totalQuizzes })}
                             </span>
                             <span className="rounded-full bg-white/80 px-3 py-1 shadow-[inset_0_0_0_1px_rgba(232,135,30,0.08)]">
-                              Avg quiz {sub.averageQuizScore}%
+                              {t(lang, "progress.avgQuiz", { pct: sub.averageQuizScore })}
                             </span>
                             <span className="rounded-full bg-white/80 px-3 py-1 shadow-[inset_0_0_0_1px_rgba(232,135,30,0.08)]">
-                              {sub.masteredQuizzes} mastered
+                              {t(lang, "progress.masteredCount", { n: sub.masteredQuizzes })}
                             </span>
                           </>
                         ) : null}
@@ -373,15 +375,15 @@ export default async function ProgressPage() {
                           <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                             <div className="min-w-0">
                               <p className="truncate text-sm font-bold text-heading">
-                                Chapter {ch.chapter_no}: {ch.title}
+                                {t(lang, "progress.chapterNo", { n: ch.chapter_no })}: {ch.title}
                               </p>
                               <p className="text-xs text-body">
-                                {ch.completedVideos}/{ch.totalVideos} videos complete
+                                {t(lang, "progress.videosComplete", { done: ch.completedVideos, total: ch.totalVideos })}
                               </p>
                               {ch.quizId ? (
                                 <div className="mt-2 flex flex-wrap gap-2">
                                   <span className="rounded-full bg-orange-50 px-2.5 py-1 text-[11px] font-semibold text-orange-700">
-                                    Quiz · {ch.quizQuestionCount} questions
+                                    {t(lang, "progress.quizQuestions", { n: ch.quizQuestionCount })}
                                   </span>
                                   {ch.quizBestAttempt ? (
                                     <>
@@ -389,12 +391,12 @@ export default async function ProgressPage() {
                                         {getQuizMasteryLabel(getQuizMasteryLevel(ch.quizBestAttempt.percent))}
                                       </span>
                                       <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-heading shadow-[inset_0_0_0_1px_rgba(15,23,42,0.08)]">
-                                        Best {ch.quizBestAttempt.percent}%
+                                        {t(lang, "progress.best", { pct: ch.quizBestAttempt.percent })}
                                       </span>
                                     </>
                                   ) : (
                                     <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-heading">
-                                      Quiz ready
+                                      {t(lang, "progress.quizReady")}
                                     </span>
                                   )}
                                 </div>
@@ -410,7 +412,7 @@ export default async function ProgressPage() {
                                       : "bg-slate-100 text-slate-700"
                                 }`}
                               >
-                                {ch.completed ? "Completed" : ch.completedVideos > 0 ? "In progress" : "Not started"}
+                                {ch.completed ? t(lang, "progress.completed") : ch.completedVideos > 0 ? t(lang, "progress.inProgress") : t(lang, "progress.notStarted")}
                               </span>
                             </div>
                           </div>
