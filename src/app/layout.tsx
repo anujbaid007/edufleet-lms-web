@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Poppins, Inter } from "next/font/google";
 import "./globals.css";
+import { getServerLang } from "@/lib/i18n-server";
 
 const poppins = Poppins({
   subsets: ["latin"],
@@ -29,8 +30,9 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const lang = getServerLang();
   return (
-    <html lang="en" className={`${poppins.variable} ${inter.variable}`}>
+    <html lang={lang} className={`${poppins.variable} ${inter.variable}`}>
       <body className="antialiased">{children}</body>
     </html>
   );

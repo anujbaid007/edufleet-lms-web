@@ -8,6 +8,18 @@ html {
   scroll-padding-top: 80px;
 }
 
+/* Devanagari conjuncts (e.g. स्त in नमस्ते) break when letter-spacing is
+   applied. Tailwind's `uppercase` + `tracking-[...]` pattern is used widely
+   for Latin labels; neutralize both in Hindi so glyphs render correctly. */
+html[lang="hi"] {
+  letter-spacing: normal !important;
+  text-transform: none !important;
+}
+html[lang="hi"] * {
+  letter-spacing: normal !important;
+  text-transform: none !important;
+}
+
 @layer base {
   *, *::before, *::after {
     box-sizing: border-box;

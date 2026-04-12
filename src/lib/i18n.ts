@@ -251,7 +251,7 @@ const dict = {
     "quiz.subjects": "विषय",
     // Missing keys
     "nav.more": "और",
-    "hero.hey": "हे",
+    "hero.hey": "नमस्ते",
     "hero.learner": "छात्र",
     "quiz.subjectPracticeTrack": "{name} practise ट्रैक",
     "quiz.subjectHeroDesc": "इस विषय के {done}/{total} पाठ वीडियो पूरे हो गए। कमज़ोर अध्याय दोबारा करो और महारत की तरफ बढ़ते रहो।",
