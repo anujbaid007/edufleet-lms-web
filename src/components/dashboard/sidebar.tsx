@@ -15,6 +15,7 @@ import {
   Menu,
   X,
   MoreHorizontal,
+  Languages,
 } from "lucide-react";
 import { useState } from "react";
 import { logout } from "@/lib/actions/auth";
@@ -199,30 +200,21 @@ export function Sidebar({ userRole, userName, mobileSlot }: SidebarProps) {
               </Link>
             );
           })}
-        </nav>
 
-        <div className="space-y-2 border-t border-orange-primary/10 px-3 py-4">
-          {!collapsed && (
-            <div className="px-4 py-2">
-              <p className="truncate text-sm font-semibold text-heading">{userName}</p>
-              <p className="text-xs capitalize text-muted">{userRole}</p>
-            </div>
-          )}
-
-          {/* Language toggle */}
           {collapsed ? (
             <button
               type="button"
               onClick={() => setLang(lang === "en" ? "hi" : "en")}
-              className="flex w-full items-center justify-center rounded-clay-sm px-4 py-3 text-xs font-bold text-muted transition-all hover:bg-cream/80 hover:text-heading"
-              aria-label="Switch language"
+              className="flex w-full items-center justify-center rounded-clay-sm px-4 py-3 text-sm font-medium text-body transition-all duration-200 hover:bg-cream/80 hover:text-heading"
+              aria-label={t("nav.language")}
               title={t("nav.language")}
             >
-              {lang === "en" ? "हि" : "EN"}
+              <Languages className="h-5 w-5 shrink-0" />
             </button>
           ) : (
-            <div className="px-4 py-1">
-              <p className="mb-1.5 text-[11px] font-medium text-muted">{t("nav.language")}</p>
+            <div className="flex items-center gap-3 rounded-clay-sm px-4 py-3">
+              <Languages className="h-5 w-5 shrink-0 text-body" />
+              <span className="flex-1 text-sm font-medium text-body">{t("nav.language")}</span>
               <div className="flex overflow-hidden rounded-full border border-orange-primary/20 bg-white/80">
                 {(["en", "hi"] as Lang[]).map((l) => (
                   <button
@@ -230,16 +222,26 @@ export function Sidebar({ userRole, userName, mobileSlot }: SidebarProps) {
                     type="button"
                     onClick={() => setLang(l)}
                     className={cn(
-                      "flex-1 py-1.5 text-xs font-semibold transition-colors",
+                      "px-2.5 py-1 text-xs font-semibold transition-colors",
                       lang === l
                         ? "bg-orange-primary text-white"
                         : "text-muted hover:text-heading"
                     )}
+                    aria-pressed={lang === l}
                   >
                     {l === "en" ? "EN" : "हि"}
                   </button>
                 ))}
               </div>
+            </div>
+          )}
+        </nav>
+
+        <div className="space-y-2 border-t border-orange-primary/10 px-3 py-4">
+          {!collapsed && (
+            <div className="px-4 py-2">
+              <p className="truncate text-sm font-semibold text-heading">{userName}</p>
+              <p className="text-xs capitalize text-muted">{userRole}</p>
             </div>
           )}
 
