@@ -29,6 +29,7 @@ type VideoRow = {
   sort_order: number;
   chapter_id: string;
   s3_key: string | null;
+  s3_key_hindi: string | null;
 };
 
 type LibraryPayload = {
@@ -74,7 +75,7 @@ const loadContentLibraryData = unstable_cache(
         videoRanges.map(([from, to]) =>
           admin
             .from("videos")
-            .select("id, title, duration_seconds, sort_order, chapter_id, s3_key")
+            .select("id, title, duration_seconds, sort_order, chapter_id, s3_key, s3_key_hindi")
             .order("chapter_id")
             .order("sort_order")
             .range(from, to)
@@ -115,7 +116,7 @@ const loadContentLibraryData = unstable_cache(
             id: video.id,
             title: video.title,
             durationSeconds: video.duration_seconds ?? 0,
-            s3Key: video.s3_key,
+            s3Key: chapter.medium === "Hindi" && video.s3_key_hindi ? video.s3_key_hindi : video.s3_key,
             sortOrder: video.sort_order,
           })),
         };
@@ -140,7 +141,10 @@ const loadContentLibraryData = unstable_cache(
             id: chapterVideos[0].id,
             title: chapterVideos[0].title,
             durationSeconds: chapterVideos[0].duration_seconds ?? 0,
-            s3Key: chapterVideos[0].s3_key,
+            s3Key:
+              chapter.medium === "Hindi" && chapterVideos[0].s3_key_hindi
+                ? chapterVideos[0].s3_key_hindi
+                : chapterVideos[0].s3_key,
           },
         } satisfies LibraryChapterCard;
       })

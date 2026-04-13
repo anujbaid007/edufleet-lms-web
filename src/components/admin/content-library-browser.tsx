@@ -186,6 +186,56 @@ function scheduleWhenIdle(callback: () => void) {
   return () => clearTimeout(timeoutId);
 }
 
+function hashString(value: string) {
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 31 + value.charCodeAt(index)) >>> 0;
+  }
+  return hash;
+}
+
+function buildThumbnailCandidateTimes(duration: number, key: string) {
+  if (!Number.isFinite(duration) || duration <= 0.25) return [0];
+
+  const ratios = [0.18, 0.32, 0.46, 0.58, 0.72];
+  const rotation = hashString(key) % ratios.length;
+  const rotatedRatios = ratios.map((_, index) => ratios[(index + rotation) % ratios.length]);
+  const maxTime = Math.max(duration - 0.12, 0);
+
+  return Array.from(
+    new Set(
+      rotatedRatios.map((ratio) => Number(Math.min(maxTime, Math.max(0.1, duration * ratio)).toFixed(3)))
+    )
+  );
+}
+
+function scoreFrameSample(context: CanvasRenderingContext2D, width: number, height: number) {
+  const { data } = context.getImageData(0, 0, width, height);
+  const pixelCount = data.length / 4;
+  if (pixelCount === 0) return 0;
+
+  let luminanceSum = 0;
+  let luminanceSquareSum = 0;
+  let colorSpreadSum = 0;
+
+  for (let index = 0; index < data.length; index += 4) {
+    const red = data[index];
+    const green = data[index + 1];
+    const blue = data[index + 2];
+    const luminance = 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+
+    luminanceSum += luminance;
+    luminanceSquareSum += luminance * luminance;
+    colorSpreadSum += Math.max(red, green, blue) - Math.min(red, green, blue);
+  }
+
+  const luminanceMean = luminanceSum / pixelCount;
+  const luminanceVariance = luminanceSquareSum / pixelCount - luminanceMean * luminanceMean;
+  const averageColorSpread = colorSpreadSum / pixelCount;
+
+  return luminanceVariance + averageColorSpread * 1.35;
+}
+
 async function getPresignedUrl(key: string) {
   const cached = presignedUrlCache.get(key);
   if (cached) return cached;
@@ -225,7 +275,8 @@ async function createVideoThumbnail(key: string) {
 
     return new Promise<string | null>((resolve) => {
       const video = document.createElement("video");
-      const canvas = document.createElement("canvas");
+      const outputCanvas = document.createElement("canvas");
+      const sampleCanvas = document.createElement("canvas");
       let settled = false;
       let timeoutId: number | null = null;
 
@@ -245,27 +296,101 @@ async function createVideoThumbnail(key: string) {
         resolve(value);
       };
 
-      const drawFrame = () => {
+      const renderCurrentFrame = () => {
         if (!video.videoWidth || !video.videoHeight) {
-          finish(null);
-          return;
+          return null;
         }
 
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
+        outputCanvas.width = video.videoWidth;
+        outputCanvas.height = video.videoHeight;
 
-        const context = canvas.getContext("2d");
+        const context = outputCanvas.getContext("2d");
         if (!context) {
-          finish(null);
-          return;
+          return null;
         }
 
         try {
-          context.drawImage(video, 0, 0, canvas.width, canvas.height);
-          finish(canvas.toDataURL("image/jpeg", 0.72));
+          context.drawImage(video, 0, 0, outputCanvas.width, outputCanvas.height);
+          return outputCanvas.toDataURL("image/jpeg", 0.72);
         } catch {
-          finish(null);
+          return null;
         }
+      };
+
+      const scoreCurrentFrame = () => {
+        if (!video.videoWidth || !video.videoHeight) return null;
+
+        sampleCanvas.width = 32;
+        sampleCanvas.height = 18;
+        const context = sampleCanvas.getContext("2d", { willReadFrequently: true });
+        if (!context) return null;
+
+        try {
+          context.drawImage(video, 0, 0, sampleCanvas.width, sampleCanvas.height);
+          return scoreFrameSample(context, sampleCanvas.width, sampleCanvas.height);
+        } catch {
+          return null;
+        }
+      };
+
+      const waitForPaint = () =>
+        new Promise<void>((resolveNext) => {
+          window.requestAnimationFrame(() => resolveNext());
+        });
+
+      const seekTo = (time: number) =>
+        new Promise<boolean>((resolveNext) => {
+          const cleanup = (result: boolean) => {
+            video.removeEventListener("seeked", handleSeeked);
+            video.removeEventListener("error", handleError);
+            resolveNext(result);
+          };
+
+          const handleSeeked = () => cleanup(true);
+          const handleError = () => cleanup(false);
+
+          video.addEventListener("seeked", handleSeeked, { once: true });
+          video.addEventListener("error", handleError, { once: true });
+
+          try {
+            if (Math.abs(video.currentTime - time) < 0.05) {
+              window.requestAnimationFrame(() => cleanup(true));
+              return;
+            }
+
+            video.currentTime = time;
+          } catch {
+            cleanup(false);
+          }
+        });
+
+      const chooseBestFrame = async () => {
+        const candidateTimes = buildThumbnailCandidateTimes(video.duration || 0, key);
+        let bestTime = candidateTimes[0] ?? 0;
+        let bestScore = Number.NEGATIVE_INFINITY;
+
+        for (const candidateTime of candidateTimes) {
+          const didSeek = await seekTo(candidateTime);
+          if (!didSeek) continue;
+
+          await waitForPaint();
+          const score = scoreCurrentFrame();
+          if (score === null) continue;
+
+          if (score > bestScore) {
+            bestScore = score;
+            bestTime = candidateTime;
+          }
+        }
+
+        const didSeekBest = await seekTo(bestTime);
+        if (!didSeekBest) {
+          finish(null);
+          return;
+        }
+
+        await waitForPaint();
+        finish(renderCurrentFrame());
       };
 
       video.preload = "metadata";
@@ -273,25 +398,16 @@ async function createVideoThumbnail(key: string) {
       video.playsInline = true;
       video.crossOrigin = "anonymous";
       video.onloadedmetadata = () => {
-        const targetTime = video.duration > 0.35 ? 0.35 : 0;
-        if (targetTime === 0) {
-          video.currentTime = 0;
-          return;
-        }
-
-        try {
-          video.currentTime = targetTime;
-        } catch {
-          drawFrame();
-        }
+        void chooseBestFrame();
       };
       video.onloadeddata = () => {
-        if (video.currentTime === 0) drawFrame();
+        if ((video.duration || 0) <= 0.25) {
+          finish(renderCurrentFrame());
+        }
       };
-      video.onseeked = drawFrame;
       video.onerror = () => finish(null);
 
-      timeoutId = window.setTimeout(() => finish(null), 6000);
+      timeoutId = window.setTimeout(() => finish(null), 9000);
       video.src = url;
     });
   })();

@@ -29,7 +29,7 @@ export async function GET(
       .single(),
     admin
       .from("videos")
-      .select("id, title, duration_seconds, s3_key, sort_order")
+      .select("id, title, duration_seconds, s3_key, s3_key_hindi, sort_order")
       .eq("chapter_id", chapterId)
       .order("sort_order"),
   ]);
@@ -55,7 +55,7 @@ export async function GET(
         id: video.id,
         title: video.title,
         durationSeconds: video.duration_seconds ?? 0,
-        s3Key: video.s3_key,
+        s3Key: chapter.medium === "Hindi" && video.s3_key_hindi ? video.s3_key_hindi : video.s3_key,
       })),
     },
   });
