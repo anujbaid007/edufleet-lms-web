@@ -1,4 +1,5 @@
 "use client";
+import Image from "next/image";
 import {
   useCallback,
   useEffect,
@@ -22,6 +23,7 @@ import {
   X,
 } from "lucide-react";
 import { ClayPill } from "@/components/ui/clay-pill";
+import { buildThumbnailKey } from "@/lib/media";
 import { cn, formatDuration } from "@/lib/utils";
 
 type SubjectIcon = typeof BookOpen;
@@ -67,6 +69,7 @@ const PRESIGNED_URL_TTL_MS = 45 * 60 * 1000;
 
 const presignedUrlCache = new Map<string, { url: string; expiresAt: number }>();
 const presignedUrlPromises = new Map<string, Promise<string | null>>();
+const thumbnailFailureKeys = new Set<string>();
 const chapterDetailCache = new Map<string, LibraryChapterDetail>();
 const chapterDetailPromises = new Map<string, Promise<LibraryChapterDetail | null>>();
 
@@ -253,23 +256,91 @@ function useProgressiveReveal(itemCount: number, initialCount: number, step: num
 }
 
 function VideoThumbnail({
+  s3Key,
   subjectName,
   chapterNo,
 }: {
+  s3Key: string;
   subjectName: string;
   chapterNo: number;
 }) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const colors = subjectMeta(subjectName);
   const SubjectIcon = colors.icon;
+  const thumbnailKey = useMemo(() => buildThumbnailKey(s3Key), [s3Key]);
+  const [imageUrl, setImageUrl] = useState<string | null>(
+    () => (thumbnailKey ? presignedUrlCache.get(thumbnailKey)?.url ?? null : null)
+  );
+  const [shouldLoad, setShouldLoad] = useState(Boolean(imageUrl));
+  const [hasError, setHasError] = useState(Boolean(thumbnailKey && thumbnailFailureKeys.has(thumbnailKey)));
+
+  useEffect(() => {
+    setImageUrl(thumbnailKey ? presignedUrlCache.get(thumbnailKey)?.url ?? null : null);
+    setShouldLoad(Boolean(thumbnailKey && presignedUrlCache.get(thumbnailKey)?.url));
+    setHasError(Boolean(thumbnailKey && thumbnailFailureKeys.has(thumbnailKey)));
+  }, [thumbnailKey]);
+
+  useEffect(() => {
+    const element = containerRef.current;
+    if (!element || !thumbnailKey || hasError) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) return;
+        setShouldLoad(true);
+        observer.disconnect();
+      },
+      { rootMargin: "260px 0px", threshold: 0.1 }
+    );
+
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [hasError, thumbnailKey]);
+
+  useEffect(() => {
+    if (!shouldLoad || !thumbnailKey || imageUrl || hasError) return;
+
+    let cancelled = false;
+    void getPresignedUrl(thumbnailKey).then((url) => {
+      if (cancelled || !url) return;
+      setImageUrl(url);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [hasError, imageUrl, shouldLoad, thumbnailKey]);
 
   return (
     <div
+      ref={containerRef}
       className={cn(
         "aspect-video rounded-clay-sm relative overflow-hidden border border-white/80",
         `bg-gradient-to-br ${colors.gradient}`
       )}
     >
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.92),transparent_38%),linear-gradient(135deg,rgba(255,255,255,0.24),transparent_54%)]" />
+      {imageUrl && !hasError ? (
+        <>
+          <Image
+            src={imageUrl}
+            alt=""
+            fill
+            unoptimized
+            sizes="(max-width: 768px) 100vw, 25vw"
+            className="object-cover"
+            onError={() => {
+              if (!thumbnailKey) return;
+              thumbnailFailureKeys.add(thumbnailKey);
+              setHasError(true);
+              setImageUrl(null);
+            }}
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/25 via-black/5 to-white/5" />
+        </>
+      ) : (
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.92),transparent_38%),linear-gradient(135deg,rgba(255,255,255,0.24),transparent_54%)]" />
+      )}
+
       <div className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full border border-white/55 bg-white/35 shadow-[inset_0_1px_0_rgba(255,255,255,0.45)]">
         <SubjectIcon className="h-4 w-4 text-white/90" />
       </div>
@@ -327,6 +398,7 @@ function ChapterCard({
           <div className="relative mb-4">
             {chapter.previewVideo?.s3Key ? (
               <VideoThumbnail
+                s3Key={chapter.previewVideo.s3Key}
                 subjectName={chapter.subjectName}
                 chapterNo={chapter.chapterNo}
               />
