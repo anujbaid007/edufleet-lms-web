@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Play } from "lucide-react";
+import { buildThumbnailKey } from "@/lib/media";
 import { cn } from "@/lib/utils";
 
 const subjectAccent: Record<string, { gradient: string }> = {
@@ -14,8 +16,41 @@ const subjectAccent: Record<string, { gradient: string }> = {
   default: { gradient: "from-orange-200 via-orange-100 to-white" },
 };
 
+const PRESIGNED_URL_TTL_MS = 45 * 60 * 1000;
+const presignedUrlCache = new Map<string, { url: string; expiresAt: number }>();
+const presignedUrlPromises = new Map<string, Promise<string | null>>();
+const thumbnailFailureKeys = new Set<string>();
+
 function accentForSubject(subjectName: string) {
   return subjectAccent[subjectName] ?? subjectAccent.default;
+}
+
+async function getPresignedUrl(key: string) {
+  const cached = presignedUrlCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) return cached.url;
+  if (cached) presignedUrlCache.delete(key);
+
+  const pending = presignedUrlPromises.get(key);
+  if (pending) return pending;
+
+  const request = fetch(`/api/presign?key=${encodeURIComponent(key)}`, { cache: "no-store" })
+    .then(async (response) => {
+      if (!response.ok) return null;
+      const payload = (await response.json()) as { url?: string };
+      if (!payload.url) return null;
+      presignedUrlCache.set(key, {
+        url: payload.url,
+        expiresAt: Date.now() + PRESIGNED_URL_TTL_MS,
+      });
+      return payload.url;
+    })
+    .catch(() => null)
+    .finally(() => {
+      presignedUrlPromises.delete(key);
+    });
+
+  presignedUrlPromises.set(key, request);
+  return request;
 }
 
 export function VideoThumbnail({
@@ -31,55 +66,51 @@ export function VideoThumbnail({
   chapterLabel?: string;
   lessonCountLabel?: string;
 }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [url, setUrl] = useState<string | null>(null);
-  const [frameReady, setFrameReady] = useState(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const { gradient } = accentForSubject(subjectName);
+  const thumbnailKey = useMemo(() => buildThumbnailKey(s3Key), [s3Key]);
+  const [imageUrl, setImageUrl] = useState<string | null>(
+    () => (thumbnailKey ? presignedUrlCache.get(thumbnailKey)?.url ?? null : null)
+  );
+  const [shouldLoad, setShouldLoad] = useState(Boolean(imageUrl));
+  const [hasError, setHasError] = useState(Boolean(thumbnailKey && thumbnailFailureKeys.has(thumbnailKey)));
+
+  useEffect(() => {
+    setImageUrl(thumbnailKey ? presignedUrlCache.get(thumbnailKey)?.url ?? null : null);
+    setShouldLoad(Boolean(thumbnailKey && presignedUrlCache.get(thumbnailKey)?.url));
+    setHasError(Boolean(thumbnailKey && thumbnailFailureKeys.has(thumbnailKey)));
+  }, [thumbnailKey]);
 
   useEffect(() => {
     const element = containerRef.current;
-    if (!element || !s3Key) return;
+    if (!element || !thumbnailKey || hasError) return;
 
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (!entry.isIntersecting) return;
+        setShouldLoad(true);
         observer.disconnect();
-
-        fetch(`/api/presign?key=${encodeURIComponent(s3Key)}`)
-          .then((response) => response.json())
-          .then((data) => {
-            if (data.url) setUrl(data.url);
-          })
-          .catch(() => {});
       },
-      { threshold: 0.15 }
+      { rootMargin: "260px 0px", threshold: 0.15 }
     );
 
     observer.observe(element);
     return () => observer.disconnect();
-  }, [s3Key]);
+  }, [hasError, thumbnailKey]);
 
-  const handleLoadedMetadata = () => {
-    const video = videoRef.current;
-    if (video) video.currentTime = 1.25;
-  };
+  useEffect(() => {
+    if (!shouldLoad || !thumbnailKey || imageUrl || hasError) return;
 
-  const handleSeeked = () => {
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    if (!video || !canvas) return;
+    let cancelled = false;
+    void getPresignedUrl(thumbnailKey).then((url) => {
+      if (cancelled || !url) return;
+      setImageUrl(url);
+    });
 
-    const context = canvas.getContext("2d");
-    if (!context) return;
-
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    context.drawImage(video, 0, 0);
-    setFrameReady(true);
-    video.src = "";
-  };
+    return () => {
+      cancelled = true;
+    };
+  }, [hasError, imageUrl, shouldLoad, thumbnailKey]);
 
   return (
     <div
@@ -90,33 +121,30 @@ export function VideoThumbnail({
         className
       )}
     >
-      {url && !frameReady && (
-        <video
-          ref={videoRef}
-          src={url}
-          preload="metadata"
-          muted
-          playsInline
-          className="hidden"
-          onLoadedMetadata={handleLoadedMetadata}
-          onSeeked={handleSeeked}
-        />
+      {imageUrl && !hasError ? (
+        <>
+          <Image
+            src={imageUrl}
+            alt=""
+            fill
+            unoptimized
+            sizes="(max-width: 768px) 100vw, 33vw"
+            className="object-cover"
+            onError={() => {
+              if (!thumbnailKey) return;
+              thumbnailFailureKeys.add(thumbnailKey);
+              setHasError(true);
+              setImageUrl(null);
+            }}
+          />
+          <div className="absolute inset-0 bg-gradient-to-br from-black/10 via-black/5 to-black/20 group-hover/thumbnail:from-black/20 group-hover/thumbnail:to-black/35 transition-opacity duration-300" />
+        </>
+      ) : (
+        <>
+          <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-white/50 to-transparent" />
+        </>
       )}
-
-      <canvas
-        ref={canvasRef}
-        className={cn(
-          "absolute inset-0 h-full w-full object-cover transition-opacity duration-500",
-          frameReady ? "opacity-100" : "opacity-0"
-        )}
-      />
-
-      <div
-        className={cn(
-          "absolute inset-0 bg-gradient-to-br transition-opacity duration-300",
-          frameReady ? "from-black/10 via-black/5 to-black/20 group-hover/thumbnail:from-black/20 group-hover/thumbnail:to-black/35" : "from-white/20 to-transparent"
-        )}
-      />
 
       {chapterLabel ? (
         <span className="absolute left-3 top-3 rounded-full bg-black/35 px-2.5 py-1 text-[10px] font-semibold text-white backdrop-blur-sm">
@@ -135,10 +163,6 @@ export function VideoThumbnail({
           <Play className="ml-0.5 h-5 w-5 fill-white text-white drop-shadow-[0_1px_1px_rgba(136,70,8,0.35)]" />
         </div>
       </div>
-
-      {!frameReady && (
-        <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-white/50 to-transparent" />
-      )}
     </div>
   );
 }
