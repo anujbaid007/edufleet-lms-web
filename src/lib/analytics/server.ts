@@ -206,12 +206,20 @@ function accessKey(orgId: string | null, classNum: number | null, board: string 
   return `${orgId ?? "na"}|${comboKey(classNum, board, medium)}`;
 }
 
+function getUtcDayStart(date: Date) {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+}
+
 function startOfDayIso(date: Date) {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate()).toISOString();
+  return getUtcDayStart(date).toISOString();
 }
 
 function formatTimelineLabel(date: Date) {
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  }).format(getUtcDayStart(date));
 }
 
 function toPercentage(numerator: number, denominator: number) {
@@ -832,8 +840,8 @@ function buildTimeline(
   chapterByVideoId: Map<string, ChapterCatalogItem>,
   filter?: ScopeFilter
 ) {
-  const startDate = new Date();
-  startDate.setDate(startDate.getDate() - (TIMELINE_DAYS - 1));
+  const startDate = getUtcDayStart(new Date());
+  startDate.setUTCDate(startDate.getUTCDate() - (TIMELINE_DAYS - 1));
   const startIso = startOfDayIso(startDate);
 
   const points = new Map<
@@ -848,7 +856,7 @@ function buildTimeline(
 
   for (let index = 0; index < TIMELINE_DAYS; index += 1) {
     const date = new Date(startDate);
-    date.setDate(startDate.getDate() + index);
+    date.setUTCDate(startDate.getUTCDate() + index);
     const dateKey = startOfDayIso(date).slice(0, 10);
     points.set(dateKey, {
       label: formatTimelineLabel(date),

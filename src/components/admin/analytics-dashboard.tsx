@@ -29,6 +29,7 @@ import {
   YAxis,
 } from "recharts";
 import { ClayCard } from "@/components/ui/clay-card";
+import { MetricInfo } from "@/components/ui/metric-info";
 import { ProgressRing } from "@/components/ui/progress-ring";
 import { getAnalyticsDatasetAction } from "@/lib/actions/analytics";
 import type {
@@ -310,7 +311,12 @@ function SummaryCards({ dataset }: { dataset: AnalyticsDataset }) {
 
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
-      <ClayCard hover={false} className="!p-5">
+      <ClayCard hover={false} className="relative !p-5">
+        <MetricInfo
+          className="absolute right-4 top-4"
+          label="Students in scope"
+          description="Total students included in the current analytics view after applying organization, centre, class, and subject filters."
+        />
         <div className="flex items-center gap-4">
           <div className="flex h-12 w-12 items-center justify-center rounded-clay-sm clay-surface shadow-clay-pill">
             <Users className="h-6 w-6 text-orange-primary" />
@@ -322,7 +328,12 @@ function SummaryCards({ dataset }: { dataset: AnalyticsDataset }) {
         </div>
       </ClayCard>
 
-      <ClayCard hover={false} className="!p-5">
+      <ClayCard hover={false} className="relative !p-5">
+        <MetricInfo
+          className="absolute right-4 top-4"
+          label="Active in last 7 days"
+          description="Students in the current scope who watched at least one lesson in the last 7 days."
+        />
         <div className="flex items-center gap-4">
           <div className="flex h-12 w-12 items-center justify-center rounded-clay-sm bg-emerald-50 shadow-clay-pill">
             <Activity className="h-6 w-6 text-emerald-600" />
@@ -334,18 +345,28 @@ function SummaryCards({ dataset }: { dataset: AnalyticsDataset }) {
         </div>
       </ClayCard>
 
-      <ClayCard hover={false} className="!p-5">
+      <ClayCard hover={false} className="relative !p-5">
+        <MetricInfo
+          className="absolute right-4 top-4"
+          label="Content completion"
+          description="Share of chapters in the current scope that have at least one completed student against them. On chapter view, this reflects how many visible chapters have completion activity."
+        />
         <div className="flex items-center gap-4">
           <ProgressRing percentage={scopedCompletionRate} size={60} strokeWidth={7}>
             <span className="text-xs font-bold text-heading">{scopedCompletionRate}%</span>
           </ProgressRing>
-          <div>
-            <p className="text-lg font-bold text-heading">Content completion</p>
+          <div className="min-w-0">
+            <p className="text-lg font-bold leading-8 text-heading">Content completion</p>
           </div>
         </div>
       </ClayCard>
 
-      <ClayCard hover={false} className="!p-5">
+      <ClayCard hover={false} className="relative !p-5">
+        <MetricInfo
+          className="absolute right-4 top-4"
+          label="Average watch quality"
+          description="Average watched percentage across tracked lesson progress rows in the current scope."
+        />
         <div className="flex items-center gap-4">
           <div className="flex h-12 w-12 items-center justify-center rounded-clay-sm bg-orange-50 shadow-clay-pill">
             <TrendingUp className="h-6 w-6 text-orange-primary" />
@@ -357,7 +378,12 @@ function SummaryCards({ dataset }: { dataset: AnalyticsDataset }) {
         </div>
       </ClayCard>
 
-      <ClayCard hover={false} className="!p-5">
+      <ClayCard hover={false} className="relative !p-5">
+        <MetricInfo
+          className="absolute right-4 top-4"
+          label="Chapters in scope"
+          description="Number of accessible chapters included in the current analytics view after scope and restriction filters are applied."
+        />
         <div className="flex items-center gap-4">
           <div className="flex h-12 w-12 items-center justify-center rounded-clay-sm bg-amber-50 shadow-clay-pill">
             <BookOpen className="h-6 w-6 text-amber-700" />

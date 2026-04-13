@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Header } from "@/components/dashboard/header";
 import { ClayCard } from "@/components/ui/clay-card";
+import { MetricInfo } from "@/components/ui/metric-info";
 import { ProgressRing } from "@/components/ui/progress-ring";
 import { formatDuration } from "@/lib/utils";
 import { ChevronDown, Clock, Flame, Target, Trophy } from "lucide-react";
@@ -21,6 +22,28 @@ export const metadata = { title: "My Progress" };
 
 export default async function ProgressPage() {
   const lang = getServerLang();
+  const metricInfo =
+    lang === "hi"
+      ? {
+          chapterCompletion: "आपकी वर्तमान पढ़ाई सीमा में ऐसे अध्यायों का प्रतिशत जिनके सभी पाठ वीडियो पूरे हो चुके हैं।",
+          chaptersCompleted: "ऐसे अध्यायों की संख्या जिनके सभी पाठ वीडियो आपने पूरे कर लिए हैं।",
+          totalWatchTime: "आपकी सेव की गई वीडियो प्रगति के आधार पर पाठ वीडियो देखने में बिताया गया कुल समय।",
+          currentStreak: "लगातार कितने दिनों तक आपने कम से कम एक पाठ वीडियो देखा है।",
+          quizzesAttempted: "आपकी वर्तमान सीमा में उपलब्ध अध्याय क्विज़ में से आपने कितने क्विज़ शुरू किए हैं।",
+          avgScore: "हर अध्याय क्विज़ में आपके सर्वश्रेष्ठ स्कोर का औसत।",
+          quizzesMastered: "ऐसे अध्याय क्विज़ की संख्या जिनमें आपका सर्वश्रेष्ठ स्कोर महारत की सीमा तक पहुंचा।",
+          latestQuiz: "आपका सबसे हाल का क्विज़ परिणाम, जिसमें नवीनतम स्कोर और महारत स्तर दिखता है।",
+        }
+      : {
+          chapterCompletion: "Percentage of trackable chapters where every lesson video has been completed in your current scope.",
+          chaptersCompleted: "Number of chapters where you have finished all lesson videos.",
+          totalWatchTime: "Combined time spent inside lesson videos based on your saved watch positions.",
+          currentStreak: "How many consecutive days you have watched at least one lesson.",
+          quizzesAttempted: "How many chapter quizzes you have started out of the quizzes available in your current scope.",
+          avgScore: "Average of your best score in each chapter quiz you have attempted.",
+          quizzesMastered: "Number of chapter quizzes where your best score reached the mastery threshold.",
+          latestQuiz: "Your most recent quiz result, shown as the latest score and mastery band.",
+        };
   const supabase = await createClient();
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) redirect("/login");
@@ -261,23 +284,43 @@ export default async function ProgressPage() {
 
       {/* Overall Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <ClayCard hover={false} className="!p-5 text-center">
+        <ClayCard hover={false} className="relative !p-5 text-center">
+          <MetricInfo
+            className="absolute right-4 top-4"
+            label={t(lang, "progress.chapterCompletion")}
+            description={metricInfo.chapterCompletion}
+          />
           <ProgressRing percentage={overallPercent} size={72} strokeWidth={7}>
             <span className="text-sm font-bold text-heading">{overallPercent}%</span>
           </ProgressRing>
           <p className="mt-2 text-xs text-body">{t(lang, "progress.chapterCompletion")}</p>
         </ClayCard>
-        <ClayCard hover={false} className="!p-5 flex flex-col items-center justify-center">
+        <ClayCard hover={false} className="relative !p-5 flex flex-col items-center justify-center">
+          <MetricInfo
+            className="absolute right-4 top-4"
+            label={t(lang, "progress.chaptersCompleted")}
+            description={metricInfo.chaptersCompleted}
+          />
           <Trophy className="w-8 h-8 text-orange-primary mb-2" />
           <p className="text-2xl font-bold text-heading">{completedChapters}</p>
           <p className="text-xs text-body">{t(lang, "progress.chaptersCompleted")}</p>
         </ClayCard>
-        <ClayCard hover={false} className="!p-5 flex flex-col items-center justify-center">
+        <ClayCard hover={false} className="relative !p-5 flex flex-col items-center justify-center">
+          <MetricInfo
+            className="absolute right-4 top-4"
+            label={t(lang, "progress.totalWatchTime")}
+            description={metricInfo.totalWatchTime}
+          />
           <Clock className="w-8 h-8 text-orange-primary mb-2" />
           <p className="text-2xl font-bold text-heading">{formatDuration(totalWatchTime)}</p>
           <p className="text-xs text-body">{t(lang, "progress.totalWatchTime")}</p>
         </ClayCard>
-        <ClayCard hover={false} className="!p-5 flex flex-col items-center justify-center">
+        <ClayCard hover={false} className="relative !p-5 flex flex-col items-center justify-center">
+          <MetricInfo
+            className="absolute right-4 top-4"
+            label={t(lang, "progress.currentStreak")}
+            description={metricInfo.currentStreak}
+          />
           <Flame className="w-8 h-8 text-orange-500 mb-2" />
           <p className="text-2xl font-bold text-heading">{t(lang, "progress.days", { n: streak })}</p>
           <p className="text-xs text-body">{t(lang, "progress.currentStreak")}</p>
@@ -287,22 +330,42 @@ export default async function ProgressPage() {
       <div className="space-y-4">
         <h2 className="text-lg font-bold text-heading font-poppins">{t(lang, "progress.quizAnalytics")}</h2>
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <ClayCard hover={false} className="!p-5 flex flex-col items-center justify-center">
+          <ClayCard hover={false} className="relative !p-5 flex flex-col items-center justify-center">
+            <MetricInfo
+              className="absolute right-4 top-4"
+              label={t(lang, "progress.quizzesAttempted")}
+              description={metricInfo.quizzesAttempted}
+            />
             <Target className="mb-2 h-8 w-8 text-orange-primary" />
             <p className="text-2xl font-bold text-heading">{attemptedQuizzes}/{totalQuizzes}</p>
             <p className="text-xs text-body">{t(lang, "progress.quizzesAttempted")}</p>
           </ClayCard>
-          <ClayCard hover={false} className="!p-5 flex flex-col items-center justify-center">
+          <ClayCard hover={false} className="relative !p-5 flex flex-col items-center justify-center">
+            <MetricInfo
+              className="absolute right-4 top-4"
+              label={t(lang, "progress.avgScore")}
+              description={metricInfo.avgScore}
+            />
             <Trophy className="mb-2 h-8 w-8 text-orange-primary" />
             <p className="text-2xl font-bold text-heading">{averageQuizScore}%</p>
             <p className="text-xs text-body">{t(lang, "progress.avgScore")}</p>
           </ClayCard>
-          <ClayCard hover={false} className="!p-5 flex flex-col items-center justify-center">
+          <ClayCard hover={false} className="relative !p-5 flex flex-col items-center justify-center">
+            <MetricInfo
+              className="absolute right-4 top-4"
+              label={t(lang, "progress.quizzesMastered")}
+              description={metricInfo.quizzesMastered}
+            />
             <Flame className="mb-2 h-8 w-8 text-orange-500" />
             <p className="text-2xl font-bold text-heading">{masteredQuizzes}</p>
             <p className="text-xs text-body">{t(lang, "progress.quizzesMastered")}</p>
           </ClayCard>
-          <ClayCard hover={false} className="!p-5 flex flex-col items-center justify-center">
+          <ClayCard hover={false} className="relative !p-5 flex flex-col items-center justify-center">
+            <MetricInfo
+              className="absolute right-4 top-4"
+              label={t(lang, "progress.latestQuiz")}
+              description={metricInfo.latestQuiz}
+            />
             <Clock className="mb-2 h-8 w-8 text-orange-primary" />
             <p className="text-2xl font-bold text-heading">
               {latestQuizAttempt ? `${latestQuizAttempt.percent}%` : "—"}
