@@ -1,6 +1,4 @@
 "use client";
-
-import Image from "next/image";
 import {
   useCallback,
   useEffect,
@@ -68,9 +66,6 @@ const MORE_BATCH = 16;
 
 const presignedUrlCache = new Map<string, string>();
 const presignedUrlPromises = new Map<string, Promise<string | null>>();
-const thumbnailCache = new Map<string, string>();
-const thumbnailPromises = new Map<string, Promise<string | null>>();
-const thumbnailFailures = new Set<string>();
 const chapterDetailCache = new Map<string, LibraryChapterDetail>();
 const chapterDetailPromises = new Map<string, Promise<LibraryChapterDetail | null>>();
 
@@ -174,68 +169,6 @@ function classLabel(classNum: number) {
   return `Class ${classNum}`;
 }
 
-function scheduleWhenIdle(callback: () => void) {
-  if (typeof window === "undefined") return () => undefined;
-
-  if ("requestIdleCallback" in window) {
-    const idleId = window.requestIdleCallback(() => callback(), { timeout: 1200 });
-    return () => window.cancelIdleCallback(idleId);
-  }
-
-  const timeoutId = setTimeout(callback, 150);
-  return () => clearTimeout(timeoutId);
-}
-
-function hashString(value: string) {
-  let hash = 0;
-  for (let index = 0; index < value.length; index += 1) {
-    hash = (hash * 31 + value.charCodeAt(index)) >>> 0;
-  }
-  return hash;
-}
-
-function buildThumbnailCandidateTimes(duration: number, key: string) {
-  if (!Number.isFinite(duration) || duration <= 0.25) return [0];
-
-  const ratios = [0.18, 0.32, 0.46, 0.58, 0.72];
-  const rotation = hashString(key) % ratios.length;
-  const rotatedRatios = ratios.map((_, index) => ratios[(index + rotation) % ratios.length]);
-  const maxTime = Math.max(duration - 0.12, 0);
-
-  return Array.from(
-    new Set(
-      rotatedRatios.map((ratio) => Number(Math.min(maxTime, Math.max(0.1, duration * ratio)).toFixed(3)))
-    )
-  );
-}
-
-function scoreFrameSample(context: CanvasRenderingContext2D, width: number, height: number) {
-  const { data } = context.getImageData(0, 0, width, height);
-  const pixelCount = data.length / 4;
-  if (pixelCount === 0) return 0;
-
-  let luminanceSum = 0;
-  let luminanceSquareSum = 0;
-  let colorSpreadSum = 0;
-
-  for (let index = 0; index < data.length; index += 4) {
-    const red = data[index];
-    const green = data[index + 1];
-    const blue = data[index + 2];
-    const luminance = 0.2126 * red + 0.7152 * green + 0.0722 * blue;
-
-    luminanceSum += luminance;
-    luminanceSquareSum += luminance * luminance;
-    colorSpreadSum += Math.max(red, green, blue) - Math.min(red, green, blue);
-  }
-
-  const luminanceMean = luminanceSum / pixelCount;
-  const luminanceVariance = luminanceSquareSum / pixelCount - luminanceMean * luminanceMean;
-  const averageColorSpread = colorSpreadSum / pixelCount;
-
-  return luminanceVariance + averageColorSpread * 1.35;
-}
-
 async function getPresignedUrl(key: string) {
   const cached = presignedUrlCache.get(key);
   if (cached) return cached;
@@ -260,162 +193,6 @@ async function getPresignedUrl(key: string) {
   return request;
 }
 
-async function createVideoThumbnail(key: string) {
-  if (thumbnailFailures.has(key)) return null;
-
-  const cached = thumbnailCache.get(key);
-  if (cached) return cached;
-
-  const pending = thumbnailPromises.get(key);
-  if (pending) return pending;
-
-  const task = (async () => {
-    const url = await getPresignedUrl(key);
-    if (!url) return null;
-
-    return new Promise<string | null>((resolve) => {
-      const video = document.createElement("video");
-      const outputCanvas = document.createElement("canvas");
-      const sampleCanvas = document.createElement("canvas");
-      let settled = false;
-      let timeoutId: number | null = null;
-
-      const finish = (value: string | null) => {
-        if (settled) return;
-        settled = true;
-        if (timeoutId !== null) window.clearTimeout(timeoutId);
-        video.pause();
-        video.removeAttribute("src");
-        video.load();
-        thumbnailPromises.delete(key);
-        if (value) {
-          thumbnailCache.set(key, value);
-        } else {
-          thumbnailFailures.add(key);
-        }
-        resolve(value);
-      };
-
-      const renderCurrentFrame = () => {
-        if (!video.videoWidth || !video.videoHeight) {
-          return null;
-        }
-
-        outputCanvas.width = video.videoWidth;
-        outputCanvas.height = video.videoHeight;
-
-        const context = outputCanvas.getContext("2d");
-        if (!context) {
-          return null;
-        }
-
-        try {
-          context.drawImage(video, 0, 0, outputCanvas.width, outputCanvas.height);
-          return outputCanvas.toDataURL("image/jpeg", 0.72);
-        } catch {
-          return null;
-        }
-      };
-
-      const scoreCurrentFrame = () => {
-        if (!video.videoWidth || !video.videoHeight) return null;
-
-        sampleCanvas.width = 32;
-        sampleCanvas.height = 18;
-        const context = sampleCanvas.getContext("2d", { willReadFrequently: true });
-        if (!context) return null;
-
-        try {
-          context.drawImage(video, 0, 0, sampleCanvas.width, sampleCanvas.height);
-          return scoreFrameSample(context, sampleCanvas.width, sampleCanvas.height);
-        } catch {
-          return null;
-        }
-      };
-
-      const waitForPaint = () =>
-        new Promise<void>((resolveNext) => {
-          window.requestAnimationFrame(() => resolveNext());
-        });
-
-      const seekTo = (time: number) =>
-        new Promise<boolean>((resolveNext) => {
-          const cleanup = (result: boolean) => {
-            video.removeEventListener("seeked", handleSeeked);
-            video.removeEventListener("error", handleError);
-            resolveNext(result);
-          };
-
-          const handleSeeked = () => cleanup(true);
-          const handleError = () => cleanup(false);
-
-          video.addEventListener("seeked", handleSeeked, { once: true });
-          video.addEventListener("error", handleError, { once: true });
-
-          try {
-            if (Math.abs(video.currentTime - time) < 0.05) {
-              window.requestAnimationFrame(() => cleanup(true));
-              return;
-            }
-
-            video.currentTime = time;
-          } catch {
-            cleanup(false);
-          }
-        });
-
-      const chooseBestFrame = async () => {
-        const candidateTimes = buildThumbnailCandidateTimes(video.duration || 0, key);
-        let bestTime = candidateTimes[0] ?? 0;
-        let bestScore = Number.NEGATIVE_INFINITY;
-
-        for (const candidateTime of candidateTimes) {
-          const didSeek = await seekTo(candidateTime);
-          if (!didSeek) continue;
-
-          await waitForPaint();
-          const score = scoreCurrentFrame();
-          if (score === null) continue;
-
-          if (score > bestScore) {
-            bestScore = score;
-            bestTime = candidateTime;
-          }
-        }
-
-        const didSeekBest = await seekTo(bestTime);
-        if (!didSeekBest) {
-          finish(null);
-          return;
-        }
-
-        await waitForPaint();
-        finish(renderCurrentFrame());
-      };
-
-      video.preload = "metadata";
-      video.muted = true;
-      video.playsInline = true;
-      video.crossOrigin = "anonymous";
-      video.onloadedmetadata = () => {
-        void chooseBestFrame();
-      };
-      video.onloadeddata = () => {
-        if ((video.duration || 0) <= 0.25) {
-          finish(renderCurrentFrame());
-        }
-      };
-      video.onerror = () => finish(null);
-
-      timeoutId = window.setTimeout(() => finish(null), 9000);
-      video.src = url;
-    });
-  })();
-
-  thumbnailPromises.set(key, task);
-  return task;
-}
-
 async function getChapterDetail(chapterId: string) {
   const cached = chapterDetailCache.get(chapterId);
   if (cached) return cached;
@@ -423,7 +200,7 @@ async function getChapterDetail(chapterId: string) {
   const pending = chapterDetailPromises.get(chapterId);
   if (pending) return pending;
 
-  const request = fetch(`/api/content-library/chapters/${chapterId}`, { cache: "force-cache" })
+  const request = fetch(`/api/content-library/chapters/${chapterId}`, { cache: "no-store" })
     .then(async (response) => {
       if (!response.ok) return null;
       const payload = (await response.json()) as { chapter?: LibraryChapterDetail };
@@ -471,80 +248,36 @@ function useProgressiveReveal(itemCount: number, initialCount: number, step: num
 }
 
 function VideoThumbnail({
-  s3Key,
   subjectName,
   chapterNo,
 }: {
-  s3Key: string;
   subjectName: string;
   chapterNo: number;
 }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [posterSrc, setPosterSrc] = useState<string | null>(() => thumbnailCache.get(s3Key) ?? null);
-  const [hasStarted, setHasStarted] = useState(Boolean(thumbnailCache.get(s3Key)));
   const colors = subjectMeta(subjectName);
-
-  useEffect(() => {
-    setPosterSrc(thumbnailCache.get(s3Key) ?? null);
-    setHasStarted(Boolean(thumbnailCache.get(s3Key)));
-  }, [s3Key]);
-
-  useEffect(() => {
-    const element = containerRef.current;
-    if (!element || thumbnailCache.has(s3Key) || thumbnailFailures.has(s3Key)) return;
-
-    let cancelIdle: () => void = () => undefined;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (!entry.isIntersecting) return;
-
-        observer.disconnect();
-        setHasStarted(true);
-        cancelIdle = scheduleWhenIdle(() => {
-          void createVideoThumbnail(s3Key).then((thumbnail) => {
-            if (thumbnail) setPosterSrc(thumbnail);
-          });
-        });
-      },
-      { rootMargin: "220px 0px", threshold: 0.1 }
-    );
-
-    observer.observe(element);
-
-    return () => {
-      cancelIdle();
-      observer.disconnect();
-    };
-  }, [s3Key]);
+  const SubjectIcon = colors.icon;
 
   return (
     <div
-      ref={containerRef}
       className={cn(
         "aspect-video rounded-clay-sm relative overflow-hidden border border-white/80",
         `bg-gradient-to-br ${colors.gradient}`
       )}
     >
-      {posterSrc ? (
-        <>
-          <Image src={posterSrc} alt="" fill unoptimized className="object-cover" sizes="(max-width: 768px) 100vw, 25vw" />
-          <div className="absolute inset-0 bg-black/20 transition-colors duration-300 group-hover:bg-black/35" />
-        </>
-      ) : (
-        <>
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.95),transparent_38%),linear-gradient(135deg,rgba(255,255,255,0.28),transparent_52%)]" />
-          <div className="absolute inset-x-4 bottom-4 h-6 rounded-full bg-black/10 blur-xl" />
-          <div className="absolute top-3 right-3 h-8 w-8 rounded-full border border-white/50 bg-white/30" />
-          <div className="absolute bottom-4 left-4 right-16 flex items-end gap-2">
-            <div className="h-10 w-10 rounded-2xl border border-white/60 bg-white/55" />
-            <div className="flex-1">
-              <div className="mb-2 h-3 rounded-full bg-white/60" />
-              <div className="h-2.5 w-2/3 rounded-full bg-white/45" />
-            </div>
-          </div>
-          {!hasStarted && <div className="absolute inset-0 animate-pulse bg-white/10" />}
-        </>
-      )}
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.92),transparent_38%),linear-gradient(135deg,rgba(255,255,255,0.24),transparent_54%)]" />
+      <div className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full border border-white/55 bg-white/35 shadow-[inset_0_1px_0_rgba(255,255,255,0.45)]">
+        <SubjectIcon className="h-4 w-4 text-white/90" />
+      </div>
+      <div className="absolute inset-x-4 bottom-4 h-7 rounded-full bg-black/10 blur-xl" />
+      <div className="absolute inset-x-4 bottom-4 flex items-end gap-2">
+        <div className="flex h-11 w-11 items-center justify-center rounded-[18px] border border-white/60 bg-white/55 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)]">
+          <Play className="ml-0.5 h-4 w-4 text-orange-primary/80" />
+        </div>
+        <div className="flex-1">
+          <div className="mb-2 h-3 rounded-full bg-white/60" />
+          <div className="h-2.5 w-2/3 rounded-full bg-white/45" />
+        </div>
+      </div>
 
       <div className="absolute left-3 top-3 rounded-md bg-black/30 px-2 py-0.5 text-[11px] font-bold text-white backdrop-blur-sm">
         Ch. {chapterNo}
@@ -589,7 +322,6 @@ function ChapterCard({
           <div className="relative mb-4">
             {chapter.previewVideo?.s3Key ? (
               <VideoThumbnail
-                s3Key={chapter.previewVideo.s3Key}
                 subjectName={chapter.subjectName}
                 chapterNo={chapter.chapterNo}
               />

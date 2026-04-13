@@ -196,7 +196,7 @@ const loadContentLibraryData = unstable_cache(
       },
     };
   },
-  ["admin-content-library-data-v3"],
+  ["admin-content-library-data-v4"],
   { revalidate: 3600 }
 );
 
