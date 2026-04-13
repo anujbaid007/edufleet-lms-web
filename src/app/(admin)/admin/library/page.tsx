@@ -18,6 +18,7 @@ type ChapterRow = {
   medium: string;
   chapter_no: number;
   title: string;
+  title_hindi: string | null;
   subject_id: string;
   subjects: { name: string } | null;
 };
@@ -25,6 +26,7 @@ type ChapterRow = {
 type VideoRow = {
   id: string;
   title: string;
+  title_hindi: string | null;
   duration_seconds: number | null;
   sort_order: number;
   chapter_id: string;
@@ -65,7 +67,7 @@ const loadContentLibraryData = unstable_cache(
         chapterRanges.map(([from, to]) =>
           admin
             .from("chapters")
-            .select("id, class, board, medium, chapter_no, title, subject_id, subjects(name)")
+            .select("id, class, board, medium, chapter_no, title, title_hindi, subject_id, subjects(name)")
             .order("class")
             .order("chapter_no")
             .range(from, to)
@@ -75,7 +77,7 @@ const loadContentLibraryData = unstable_cache(
         videoRanges.map(([from, to]) =>
           admin
             .from("videos")
-            .select("id, title, duration_seconds, sort_order, chapter_id, s3_key, s3_key_hindi")
+            .select("id, title, title_hindi, duration_seconds, sort_order, chapter_id, s3_key, s3_key_hindi")
             .order("chapter_id")
             .order("sort_order")
             .range(from, to)
@@ -103,18 +105,19 @@ const loadContentLibraryData = unstable_cache(
         const subjectName = (chapter.subjects as { name: string } | null)?.name ?? "Unknown";
         const chapterVideos = (videosByChapter.get(chapter.id) ?? []).sort((left, right) => left.sort_order - right.sort_order);
         if (chapterVideos.length === 0) return null;
+        const chapterTitle = chapter.medium === "Hindi" && chapter.title_hindi ? chapter.title_hindi : chapter.title;
 
         const chapterItem: ChapterItem = {
           id: chapter.id,
           chapterNo: chapter.chapter_no,
-          title: chapter.title,
+          title: chapterTitle,
           videoCount: chapterVideos.length,
           classNum: chapter.class,
           medium: chapter.medium,
           subjectName,
           videos: chapterVideos.map((video) => ({
             id: video.id,
-            title: video.title,
+            title: chapter.medium === "Hindi" && video.title_hindi ? video.title_hindi : video.title,
             durationSeconds: video.duration_seconds ?? 0,
             s3Key: chapter.medium === "Hindi" && video.s3_key_hindi ? video.s3_key_hindi : video.s3_key,
             sortOrder: video.sort_order,
@@ -131,7 +134,7 @@ const loadContentLibraryData = unstable_cache(
         return {
           id: chapter.id,
           chapterNo: chapter.chapter_no,
-          title: chapter.title,
+          title: chapterTitle,
           subjectName,
           classNum: chapter.class,
           board: chapter.board,
@@ -139,12 +142,9 @@ const loadContentLibraryData = unstable_cache(
           videoCount: chapterVideos.length,
           previewVideo: {
             id: chapterVideos[0].id,
-            title: chapterVideos[0].title,
+            title: chapter.medium === "Hindi" && chapterVideos[0].title_hindi ? chapterVideos[0].title_hindi : chapterVideos[0].title,
             durationSeconds: chapterVideos[0].duration_seconds ?? 0,
-            s3Key:
-              chapter.medium === "Hindi" && chapterVideos[0].s3_key_hindi
-                ? chapterVideos[0].s3_key_hindi
-                : chapterVideos[0].s3_key,
+            s3Key: chapter.medium === "Hindi" && chapterVideos[0].s3_key_hindi ? chapterVideos[0].s3_key_hindi : chapterVideos[0].s3_key,
           },
         } satisfies LibraryChapterCard;
       })
@@ -196,7 +196,7 @@ const loadContentLibraryData = unstable_cache(
       },
     };
   },
-  ["admin-content-library-data-v4"],
+  ["admin-content-library-data-v5"],
   { revalidate: 3600 }
 );
 

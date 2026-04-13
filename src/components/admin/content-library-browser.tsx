@@ -1,4 +1,6 @@
 "use client";
+
+import Image from "next/image";
 import {
   useCallback,
   useEffect,
@@ -63,9 +65,13 @@ type LibraryChapterDetail = {
 
 const INITIAL_MORE_COUNT = 16;
 const MORE_BATCH = 16;
+const PRESIGNED_URL_TTL_MS = 45 * 60 * 1000;
 
-const presignedUrlCache = new Map<string, string>();
+const presignedUrlCache = new Map<string, { url: string; expiresAt: number }>();
 const presignedUrlPromises = new Map<string, Promise<string | null>>();
+const thumbnailCache = new Map<string, string>();
+const thumbnailPromises = new Map<string, Promise<string | null>>();
+const thumbnailFailures = new Set<string>();
 const chapterDetailCache = new Map<string, LibraryChapterDetail>();
 const chapterDetailPromises = new Map<string, Promise<LibraryChapterDetail | null>>();
 
@@ -169,19 +175,35 @@ function classLabel(classNum: number) {
   return `Class ${classNum}`;
 }
 
+function scheduleWhenIdle(callback: () => void) {
+  if (typeof window === "undefined") return () => undefined;
+
+  if ("requestIdleCallback" in window) {
+    const idleId = window.requestIdleCallback(() => callback(), { timeout: 1200 });
+    return () => window.cancelIdleCallback(idleId);
+  }
+
+  const timeoutId = setTimeout(callback, 150);
+  return () => clearTimeout(timeoutId);
+}
+
 async function getPresignedUrl(key: string) {
   const cached = presignedUrlCache.get(key);
-  if (cached) return cached;
+  if (cached && cached.expiresAt > Date.now()) return cached.url;
+  if (cached) presignedUrlCache.delete(key);
 
   const pending = presignedUrlPromises.get(key);
   if (pending) return pending;
 
-  const request = fetch(`/api/presign?key=${encodeURIComponent(key)}`, { cache: "force-cache" })
+  const request = fetch(`/api/presign?key=${encodeURIComponent(key)}`, { cache: "no-store" })
     .then(async (response) => {
       if (!response.ok) return null;
       const payload = (await response.json()) as { url?: string };
       if (!payload.url) return null;
-      presignedUrlCache.set(key, payload.url);
+      presignedUrlCache.set(key, {
+        url: payload.url,
+        expiresAt: Date.now() + PRESIGNED_URL_TTL_MS,
+      });
       return payload.url;
     })
     .catch(() => null)
@@ -191,6 +213,96 @@ async function getPresignedUrl(key: string) {
 
   presignedUrlPromises.set(key, request);
   return request;
+}
+
+async function createVideoThumbnail(key: string) {
+  if (thumbnailFailures.has(key)) return null;
+
+  const cached = thumbnailCache.get(key);
+  if (cached) return cached;
+
+  const pending = thumbnailPromises.get(key);
+  if (pending) return pending;
+
+  const task = (async () => {
+    const url = await getPresignedUrl(key);
+    if (!url) return null;
+
+    return new Promise<string | null>((resolve) => {
+      const video = document.createElement("video");
+      const canvas = document.createElement("canvas");
+      let settled = false;
+      let timeoutId: number | null = null;
+
+      const finish = (value: string | null) => {
+        if (settled) return;
+        settled = true;
+        if (timeoutId !== null) window.clearTimeout(timeoutId);
+        video.pause();
+        video.removeAttribute("src");
+        video.load();
+        thumbnailPromises.delete(key);
+        if (value) {
+          thumbnailCache.set(key, value);
+        } else {
+          thumbnailFailures.add(key);
+        }
+        resolve(value);
+      };
+
+      const drawFrame = () => {
+        if (!video.videoWidth || !video.videoHeight) {
+          finish(null);
+          return;
+        }
+
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+
+        const context = canvas.getContext("2d");
+        if (!context) {
+          finish(null);
+          return;
+        }
+
+        try {
+          context.drawImage(video, 0, 0, canvas.width, canvas.height);
+          finish(canvas.toDataURL("image/jpeg", 0.72));
+        } catch {
+          finish(null);
+        }
+      };
+
+      video.preload = "metadata";
+      video.muted = true;
+      video.playsInline = true;
+      video.crossOrigin = "anonymous";
+      video.onloadedmetadata = () => {
+        const targetTime = video.duration > 0.35 ? 0.35 : 0;
+        if (targetTime === 0) {
+          video.currentTime = 0;
+          return;
+        }
+
+        try {
+          video.currentTime = targetTime;
+        } catch {
+          drawFrame();
+        }
+      };
+      video.onloadeddata = () => {
+        if (video.currentTime === 0) drawFrame();
+      };
+      video.onseeked = drawFrame;
+      video.onerror = () => finish(null);
+
+      timeoutId = window.setTimeout(() => finish(null), 6000);
+      video.src = url;
+    });
+  })();
+
+  thumbnailPromises.set(key, task);
+  return task;
 }
 
 async function getChapterDetail(chapterId: string) {
@@ -248,36 +360,80 @@ function useProgressiveReveal(itemCount: number, initialCount: number, step: num
 }
 
 function VideoThumbnail({
+  s3Key,
   subjectName,
   chapterNo,
 }: {
+  s3Key: string;
   subjectName: string;
   chapterNo: number;
 }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [posterSrc, setPosterSrc] = useState<string | null>(() => thumbnailCache.get(s3Key) ?? null);
+  const [hasStarted, setHasStarted] = useState(Boolean(thumbnailCache.get(s3Key)));
   const colors = subjectMeta(subjectName);
-  const SubjectIcon = colors.icon;
+
+  useEffect(() => {
+    setPosterSrc(thumbnailCache.get(s3Key) ?? null);
+    setHasStarted(Boolean(thumbnailCache.get(s3Key)));
+  }, [s3Key]);
+
+  useEffect(() => {
+    const element = containerRef.current;
+    if (!element || thumbnailCache.has(s3Key) || thumbnailFailures.has(s3Key)) return;
+
+    let cancelIdle: () => void = () => undefined;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) return;
+
+        observer.disconnect();
+        setHasStarted(true);
+        cancelIdle = scheduleWhenIdle(() => {
+          void createVideoThumbnail(s3Key).then((thumbnail) => {
+            if (thumbnail) setPosterSrc(thumbnail);
+          });
+        });
+      },
+      { rootMargin: "220px 0px", threshold: 0.1 }
+    );
+
+    observer.observe(element);
+
+    return () => {
+      cancelIdle();
+      observer.disconnect();
+    };
+  }, [s3Key]);
 
   return (
     <div
+      ref={containerRef}
       className={cn(
         "aspect-video rounded-clay-sm relative overflow-hidden border border-white/80",
         `bg-gradient-to-br ${colors.gradient}`
       )}
     >
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.92),transparent_38%),linear-gradient(135deg,rgba(255,255,255,0.24),transparent_54%)]" />
-      <div className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full border border-white/55 bg-white/35 shadow-[inset_0_1px_0_rgba(255,255,255,0.45)]">
-        <SubjectIcon className="h-4 w-4 text-white/90" />
-      </div>
-      <div className="absolute inset-x-4 bottom-4 h-7 rounded-full bg-black/10 blur-xl" />
-      <div className="absolute inset-x-4 bottom-4 flex items-end gap-2">
-        <div className="flex h-11 w-11 items-center justify-center rounded-[18px] border border-white/60 bg-white/55 shadow-[inset_0_1px_0_rgba(255,255,255,0.55)]">
-          <Play className="ml-0.5 h-4 w-4 text-orange-primary/80" />
-        </div>
-        <div className="flex-1">
-          <div className="mb-2 h-3 rounded-full bg-white/60" />
-          <div className="h-2.5 w-2/3 rounded-full bg-white/45" />
-        </div>
-      </div>
+      {posterSrc ? (
+        <>
+          <Image src={posterSrc} alt="" fill unoptimized className="object-cover" sizes="(max-width: 768px) 100vw, 25vw" />
+          <div className="absolute inset-0 bg-black/20 transition-colors duration-300 group-hover:bg-black/35" />
+        </>
+      ) : (
+        <>
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.95),transparent_38%),linear-gradient(135deg,rgba(255,255,255,0.28),transparent_52%)]" />
+          <div className="absolute inset-x-4 bottom-4 h-6 rounded-full bg-black/10 blur-xl" />
+          <div className="absolute top-3 right-3 h-8 w-8 rounded-full border border-white/50 bg-white/30" />
+          <div className="absolute bottom-4 left-4 right-16 flex items-end gap-2">
+            <div className="h-10 w-10 rounded-2xl border border-white/60 bg-white/55" />
+            <div className="flex-1">
+              <div className="mb-2 h-3 rounded-full bg-white/60" />
+              <div className="h-2.5 w-2/3 rounded-full bg-white/45" />
+            </div>
+          </div>
+          {!hasStarted && <div className="absolute inset-0 animate-pulse bg-white/10" />}
+        </>
+      )}
 
       <div className="absolute left-3 top-3 rounded-md bg-black/30 px-2 py-0.5 text-[11px] font-bold text-white backdrop-blur-sm">
         Ch. {chapterNo}
@@ -322,6 +478,7 @@ function ChapterCard({
           <div className="relative mb-4">
             {chapter.previewVideo?.s3Key ? (
               <VideoThumbnail
+                s3Key={chapter.previewVideo.s3Key}
                 subjectName={chapter.subjectName}
                 chapterNo={chapter.chapterNo}
               />

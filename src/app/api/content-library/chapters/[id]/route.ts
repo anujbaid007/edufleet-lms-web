@@ -26,12 +26,12 @@ export async function GET(
   const [{ data: chapter, error: chapterError }, { data: videos, error: videosError }] = await Promise.all([
     admin
       .from("chapters")
-      .select("id, title, chapter_no, class, board, medium, subject_id, subjects(name)")
+      .select("id, title, title_hindi, chapter_no, class, board, medium, subject_id, subjects(name)")
       .eq("id", chapterId)
       .single(),
     admin
       .from("videos")
-      .select("id, title, duration_seconds, s3_key, s3_key_hindi, sort_order")
+      .select("id, title, title_hindi, duration_seconds, s3_key, s3_key_hindi, sort_order")
       .eq("chapter_id", chapterId)
       .order("sort_order"),
   ]);
@@ -47,7 +47,7 @@ export async function GET(
   return NextResponse.json({
     chapter: {
       id: chapter.id,
-      title: chapter.title,
+      title: chapter.medium === "Hindi" && chapter.title_hindi ? chapter.title_hindi : chapter.title,
       chapterNo: chapter.chapter_no,
       classNum: chapter.class,
       board: chapter.board,
@@ -55,7 +55,7 @@ export async function GET(
       subjectName: (chapter.subjects as { name: string } | null)?.name ?? "Unknown",
       videos: (videos ?? []).map((video) => ({
         id: video.id,
-        title: video.title,
+        title: chapter.medium === "Hindi" && video.title_hindi ? video.title_hindi : video.title,
         durationSeconds: video.duration_seconds ?? 0,
         s3Key: chapter.medium === "Hindi" && video.s3_key_hindi ? video.s3_key_hindi : video.s3_key,
       })),

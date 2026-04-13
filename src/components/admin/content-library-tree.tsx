@@ -95,7 +95,9 @@ function ChapterPreviewModal({
     setVideoUrl(null);
 
     try {
-      const res = await fetch(`/api/presign?key=${encodeURIComponent(video.s3Key)}`);
+      const res = await fetch(`/api/presign?key=${encodeURIComponent(video.s3Key)}`, {
+        cache: "no-store",
+      });
       const data = await res.json();
       if (data.url) {
         setVideoUrl(data.url);
