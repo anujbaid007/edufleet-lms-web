@@ -9,6 +9,12 @@ type SubmittedAnswer = {
   selectedOption: number | null;
 };
 
+function getSubmittedQuestionIds(answers: SubmittedAnswer[]) {
+  return Array.from(
+    new Set(answers.map((answer) => answer.questionId).filter((questionId) => Boolean(questionId)))
+  );
+}
+
 export async function submitChapterQuizAttempt(
   quizId: string,
   answers: SubmittedAnswer[]
@@ -28,6 +34,11 @@ export async function submitChapterQuizAttempt(
 
   if (profileError || !profile) {
     return { error: profileError?.message ?? "Profile not found" };
+  }
+
+  const submittedQuestionIds = getSubmittedQuestionIds(answers);
+  if (submittedQuestionIds.length === 0) {
+    return { error: "No quiz questions were submitted" };
   }
 
   if (quizId.startsWith("fallback:")) {
@@ -55,6 +66,14 @@ export async function submitChapterQuizAttempt(
 
     if (!fallbackQuiz) {
       return { error: "Quiz is not available for this chapter yet" };
+    }
+
+    const selectedQuestions = fallbackQuiz.questions.filter((question) =>
+      submittedQuestionIds.includes(question.id)
+    );
+
+    if (selectedQuestions.length === 0) {
+      return { error: "Quiz questions are not available yet" };
     }
 
     if (profile.class !== null && chapterRow.class !== profile.class) {
@@ -89,8 +108,8 @@ export async function submitChapterQuizAttempt(
       ])
     );
 
-    const totalQuestions = fallbackQuiz.questions.length;
-    const correctAnswers = fallbackQuiz.questions.reduce((sum, question) => {
+    const totalQuestions = selectedQuestions.length;
+    const correctAnswers = selectedQuestions.reduce((sum, question) => {
       return sum + (answerMap.get(question.id) === question.correctOption ? 1 : 0);
     }, 0);
     const percent = totalQuestions > 0 ? Math.round((correctAnswers / totalQuestions) * 100) : 0;
@@ -99,7 +118,7 @@ export async function submitChapterQuizAttempt(
       quizId,
       chapterId: chapterRow.id,
       userId: user.id,
-      answers: fallbackQuiz.questions.map((question) => {
+      answers: selectedQuestions.map((question) => {
         const selectedOption = answerMap.get(question.id) ?? null;
         return {
           questionId: question.id,
@@ -170,6 +189,7 @@ export async function submitChapterQuizAttempt(
   const { data: questions, error: questionsError } = await supabase
     .from("quiz_questions")
     .select("id, correct_option")
+    .in("id", submittedQuestionIds)
     .eq("quiz_id", quizId)
     .order("sort_order");
 

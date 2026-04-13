@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { submitChapterQuizAttempt } from "@/lib/actions/quiz";
 import {
+  getQuizQuestionsForAttempt,
   getQuizMasteryClasses,
   getQuizMasteryLabel,
   type QuizMasteryLevel,
@@ -71,7 +72,7 @@ export function ChapterQuiz({
   chapterTitle,
   chapterNo,
   subjectName,
-  questions,
+  questionPool,
   latestAttempt,
   bestAttempt,
   attemptCount,
@@ -81,7 +82,7 @@ export function ChapterQuiz({
   chapterTitle: string;
   chapterNo: number;
   subjectName: string;
-  questions: QuizQuestionView[];
+  questionPool: QuizQuestionView[];
   latestAttempt: AttemptSummary;
   bestAttempt: AttemptSummary;
   attemptCount: number;
@@ -95,11 +96,17 @@ export function ChapterQuiz({
   const [submittedAttempt, setSubmittedAttempt] = useState<AttemptSummary>(null);
   const [visibleAttemptCount, setVisibleAttemptCount] = useState(attemptCount);
   const [visibleRecentAttempts, setVisibleRecentAttempts] = useState<QuizAttemptSummary[]>(recentAttempts);
+  const [currentRunNumber, setCurrentRunNumber] = useState(() => Math.max(attemptCount + 1, 1));
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [isReviewMode, setIsReviewMode] = useState(false);
   const [pendingAutoAdvanceQuestionId, setPendingAutoAdvanceQuestionId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const autoAdvanceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const questions = useMemo(
+    () => getQuizQuestionsForAttempt(questionPool, `${quizId}:attempt:${currentRunNumber}`),
+    [currentRunNumber, questionPool, quizId]
+  );
 
   const answeredCount = useMemo(
     () => Object.values(answers).filter((value) => isValidSelectedOption(value)).length,
@@ -109,9 +116,7 @@ export function ChapterQuiz({
   const progressPercent = questions.length > 0 ? Math.round((answeredCount / questions.length) * 100) : 0;
   const canSubmit = questions.length > 0 && unansweredCount === 0 && !isPending;
   const hasSubmittedCurrentRun = Boolean(submittedAttempt);
-  const currentAttemptNumber = hasSubmittedCurrentRun
-    ? Math.max(visibleAttemptCount, 1)
-    : Math.max(visibleAttemptCount + 1, 1);
+  const currentAttemptNumber = currentRunNumber;
   const mergedRecentAttempts = useMemo(
     () => mergeRecentAttempts([submittedAttempt, ...visibleRecentAttempts]),
     [submittedAttempt, visibleRecentAttempts]
@@ -174,6 +179,10 @@ export function ChapterQuiz({
   useEffect(() => {
     setVisibleRecentAttempts((current) => mergeRecentAttempts([...recentAttempts, ...current]));
   }, [recentAttempts]);
+
+  useEffect(() => {
+    setCurrentQuestionIndex((current) => Math.min(current, Math.max(questions.length - 1, 0)));
+  }, [questions.length]);
 
   const goToQuestion = (index: number, options?: { scrollToQuestion?: boolean }) => {
     if (questions.length === 0) return;
@@ -238,6 +247,7 @@ export function ChapterQuiz({
 
   const handleRetake = () => {
     clearAutoAdvance();
+    setCurrentRunNumber((current) => current + 1);
     setAnswers({});
     setSubmissionError(null);
     setSubmittedAttempt(null);

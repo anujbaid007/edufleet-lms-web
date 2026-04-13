@@ -1,5 +1,7 @@
 export type QuizMasteryLevel = "mastered" | "proficient" | "developing" | "needs_practice";
 
+export const QUIZ_ATTEMPT_QUESTION_LIMIT = 10;
+
 export function getQuizMasteryLevel(percent: number): QuizMasteryLevel {
   if (percent >= 85) return "mastered";
   if (percent >= 70) return "proficient";
@@ -41,4 +43,46 @@ export function isQuizSchemaUnavailableError(error: { message?: string } | null 
     message.includes("Could not find the table 'public.quiz_attempts' in the schema cache") ||
     message.includes("Could not find the table 'public.quiz_attempt_answers' in the schema cache")
   );
+}
+
+function getDeterministicHash(value: string) {
+  let hash = 2166136261;
+
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+
+  return hash >>> 0;
+}
+
+export function getQuizQuestionsForAttempt<T extends { id: string }>(
+  questions: T[],
+  attemptSeed: string,
+  limit = QUIZ_ATTEMPT_QUESTION_LIMIT
+) {
+  if (questions.length <= limit) {
+    return questions;
+  }
+
+  const originalIndex = new Map<string, number>();
+  questions.forEach((question, index) => {
+    originalIndex.set(question.id, index);
+  });
+
+  return [...questions]
+    .sort((left, right) => {
+      const leftHash = getDeterministicHash(`${attemptSeed}:${left.id}`);
+      const rightHash = getDeterministicHash(`${attemptSeed}:${right.id}`);
+
+      if (leftHash !== rightHash) {
+        return leftHash - rightHash;
+      }
+
+      return (originalIndex.get(left.id) ?? 0) - (originalIndex.get(right.id) ?? 0);
+    })
+    .slice(0, limit)
+    .sort((left, right) => {
+      return (originalIndex.get(left.id) ?? 0) - (originalIndex.get(right.id) ?? 0);
+    });
 }

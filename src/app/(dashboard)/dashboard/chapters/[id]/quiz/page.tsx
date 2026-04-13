@@ -202,7 +202,7 @@ export default async function ChapterQuizPage({ params }: { params: { id: string
           chapterTitle={chapter.title}
           chapterNo={chapter.chapter_no}
           subjectName={subjectName}
-          questions={
+          questionPool={
             activeQuiz
               ? questionRows.map((question) => ({
                   id: question.id,
