@@ -1,7 +1,10 @@
+import { unstable_cache } from "next/cache";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/supabase/types";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getFallbackQuizMeta, listFallbackAttemptsForUserByChapterIds } from "@/lib/dev-quiz-fallback";
 import { getLearnerScopeManifest, type LearnerScopeChapter, type LearnerScopeProfile } from "@/lib/learner-scope";
+import { createRequestProfiler } from "@/lib/perf";
 import { getQuizMasteryLevel, isQuizSchemaUnavailableError } from "@/lib/quiz";
 
 type AppSupabaseClient = SupabaseClient<Database>;
@@ -444,4 +447,42 @@ export async function getQuizSubjectPageData(
     subject,
     subjectLinks,
   };
+}
+
+const loadCachedQuizHubData = unstable_cache(
+  async (userId: string) => {
+    const perf = createRequestProfiler("dashboard.quizzes.cache", { userId });
+    const supabase = createAdminClient();
+    const data = await getQuizHubData(supabase, userId);
+    perf.record("subjectSectionCount", data?.subjectSections.length ?? 0);
+    perf.record("totalQuizCount", data?.totalQuizzes ?? 0);
+    perf.mark("build");
+    perf.flush();
+    return data;
+  },
+  ["dashboard-quiz-hub-data"],
+  { revalidate: 30 }
+);
+
+const loadCachedQuizSubjectPageData = unstable_cache(
+  async (userId: string, subjectId: string) => {
+    const perf = createRequestProfiler("dashboard.quizzes.subject.cache", { userId, subjectId });
+    const supabase = createAdminClient();
+    const data = await getQuizSubjectPageData(supabase, userId, subjectId);
+    perf.record("quizCardCount", data?.subject.quizzes.length ?? 0);
+    perf.record("subjectLinkCount", data?.subjectLinks.length ?? 0);
+    perf.mark("build");
+    perf.flush();
+    return data;
+  },
+  ["dashboard-quiz-subject-page-data"],
+  { revalidate: 30 }
+);
+
+export async function getCachedQuizHubData(userId: string) {
+  return loadCachedQuizHubData(userId);
+}
+
+export async function getCachedQuizSubjectPageData(userId: string, subjectId: string) {
+  return loadCachedQuizSubjectPageData(userId, subjectId);
 }

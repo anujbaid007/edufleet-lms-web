@@ -17,11 +17,14 @@ import {
 import { getFallbackQuizMeta, listFallbackAttemptsForUserByChapterIds } from "@/lib/dev-quiz-fallback";
 import { t } from "@/lib/i18n";
 import { getServerLang } from "@/lib/i18n-server";
+import { getLearnerScopeManifest, getLearnerVideoState } from "@/lib/learner-scope";
+import { createRequestProfiler } from "@/lib/perf";
 
 export const metadata = { title: "My Progress" };
 
 export default async function ProgressPage() {
   const lang = getServerLang();
+  const perf = createRequestProfiler("dashboard.progress", { lang });
   const metricInfo =
     lang === "hi"
       ? {
@@ -48,48 +51,29 @@ export default async function ProgressPage() {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) redirect("/login");
   const userId = session.user.id;
+  perf.mark("auth");
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("class, board, medium, org_id")
-    .eq("id", userId)
-    .single();
-  if (!profile) redirect("/login");
+  const scope = await getLearnerScopeManifest(supabase, userId);
+  if (!scope) redirect("/login");
+  const { profile, chapters, chapterIds, subjects } = scope;
+  perf.record("subjectCount", subjects.length);
+  perf.record("chapterCount", chapters.length);
+  perf.mark("scope");
 
-  // Get all chapters for user's class
-  const { data: allChapters } = await supabase
-    .from("chapters")
-    .select("id, title, title_hindi, chapter_no, subject_id, subjects(id, name)")
-    .eq("class", profile.class ?? 0)
-    .eq("board", profile.board ?? "CBSE")
-    .eq("medium", profile.medium ?? "English")
-    .order("chapter_no");
-
-  let chapters = allChapters ?? [];
-  if (profile.org_id) {
-    const { data: restrictions } = await supabase
-      .from("content_restrictions")
-      .select("chapter_id")
-      .eq("org_id", profile.org_id);
-    const blockedIds = new Set(restrictions?.map((row) => row.chapter_id) ?? []);
-    chapters = chapters.filter((chapter) => !blockedIds.has(chapter.id));
-  }
-
-  const chapterIds = chapters?.map((c) => c.id) ?? [];
-
-  const { data: videos } = chapterIds.length > 0
-    ? await supabase.from("videos").select("id, chapter_id, duration_seconds").in("chapter_id", chapterIds)
-    : { data: [] };
-
-  const videoIds = videos?.map((v) => v.id) ?? [];
-
-  const { data: progress } = videoIds.length > 0
-    ? await supabase
-        .from("video_progress")
-        .select("video_id, watched_percentage, completed, last_position, last_watched_at")
-        .eq("user_id", userId)
-        .in("video_id", videoIds)
-    : { data: [] };
+  const {
+    videos,
+    videosByChapterId,
+    progressRows,
+    progressByVideoId,
+  } = await getLearnerVideoState(
+    supabase,
+    userId,
+    chapterIds,
+    "id, chapter_id, duration_seconds"
+  );
+  perf.record("videoCount", videos.length);
+  perf.record("progressRowCount", progressRows.length);
+  perf.mark("video-state");
 
   const { data: quizzes, error: quizzesError } = chapterIds.length > 0
     ? await supabase
@@ -154,8 +138,10 @@ export default async function ProgressPage() {
       completed_at: attempt.completedAt,
     })),
   ].sort((left, right) => right.completed_at.localeCompare(left.completed_at));
+  perf.record("quizCount", quizRows.length);
+  perf.record("quizAttemptCount", quizAttemptRows.length);
+  perf.mark("quiz-data");
 
-  const progressMap = new Map(progress?.map((p) => [p.video_id, p]) ?? []);
   const quizByChapterId = new Map(quizRows.map((quiz) => [quiz.chapter_id, quiz]));
   const bestQuizAttemptByQuizId = new Map<
     string,
@@ -186,10 +172,10 @@ export default async function ProgressPage() {
   }
 
   // Global stats
-  const totalWatchTime = progress?.reduce((sum, p) => sum + (p.last_position || 0), 0) ?? 0;
-  const chapterStats = (chapters ?? []).map((chapter) => {
-    const chapterVideos = videos?.filter((video) => video.chapter_id === chapter.id) ?? [];
-    const chapterCompletedVideos = chapterVideos.filter((video) => progressMap.get(video.id)?.completed).length;
+  const totalWatchTime = progressRows.reduce((sum, progress) => sum + (progress.last_position || 0), 0);
+  const chapterStats = chapters.map((chapter) => {
+    const chapterVideos = videosByChapterId.get(chapter.id) ?? [];
+    const chapterCompletedVideos = chapterVideos.filter((video) => progressByVideoId.get(video.id)?.completed).length;
     const percent = chapterVideos.length > 0 ? Math.round((chapterCompletedVideos / chapterVideos.length) * 100) : 0;
     const quiz = quizByChapterId.get(chapter.id);
     const bestQuizAttempt = quiz ? bestQuizAttemptByQuizId.get(quiz.id) ?? null : null;
@@ -204,6 +190,7 @@ export default async function ProgressPage() {
       quizBestAttempt: bestQuizAttempt,
     };
   });
+  const chapterStatsById = new Map(chapterStats.map((chapter) => [chapter.id, chapter]));
   const trackableChapterStats = chapterStats.filter((chapter) => chapter.totalVideos > 0);
   const totalChapters = trackableChapterStats.length;
   const completedChapters = trackableChapterStats.filter((chapter) => chapter.completed).length;
@@ -225,7 +212,7 @@ export default async function ProgressPage() {
 
   // Streak
   const watchDates = Array.from(new Set(
-    progress?.map((p) => p.last_watched_at?.split("T")[0]).filter(Boolean).sort().reverse() ?? []
+    progressRows.map((p) => p.last_watched_at?.split("T")[0]).filter(Boolean).sort().reverse()
   )) as string[];
   let streak = 0;
   for (let i = 0; i < watchDates.length; i++) {
@@ -234,27 +221,21 @@ export default async function ProgressPage() {
     else break;
   }
 
-  // Group by subject
-  const subjectMap = new Map<string, { id: string; name: string; chapters: typeof chapters }>();
-  chapters?.forEach((ch) => {
-    const sub = ch.subjects as unknown as { id: string; name: string } | null;
-    const subName = sub?.name ?? "Unknown";
-    const subId = sub?.id ?? "";
-    if (!subjectMap.has(subName)) subjectMap.set(subName, { id: subId, name: subName, chapters: [] });
-    subjectMap.get(subName)!.chapters!.push(ch);
-  });
-
-  const subjectStats = Array.from(subjectMap.values()).map((sub) => {
-    const subChapterIds = sub.chapters!.map((c: { id: string }) => c.id);
-    const subVideos = videos?.filter((v) => subChapterIds.includes(v.chapter_id)) ?? [];
-    const subCompleted = subVideos.filter((v) => progressMap.get(v.id)?.completed).length;
-    const subjectChapterStats = chapterStats.filter((chapter) => subChapterIds.includes(chapter.id));
+  const subjectStats = subjects.map((subject) => {
+    const subjectVideos = subject.chapters.flatMap((chapter) => videosByChapterId.get(chapter.id) ?? []);
+    const subCompleted = subjectVideos.filter((video) => progressByVideoId.get(video.id)?.completed).length;
+    const subjectChapterStats = subject.chapters
+      .map((chapter) => chapterStatsById.get(chapter.id))
+      .filter((chapter): chapter is NonNullable<typeof chapterStats[number]> => Boolean(chapter));
     const trackableSubjectChapters = subjectChapterStats.filter((chapter) => chapter.totalVideos > 0);
     const completedSubjectChapters = trackableSubjectChapters.filter((chapter) => chapter.completed).length;
     const percent = trackableSubjectChapters.length > 0
       ? Math.round((completedSubjectChapters / trackableSubjectChapters.length) * 100)
       : 0;
-    const subjectQuizzes = quizRows.filter((quiz) => subChapterIds.includes(quiz.chapter_id));
+    const subjectQuizzes = subject.chapters.flatMap((chapter) => {
+      const quiz = quizByChapterId.get(chapter.id);
+      return quiz ? [quiz] : [];
+    });
     const subjectBestAttempts = subjectQuizzes
       .map((quiz) => bestQuizAttemptByQuizId.get(quiz.id))
       .filter((attempt): attempt is NonNullable<typeof attempt> => Boolean(attempt));
@@ -263,8 +244,9 @@ export default async function ProgressPage() {
       : 0;
 
     return {
-      ...sub,
-      totalVideos: subVideos.length,
+      id: subject.id,
+      name: subject.name,
+      totalVideos: subjectVideos.length,
       completedVideos: subCompleted,
       totalChapters: trackableSubjectChapters.length,
       completedChapters: completedSubjectChapters,
@@ -276,6 +258,9 @@ export default async function ProgressPage() {
       averageQuizScore: averageSubjectQuizScore,
     };
   }).filter((subject) => subject.totalChapters > 0 || subject.totalVideos > 0);
+  perf.record("subjectStatsCount", subjectStats.length);
+  perf.mark("aggregation");
+  perf.flush();
 
   return (
     <div className="space-y-8">

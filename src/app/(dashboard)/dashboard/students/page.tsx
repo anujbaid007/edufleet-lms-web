@@ -6,8 +6,16 @@ import { ClayCard } from "@/components/ui/clay-card";
 import { AssignStudentForm } from "@/components/dashboard/assign-student-form";
 import { Users, User } from "lucide-react";
 import { ScrollResetOnMount } from "@/components/ui/scroll-reset-on-mount";
+import { createRequestProfiler } from "@/lib/perf";
 
 export const metadata = { title: "My Students" };
+
+type StudentProgressRow = {
+  user_id: string;
+  video_id: string;
+  completed: boolean;
+  last_watched_at: string | null;
+};
 
 function formatLastActiveLabel(daysSinceActive: number | null) {
   if (daysSinceActive === null) return "Never active";
@@ -17,10 +25,12 @@ function formatLastActiveLabel(daysSinceActive: number | null) {
 }
 
 export default async function MyStudentsPage() {
+  const perf = createRequestProfiler("dashboard.students");
   const supabase = await createClient();
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) redirect("/login");
   const userId = session.user.id;
+  perf.mark("auth");
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -29,6 +39,7 @@ export default async function MyStudentsPage() {
     .single();
 
   if (!profile || profile.role !== "teacher") redirect("/dashboard");
+  perf.mark("profile");
 
   const adminClient = createAdminClient();
   let assignableStudentsQuery = adminClient
@@ -65,6 +76,8 @@ export default async function MyStudentsPage() {
 
   const studentList = students ?? [];
   const studentIds = studentList.map((student) => student.id);
+  perf.record("studentCount", studentList.length);
+  perf.record("assignableStudentCount", assignableStudents?.length ?? 0);
   const orgIds = Array.from(
     new Set(studentList.map((student) => student.org_id).filter((value): value is string => Boolean(value)))
   );
@@ -106,6 +119,10 @@ export default async function MyStudentsPage() {
         .select("user_id, video_id, completed, last_watched_at")
         .in("user_id", studentIds)
     : { data: [] };
+  perf.record("chapterCount", chapters?.length ?? 0);
+  perf.record("videoCount", videos?.length ?? 0);
+  perf.record("progressRowCount", allProgress?.length ?? 0);
+  perf.mark("data-load");
 
   const blockedChapterIdsByOrg = new Map<string, Set<string>>();
   for (const restriction of restrictions ?? []) {
@@ -138,6 +155,13 @@ export default async function MyStudentsPage() {
     ])
   );
   const videoById = new Map((videos ?? []).map((video) => [video.id, video]));
+  const progressByStudentId = new Map<string, StudentProgressRow[]>();
+
+  for (const progressRow of allProgress ?? []) {
+    const list = progressByStudentId.get(progressRow.user_id) ?? [];
+    list.push(progressRow);
+    progressByStudentId.set(progressRow.user_id, list);
+  }
 
   for (const chapter of chapters ?? []) {
     const comboKey = `${chapter.class}|${chapter.board}|${chapter.medium}`;
@@ -148,7 +172,7 @@ export default async function MyStudentsPage() {
 
   // Aggregate per student
   const studentStats = studentList.map((student) => {
-    const studentProgress = allProgress?.filter((p) => p.user_id === student.id) ?? [];
+    const studentProgress = progressByStudentId.get(student.id) ?? [];
     const completedVideoIds = new Set(studentProgress.filter((progress) => progress.completed).map((progress) => progress.video_id));
     const comboKey = `${student.class ?? "na"}|${student.board ?? "na"}|${student.medium ?? "na"}`;
     const blockedChapterIds = student.org_id ? blockedChapterIdsByOrg.get(student.org_id) ?? new Set<string>() : new Set<string>();
@@ -185,21 +209,25 @@ export default async function MyStudentsPage() {
       return chapterCompleted;
     }).length;
 
-    const latestProgress = [...studentProgress]
-      .filter((progress) => Boolean(progress.last_watched_at) && accessibleVideoIds.has(progress.video_id))
-      .sort((left, right) => (right.last_watched_at ?? "").localeCompare(left.last_watched_at ?? ""))[0];
+    let latestProgress: (typeof studentProgress)[number] | null = null;
+    let lastActive: string | null = null;
+
+    for (const progress of studentProgress) {
+      if (progress.last_watched_at && (!lastActive || lastActive < progress.last_watched_at)) {
+        lastActive = progress.last_watched_at;
+      }
+
+      if (!progress.last_watched_at || !accessibleVideoIds.has(progress.video_id)) continue;
+      if (!latestProgress || (latestProgress.last_watched_at ?? "") < progress.last_watched_at) {
+        latestProgress = progress;
+      }
+    }
 
     const latestVideo = latestProgress ? videoById.get(latestProgress.video_id) : null;
     const latestChapter = latestVideo ? chapterById.get(latestVideo.chapter_id) : null;
     const lastLessonLabel = latestVideo && latestChapter
       ? `${latestChapter.subjectName} · Ch. ${latestChapter.chapterNo} · ${latestVideo.title}`
       : null;
-
-    const lastActive = studentProgress
-      .map((p) => p.last_watched_at)
-      .filter(Boolean)
-      .sort()
-      .reverse()[0];
 
     const daysSinceActive = lastActive
       ? Math.floor((Date.now() - new Date(lastActive).getTime()) / 86400000)
@@ -218,6 +246,9 @@ export default async function MyStudentsPage() {
       ),
     };
   });
+  perf.record("studentStatsCount", studentStats.length);
+  perf.mark("aggregation");
+  perf.flush();
 
   const activeCount = studentStats.filter((s) => !s.isInactive && s.daysSinceActive !== null).length;
   const inactiveCount = studentStats.filter((s) => s.isInactive).length;

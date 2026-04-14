@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { unstable_noStore as noStore } from "next/cache";
 import { ArrowRight } from "lucide-react";
 import { Header } from "@/components/dashboard/header";
 import { PageBreadcrumbs } from "@/components/dashboard/page-breadcrumbs";
@@ -10,12 +9,11 @@ import { ProgressRing } from "@/components/ui/progress-ring";
 import { ScrollResetOnMount } from "@/components/ui/scroll-reset-on-mount";
 import { createClient } from "@/lib/supabase/server";
 import { getQuizMasteryClasses, getQuizMasteryLabel, getQuizMasteryLevel } from "@/lib/quiz";
-import { getQuizSubjectHref, getQuizSubjectPageData } from "@/lib/quiz-hub";
+import { getCachedQuizSubjectPageData, getQuizSubjectHref } from "@/lib/quiz-hub";
 import { t, type Lang } from "@/lib/i18n";
 import { getServerLang } from "@/lib/i18n-server";
 
 export const metadata = { title: "Subject Quizzes" };
-export const dynamic = "force-dynamic";
 
 function formatQuizRuns(count: number, lang: Lang): string {
   return `${count} ${count === 1 ? t(lang, "quiz.quizRun") : t(lang, "quiz.quizRuns")}`;
@@ -27,7 +25,6 @@ function formatStartedChapters(count: number, lang: Lang): string {
 
 export default async function QuizSubjectPage({ params }: { params: { subjectId: string } }) {
   const lang = getServerLang();
-  noStore();
   const supabase = await createClient();
   const {
     data: { session },
@@ -35,7 +32,7 @@ export default async function QuizSubjectPage({ params }: { params: { subjectId:
 
   if (!session) redirect("/login");
 
-  const quizSubjectPageData = await getQuizSubjectPageData(supabase, session.user.id, params.subjectId);
+  const quizSubjectPageData = await getCachedQuizSubjectPageData(session.user.id, params.subjectId);
   if (!quizSubjectPageData) notFound();
 
   const { subject, subjectLinks } = quizSubjectPageData;

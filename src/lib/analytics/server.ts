@@ -1,10 +1,12 @@
 import "server-only";
 
+import { unstable_cache } from "next/cache";
 import { redirect } from "next/navigation";
 import type { PostgrestError, SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Database } from "@/lib/supabase/types";
+import { createRequestProfiler } from "@/lib/perf";
 import type {
   AnalyticsChapterView,
   AnalyticsDataset,
@@ -184,7 +186,12 @@ const TIMELINE_DAYS = 30;
 const PAGE_SIZE = 1000;
 const USER_ID_CHUNK = 300;
 const VIDEO_ID_CHUNK = 500;
+const ANALYTICS_REVALIDATE_SECONDS = 120;
 const ADMIN_ROLES = new Set<UserRole>(["platform_admin", "org_admin", "centre_admin"]);
+
+function serializeCacheKey(value: AnalyticsViewer | AnalyticsRequest) {
+  return JSON.stringify(value);
+}
 
 function roleScopeFromRole(role: UserRole): AnalyticsViewer["roleScope"] {
   if (role === "platform_admin") return "platform";
@@ -1156,12 +1163,20 @@ async function buildAnalyticsDataset(viewer: AnalyticsViewer, request: Analytics
   const supabase = createAdminClient();
   const normalized = normalizeRequest(viewer, request);
   const level = getDatasetLevel(viewer, normalized);
+  const perf = createRequestProfiler("admin.analytics.dataset", {
+    viewerRole: viewer.role,
+    level,
+  });
 
   const [organizations, centres, students] = await Promise.all([
     fetchOrganizations(supabase, normalized),
     fetchCentres(supabase, normalized),
     fetchStudents(supabase, normalized),
   ]);
+  perf.record("organizationCount", organizations.length);
+  perf.record("centreCount", centres.length);
+  perf.record("studentCount", students.length);
+  perf.mark("base-entities");
 
   const orgIds = Array.from(
     new Set(
@@ -1193,11 +1208,19 @@ async function buildAnalyticsDataset(viewer: AnalyticsViewer, request: Analytics
       students.map((student) => student.id)
     ),
   ]);
+  perf.record("restrictionCount", restrictions.length);
+  perf.record("videoCountRows", videoCounts.data?.length ?? 0);
+  perf.record("chapterCount", chapters.length);
+  perf.record("progressRowCount", progressRows.length);
+  perf.mark("scope-data");
 
   if (videoCounts.error) throw videoCounts.error;
 
   const progressVideoIds = Array.from(new Set(progressRows.map((row) => row.video_id)));
   const videos = await fetchVideosByIds(supabase, progressVideoIds);
+  perf.record("progressVideoIdCount", progressVideoIds.length);
+  perf.record("videoCount", videos.length);
+  perf.mark("video-lookup");
 
   const organizationsById = new Map(organizations.map((row) => [row.id, row]));
   const centresById = new Map(centres.map((row) => [row.id, row]));
@@ -1394,6 +1417,13 @@ async function buildAnalyticsDataset(viewer: AnalyticsViewer, request: Analytics
     level === "chapters" && normalized.subjectId
       ? buildChapterViews(snapshotList, centresById, normalized.subjectId, videosByChapter, progressByStudentVideo)
       : undefined;
+  perf.record("snapshotCount", snapshotList.length);
+  perf.record("rowCount", rows.length);
+  perf.record("timelinePointCount", timeline.length);
+  perf.record("inactiveStudentCount", inactiveStudents.length);
+  perf.record("chapterViewCount", Object.keys(chapterViews ?? {}).length);
+  perf.mark("aggregation");
+  perf.flush();
 
   return {
     level,
@@ -1409,11 +1439,33 @@ async function buildAnalyticsDataset(viewer: AnalyticsViewer, request: Analytics
   };
 }
 
+const loadCachedAnalyticsDatasetInner = unstable_cache(
+  async (viewerKey: string, requestKey: string) => {
+    const viewer = JSON.parse(viewerKey) as AnalyticsViewer;
+    const request = JSON.parse(requestKey) as AnalyticsRequest;
+    const perf = createRequestProfiler("admin.analytics.cache-build", {
+      viewerRole: viewer.role,
+    });
+    const dataset = await buildAnalyticsDataset(viewer, request);
+    perf.record("rowCount", dataset.rows.length);
+    perf.record("timelinePointCount", dataset.timeline.length);
+    perf.mark("dataset");
+    perf.flush();
+    return dataset;
+  },
+  ["admin-analytics-dataset"],
+  { revalidate: ANALYTICS_REVALIDATE_SECONDS }
+);
+
+async function loadCachedAnalyticsDataset(viewer: AnalyticsViewer, request: AnalyticsRequest) {
+  return loadCachedAnalyticsDatasetInner(serializeCacheKey(viewer), serializeCacheKey(request));
+}
+
 export async function loadInitialAnalyticsPageData(): Promise<AnalyticsPageData> {
   const supabase = await createClient();
   const viewer = await getViewer(supabase);
   const initialRequest = buildInitialRequest(viewer);
-  const initialDataset = await buildAnalyticsDataset(viewer, initialRequest);
+  const initialDataset = await loadCachedAnalyticsDataset(viewer, initialRequest);
 
   return {
     viewer,
@@ -1427,5 +1479,5 @@ export async function loadInitialAnalyticsPageData(): Promise<AnalyticsPageData>
 export async function loadAnalyticsDataset(request: AnalyticsRequest) {
   const supabase = await createClient();
   const viewer = await getViewer(supabase);
-  return buildAnalyticsDataset(viewer, request);
+  return loadCachedAnalyticsDataset(viewer, request);
 }

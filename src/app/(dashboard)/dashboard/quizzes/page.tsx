@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { unstable_noStore as noStore } from "next/cache";
 import { ArrowRight, BookOpen, Sparkles, Target, Trophy } from "lucide-react";
 import { Header } from "@/components/dashboard/header";
 import { ClayCard } from "@/components/ui/clay-card";
@@ -8,12 +7,11 @@ import { ProgressRing } from "@/components/ui/progress-ring";
 import { ScrollResetOnMount } from "@/components/ui/scroll-reset-on-mount";
 import { getSubjectTheme } from "@/components/quiz/quiz-subject-theme";
 import { createClient } from "@/lib/supabase/server";
-import { getQuizHubData, getQuizSubjectHref } from "@/lib/quiz-hub";
+import { getCachedQuizHubData, getQuizSubjectHref } from "@/lib/quiz-hub";
 import { t, type Lang } from "@/lib/i18n";
 import { getServerLang } from "@/lib/i18n-server";
 
 export const metadata = { title: "Quiz" };
-export const dynamic = "force-dynamic";
 
 function formatQuizRuns(count: number, lang: Lang): string {
   return `${count} ${count === 1 ? t(lang, "quiz.quizRun") : t(lang, "quiz.quizRuns")}`;
@@ -25,7 +23,6 @@ function formatStartedChapters(count: number, lang: Lang): string {
 
 export default async function QuizzesPage() {
   const lang = getServerLang();
-  noStore();
   const supabase = await createClient();
   const {
     data: { session },
@@ -33,7 +30,7 @@ export default async function QuizzesPage() {
 
   if (!session) redirect("/login");
 
-  const quizHubData = await getQuizHubData(supabase, session.user.id);
+  const quizHubData = await getCachedQuizHubData(session.user.id);
   if (!quizHubData) redirect("/login");
 
   const { totalQuizzes, subjectSections, attemptedQuizzes, totalAttempts, masteredQuizzes, averageQuizScore } = quizHubData;
