@@ -120,6 +120,7 @@ const loadContentLibraryData = unstable_cache(
             title: chapter.medium === "Hindi" && video.title_hindi ? video.title_hindi : video.title,
             durationSeconds: video.duration_seconds ?? 0,
             s3Key: chapter.medium === "Hindi" && video.s3_key_hindi ? video.s3_key_hindi : video.s3_key,
+            playbackVariant: chapter.medium === "Hindi" && video.s3_key_hindi ? "hindi" : "default",
             sortOrder: video.sort_order,
           })),
         };
@@ -145,6 +146,7 @@ const loadContentLibraryData = unstable_cache(
             title: chapter.medium === "Hindi" && chapterVideos[0].title_hindi ? chapterVideos[0].title_hindi : chapterVideos[0].title,
             durationSeconds: chapterVideos[0].duration_seconds ?? 0,
             s3Key: chapter.medium === "Hindi" && chapterVideos[0].s3_key_hindi ? chapterVideos[0].s3_key_hindi : chapterVideos[0].s3_key,
+            playbackVariant: chapter.medium === "Hindi" && chapterVideos[0].s3_key_hindi ? "hindi" : "default",
           },
         } satisfies LibraryChapterCard;
       })

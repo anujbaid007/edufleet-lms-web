@@ -58,6 +58,7 @@ export async function GET(
         title: chapter.medium === "Hindi" && video.title_hindi ? video.title_hindi : video.title,
         durationSeconds: video.duration_seconds ?? 0,
         s3Key: chapter.medium === "Hindi" && video.s3_key_hindi ? video.s3_key_hindi : video.s3_key,
+        playbackVariant: chapter.medium === "Hindi" && video.s3_key_hindi ? "hindi" : "default",
       })),
     },
   });

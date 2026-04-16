@@ -14,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import { ClayCard } from "@/components/ui/clay-card";
+import { fetchSecureVideoUrl, type SecureVideoVariant } from "@/lib/secure-video-client";
 import { cn, formatDuration } from "@/lib/utils";
 
 export type ChapterVideo = {
@@ -21,6 +22,7 @@ export type ChapterVideo = {
   title: string;
   durationSeconds: number;
   s3Key: string | null;
+  playbackVariant: SecureVideoVariant;
   sortOrder: number;
 };
 
@@ -95,12 +97,9 @@ function ChapterPreviewModal({
     setVideoUrl(null);
 
     try {
-      const res = await fetch(`/api/presign?key=${encodeURIComponent(video.s3Key)}`, {
-        cache: "no-store",
-      });
-      const data = await res.json();
-      if (data.url) {
-        setVideoUrl(data.url);
+      const url = await fetchSecureVideoUrl(video.id, video.playbackVariant);
+      if (url) {
+        setVideoUrl(url);
       } else {
         setError(true);
       }

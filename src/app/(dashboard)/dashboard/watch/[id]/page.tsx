@@ -40,7 +40,7 @@ export default async function WatchPage({ params }: { params: { id: string } }) 
 
   // Use Hindi variants when available and user's medium is Hindi
   const videoTitle = (isHindi && video.title_hindi) ? video.title_hindi : video.title;
-  const videoS3Key = (isHindi && video.s3_key_hindi) ? video.s3_key_hindi : video.s3_key;
+  const playbackVariant = (isHindi && video.s3_key_hindi) ? "hindi" : "default";
   const videoDuration = (isHindi && video.duration_seconds_hindi) ? video.duration_seconds_hindi : video.duration_seconds;
 
   // Get chapter info
@@ -194,7 +194,7 @@ export default async function WatchPage({ params }: { params: { id: string } }) 
       <div className="min-w-0 flex-1">
         <VideoPlayer
           videoId={video.id}
-          s3Key={videoS3Key}
+          playbackVariant={playbackVariant}
           initialPosition={currentProgress?.last_position ?? 0}
           durationSeconds={videoDuration}
           nextVideoId={nextVideo?.id ?? null}

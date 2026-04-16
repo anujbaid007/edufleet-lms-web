@@ -46,6 +46,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Missing key parameter" }, { status: 400 });
   }
 
+  const normalizedKey = key.replace(/^\/+/, "");
+  if (/\.(mp4|m3u8|m4s|ts|key)$/i.test(normalizedKey)) {
+    return NextResponse.json(
+      { error: "Video assets must be accessed through a secure media session." },
+      { status: 403 }
+    );
+  }
+
   try {
     const bucketName = getEnv("S3_BUCKET_NAME");
     if (!bucketName) {

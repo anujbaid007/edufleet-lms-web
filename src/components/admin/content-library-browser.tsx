@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { ClayPill } from "@/components/ui/clay-pill";
 import { buildThumbnailKey } from "@/lib/media";
+import { fetchSecureVideoUrl, type SecureVideoVariant } from "@/lib/secure-video-client";
 import { cn, formatDuration } from "@/lib/utils";
 
 type SubjectIcon = typeof BookOpen;
@@ -42,6 +43,7 @@ export type LibraryChapterCard = {
     title: string;
     durationSeconds: number;
     s3Key: string | null;
+    playbackVariant: SecureVideoVariant;
   } | null;
 };
 
@@ -50,6 +52,7 @@ type LibraryVideo = {
   title: string;
   durationSeconds: number;
   s3Key: string | null;
+  playbackVariant: SecureVideoVariant;
 };
 
 type LibraryChapterDetail = {
@@ -454,6 +457,7 @@ function VideoModal({
             title: chapter.previewVideo.title,
             durationSeconds: chapter.previewVideo.durationSeconds,
             s3Key: chapter.previewVideo.s3Key,
+            playbackVariant: chapter.previewVideo.playbackVariant,
           }
         : null)
   );
@@ -504,13 +508,13 @@ function VideoModal({
       return;
     }
 
-    const currentVideoKey = activeVideo.s3Key;
+    const nextVideo = activeVideo;
     let cancelled = false;
 
     async function loadVideo() {
       setLoadingVideo(true);
       setError(null);
-      const url = await getPresignedUrl(currentVideoKey);
+      const url = await fetchSecureVideoUrl(nextVideo.id, nextVideo.playbackVariant);
 
       if (cancelled) return;
       if (!url) {

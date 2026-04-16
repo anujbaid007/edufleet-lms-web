@@ -1,16 +1,22 @@
 "use client";
 
-import { useRef, useEffect, useCallback, useState } from "react";
+import { useRef, useEffect, useCallback, useState, type MouseEvent } from "react";
+import type Hls from "hls.js";
 import { useRouter } from "next/navigation";
 import { Loader2, Play, X } from "lucide-react";
 import { updateVideoProgress } from "@/lib/actions/progress";
+import {
+  fetchSecurePlaybackSession,
+  type SecurePlaybackSession,
+  type SecureVideoVariant,
+} from "@/lib/secure-video-client";
 
 const MIN_SAVE_INTERVAL_MS = 60_000;
 const MIN_PROGRESS_DELTA_SECONDS = 15;
 
 interface VideoPlayerProps {
   videoId: string;
-  s3Key: string;
+  playbackVariant: SecureVideoVariant;
   initialPosition?: number;
   durationSeconds: number;
   nextVideoId?: string | null;
@@ -19,7 +25,7 @@ interface VideoPlayerProps {
 
 export function VideoPlayer({
   videoId,
-  s3Key,
+  playbackVariant,
   initialPosition = 0,
   durationSeconds,
   nextVideoId = null,
@@ -27,7 +33,8 @@ export function VideoPlayer({
 }: VideoPlayerProps) {
   const router = useRouter();
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const hlsRef = useRef<Hls | null>(null);
+  const [playback, setPlayback] = useState<SecurePlaybackSession | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [showAutoplayPrompt, setShowAutoplayPrompt] = useState(false);
@@ -36,22 +43,92 @@ export function VideoPlayer({
   const lastSavedPositionRef = useRef(initialPosition);
   const lastSavedAtRef = useRef(0);
 
-  // Fetch presigned URL
+  // Fetch secure playback session
   useEffect(() => {
     setLoading(true);
     setError(false);
+    setPlayback(null);
     setSaveState("idle");
     setPlaybackState("ready");
     setShowAutoplayPrompt(false);
-    fetch(`/api/presign?key=${encodeURIComponent(s3Key)}`)
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.url) setVideoUrl(d.url);
+    fetchSecurePlaybackSession(videoId, playbackVariant)
+      .then((session) => {
+        if (session) setPlayback(session);
         else setError(true);
       })
       .catch(() => setError(true))
       .finally(() => setLoading(false));
-  }, [durationSeconds, initialPosition, s3Key]);
+  }, [durationSeconds, initialPosition, playbackVariant, videoId]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !playback) return;
+    const currentVideo = video;
+    const currentPlayback = playback;
+
+    let cancelled = false;
+    if (hlsRef.current) {
+      hlsRef.current.destroy();
+      hlsRef.current = null;
+    }
+
+    currentVideo.pause();
+    currentVideo.removeAttribute("src");
+    currentVideo.load();
+
+    if (currentPlayback.delivery === "mp4") {
+      currentVideo.src = currentPlayback.url;
+      return () => {
+        currentVideo.pause();
+        currentVideo.removeAttribute("src");
+        currentVideo.load();
+      };
+    }
+
+    async function attachHls() {
+      if (currentVideo.canPlayType("application/vnd.apple.mpegurl")) {
+        currentVideo.src = currentPlayback.url;
+        return;
+      }
+
+      const hlsModule = await import("hls.js");
+      if (cancelled) return;
+
+      const HlsClass = hlsModule.default;
+      if (!HlsClass.isSupported()) {
+        setError(true);
+        return;
+      }
+
+      const hls = new HlsClass({
+        enableWorker: true,
+      });
+      hlsRef.current = hls;
+
+      hls.on(HlsClass.Events.ERROR, (_event, data) => {
+        if (!data.fatal) return;
+        setError(true);
+        hls.destroy();
+        hlsRef.current = null;
+      });
+
+      hls.loadSource(currentPlayback.url);
+      hls.attachMedia(currentVideo);
+    }
+
+    void attachHls();
+
+    return () => {
+      cancelled = true;
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
+      currentVideo.pause();
+      currentVideo.removeAttribute("src");
+      currentVideo.load();
+    };
+  }, [playback]);
 
   const saveProgress = useCallback(async (force = false) => {
     const video = videoRef.current;
@@ -126,6 +203,7 @@ export function VideoPlayer({
     if (videoRef.current && initialPosition > 0) {
       videoRef.current.currentTime = initialPosition;
     }
+    setLoading(false);
     setPlaybackState("paused");
   };
 
@@ -156,8 +234,21 @@ export function VideoPlayer({
     void video.play();
   };
 
+  const blockContextMenu = (event: MouseEvent<HTMLDivElement | HTMLVideoElement>) => {
+    event.preventDefault();
+  };
+
+  const blockRightClick = (event: MouseEvent<HTMLDivElement | HTMLVideoElement>) => {
+    if (event.button !== 2) return;
+    event.preventDefault();
+  };
+
   return (
-    <div className="relative aspect-video bg-gray-950 rounded-clay overflow-hidden">
+    <div
+      className="relative aspect-video bg-gray-950 rounded-clay overflow-hidden"
+      onContextMenuCapture={blockContextMenu}
+      onMouseDownCapture={blockRightClick}
+    >
       {loading && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
           <Loader2 className="w-8 h-8 text-orange-400 animate-spin" />
@@ -175,16 +266,18 @@ export function VideoPlayer({
           </button>
         </div>
       )}
-      {videoUrl && (
+      {playback?.url && (
         <video
           ref={videoRef}
-          key={videoUrl}
-          src={videoUrl}
+          key={playback.url}
+          src={playback.delivery === "mp4" ? playback.url : undefined}
           controls
           autoPlay
           controlsList="nodownload noremoteplayback"
+          disableRemotePlayback
           disablePictureInPicture
-          onContextMenu={(e) => e.preventDefault()}
+          onContextMenu={blockContextMenu}
+          onMouseDown={blockRightClick}
           onLoadedMetadata={handleLoadedMetadata}
           onEnded={handleEnded}
           onPlay={() => setPlaybackState("playing")}
@@ -193,7 +286,7 @@ export function VideoPlayer({
         />
       )}
 
-      {videoUrl && playbackState === "paused" ? (
+      {playback?.url && playbackState === "paused" ? (
         <button
           type="button"
           onClick={handleResumePlayback}
