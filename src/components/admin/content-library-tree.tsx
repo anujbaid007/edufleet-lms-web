@@ -14,7 +14,12 @@ import {
   X,
 } from "lucide-react";
 import { ClayCard } from "@/components/ui/clay-card";
-import { fetchSecureVideoUrl, type SecureVideoVariant } from "@/lib/secure-video-client";
+import { SecurePreviewVideo } from "@/components/video/secure-preview-video";
+import {
+  fetchSecurePlaybackSession,
+  type SecurePlaybackSession,
+  type SecureVideoVariant,
+} from "@/lib/secure-video-client";
 import { cn, formatDuration } from "@/lib/utils";
 
 export type ChapterVideo = {
@@ -80,13 +85,13 @@ function ChapterPreviewModal({
   onClose: () => void;
   onSelectVideo: (video: ChapterVideo) => void;
 }) {
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [playback, setPlayback] = useState<SecurePlaybackSession | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
   const fetchUrl = useCallback(async (video: ChapterVideo) => {
     if (!video.s3Key) {
-      setVideoUrl(null);
+      setPlayback(null);
       setError(true);
       setLoading(false);
       return;
@@ -94,12 +99,12 @@ function ChapterPreviewModal({
 
     setLoading(true);
     setError(false);
-    setVideoUrl(null);
+    setPlayback(null);
 
     try {
-      const url = await fetchSecureVideoUrl(video.id, video.playbackVariant);
-      if (url) {
-        setVideoUrl(url);
+      const nextPlayback = await fetchSecurePlaybackSession(video.id, video.playbackVariant);
+      if (nextPlayback) {
+        setPlayback(nextPlayback);
       } else {
         setError(true);
       }
@@ -169,15 +174,9 @@ function ChapterPreviewModal({
                     </button>
                   </div>
                 )}
-                {videoUrl && (
-                  <video
-                    key={videoUrl}
-                    src={videoUrl}
-                    controls
-                    autoPlay
-                    controlsList="nodownload noremoteplayback"
-                    disablePictureInPicture
-                    onContextMenu={(event) => event.preventDefault()}
+                {playback && (
+                  <SecurePreviewVideo
+                    playback={playback}
                     className="h-full w-full object-contain"
                     style={{ maxHeight: "calc(90vh - 92px)" }}
                   />

@@ -23,8 +23,13 @@ import {
   X,
 } from "lucide-react";
 import { ClayPill } from "@/components/ui/clay-pill";
+import { SecurePreviewVideo } from "@/components/video/secure-preview-video";
 import { buildThumbnailKey } from "@/lib/media";
-import { fetchSecureVideoUrl, type SecureVideoVariant } from "@/lib/secure-video-client";
+import {
+  fetchSecurePlaybackSession,
+  type SecurePlaybackSession,
+  type SecureVideoVariant,
+} from "@/lib/secure-video-client";
 import { cn, formatDuration } from "@/lib/utils";
 
 type SubjectIcon = typeof BookOpen;
@@ -461,7 +466,7 @@ function VideoModal({
           }
         : null)
   );
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [playback, setPlayback] = useState<SecurePlaybackSession | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(!detail);
   const [loadingVideo, setLoadingVideo] = useState(Boolean(activeVideo));
   const [error, setError] = useState<string | null>(null);
@@ -503,7 +508,7 @@ function VideoModal({
 
   useEffect(() => {
     if (!activeVideo?.s3Key) {
-      setVideoUrl(null);
+      setPlayback(null);
       setLoadingVideo(false);
       return;
     }
@@ -514,17 +519,17 @@ function VideoModal({
     async function loadVideo() {
       setLoadingVideo(true);
       setError(null);
-      const url = await fetchSecureVideoUrl(nextVideo.id, nextVideo.playbackVariant);
+      const nextPlayback = await fetchSecurePlaybackSession(nextVideo.id, nextVideo.playbackVariant);
 
       if (cancelled) return;
-      if (!url) {
-        setVideoUrl(null);
+      if (!nextPlayback) {
+        setPlayback(null);
         setError("Failed to load video preview.");
         setLoadingVideo(false);
         return;
       }
 
-      setVideoUrl(url);
+      setPlayback(nextPlayback);
       setLoadingVideo(false);
     }
 
@@ -568,14 +573,14 @@ function VideoModal({
               </div>
             )}
 
-            {!loadingDetail && error && !videoUrl && (
+            {!loadingDetail && error && !playback && (
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-6 text-center">
                 <p className="text-sm font-medium text-red-300">{error}</p>
                 <button
                   type="button"
                   onClick={() => {
                     setDetail(null);
-                    setVideoUrl(null);
+                    setPlayback(null);
                   }}
                   className="text-xs text-orange-400 underline"
                 >
@@ -584,15 +589,9 @@ function VideoModal({
               </div>
             )}
 
-            {videoUrl && (
-              <video
-                key={videoUrl}
-                src={videoUrl}
-                controls
-                autoPlay
-                controlsList="nodownload noremoteplayback"
-                disablePictureInPicture
-                onContextMenu={(event) => event.preventDefault()}
+            {playback && (
+              <SecurePreviewVideo
+                playback={playback}
                 className="h-full w-full object-contain"
                 style={{ maxHeight: "calc(90vh - 80px)" }}
               />
