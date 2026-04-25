@@ -231,9 +231,10 @@ async function main() {
     else videosByChapter.set(video.chapter_id, [video]);
   }
 
-  const thumbnailSources = filteredChapters.flatMap((chapter) =>
-    (videosByChapter.get(chapter.id) ?? []).flatMap((video) => buildThumbnailSources(chapter as ChapterRow, video))
-  );
+  const thumbnailSources = filteredChapters.flatMap((chapter) => {
+    const firstVideo = videosByChapter.get(chapter.id)?.[0];
+    return firstVideo ? buildThumbnailSources(chapter as ChapterRow, firstVideo) : [];
+  });
 
   const limitedSources =
     generationLimit && Number.isFinite(generationLimit)
@@ -241,7 +242,7 @@ async function main() {
       : thumbnailSources;
 
   console.log(
-    `Preparing thumbnails for ${limitedSources.length} linked video files${targetClass !== null ? ` in class ${targetClass}` : ""}`
+    `Preparing thumbnails for ${limitedSources.length} chapter preview video files${targetClass !== null ? ` in class ${targetClass}` : ""}`
   );
 
   let generatedCount = 0;

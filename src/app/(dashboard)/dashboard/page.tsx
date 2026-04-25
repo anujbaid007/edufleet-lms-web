@@ -10,6 +10,13 @@ import { getLearnerScopeManifest, getLearnerVideoState } from "@/lib/learner-sco
 
 export const metadata = { title: "Dashboard" };
 
+function getPreferredVideoKey(
+  video: { s3_key?: string | null; s3_key_hindi?: string | null } | null | undefined,
+  medium: string | null | undefined
+) {
+  return medium === "Hindi" && video?.s3_key_hindi ? video.s3_key_hindi : (video?.s3_key ?? null);
+}
+
 export default async function DashboardPage() {
   const supabase = await createClient();
   const { data: { session } } = await supabase.auth.getSession();
@@ -33,6 +40,12 @@ export default async function DashboardPage() {
     "id, title, chapter_id, sort_order, duration_seconds, s3_key, s3_key_hindi"
   );
   const videosById = new Map(videos.map((video) => [video.id, video]));
+  const chapterThumbnailKeyById = new Map(
+    Array.from(videosByChapterId.entries()).map(([chapterId, chapterVideos]) => [
+      chapterId,
+      getPreferredVideoKey(chapterVideos[0], profile.medium),
+    ])
+  );
 
   // Calculate stats
   const totalWatchTimeSeconds = progressRows.reduce((sum, progress) => sum + (progress.last_position || 0), 0);
@@ -79,7 +92,7 @@ export default async function DashboardPage() {
         videoTitle: video?.title ?? "Unknown",
         chapterTitle: chapter?.title ?? "",
         subjectName: chapter?.subjects?.name ?? "",
-        s3Key: profile.medium === "Hindi" && video?.s3_key_hindi ? video.s3_key_hindi : (video?.s3_key ?? null),
+        s3Key: video ? (chapterThumbnailKeyById.get(video.chapter_id) ?? getPreferredVideoKey(video, profile.medium)) : null,
         watchedPercentage: p.watched_percentage ?? 0,
         lastPosition: p.last_position ?? 0,
       };
@@ -111,7 +124,7 @@ export default async function DashboardPage() {
               chapterTitle: chapter.title,
               subjectName,
               chapterNo: chapter.chapter_no,
-              s3Key: profile.medium === "Hindi" && video.s3_key_hindi ? video.s3_key_hindi : (video.s3_key ?? null),
+              s3Key: chapterThumbnailKeyById.get(chapter.id) ?? getPreferredVideoKey(video, profile.medium),
             });
           }
           nextRecommendationFound = true;
