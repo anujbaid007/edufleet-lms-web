@@ -4,6 +4,7 @@ import { HeadObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { createClient } from "@supabase/supabase-js";
 
 const VARIANTS = ["default", "hindi"] as const;
+const PAGE_SIZE = 1000;
 type Variant = (typeof VARIANTS)[number];
 
 type VideoRow = {
@@ -154,14 +155,27 @@ async function loadVideosForClass(classNum: number) {
     },
   });
 
-  const { data, error } = await supabase
-    .from("videos")
-    .select("id, title, s3_key, s3_key_hindi, chapters!inner(class)")
-    .eq("chapters.class", classNum)
-    .order("id");
+  const videos: unknown[] = [];
+  let from = 0;
 
-  if (error) throw error;
-  return (data ?? []) as unknown as VideoRow[];
+  while (true) {
+    const { data, error } = await supabase
+      .from("videos")
+      .select("id, title, s3_key, s3_key_hindi, chapters!inner(class)")
+      .eq("chapters.class", classNum)
+      .order("id")
+      .range(from, from + PAGE_SIZE - 1);
+
+    if (error) throw error;
+
+    const page = data ?? [];
+    videos.push(...page);
+
+    if (page.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
+  }
+
+  return videos as unknown as VideoRow[];
 }
 
 async function main() {

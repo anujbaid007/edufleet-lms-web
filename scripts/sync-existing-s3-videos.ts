@@ -1,8 +1,29 @@
 import { S3Client, ListObjectsV2Command } from "@aws-sdk/client-s3";
 import { createClient } from "@supabase/supabase-js";
+import fs from "node:fs";
+import path from "node:path";
 
 // Usage:
 // NEXT_PUBLIC_SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... AWS_ACCESS_KEY_ID=... AWS_SECRET_ACCESS_KEY=... AWS_REGION=ap-south-1 S3_BUCKET_NAME=... npx tsx scripts/sync-existing-s3-videos.ts
+
+function loadEnvFile(filePath: string) {
+  if (!fs.existsSync(filePath)) return;
+  const contents = fs.readFileSync(filePath, "utf8");
+
+  for (const rawLine of contents.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith("#")) continue;
+    const separatorIndex = line.indexOf("=");
+    if (separatorIndex < 0) continue;
+
+    const key = line.slice(0, separatorIndex).trim();
+    const value = line.slice(separatorIndex + 1).trim();
+    if (!key || process.env[key]) continue;
+    process.env[key] = value;
+  }
+}
+
+loadEnvFile(path.join(process.cwd(), ".env.local"));
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -29,6 +50,8 @@ const s3 = new S3Client({
 });
 
 const targetClass = process.env.TARGET_CLASS ? Number(process.env.TARGET_CLASS) : null;
+const PAGE_SIZE = 1000;
+const VIDEO_CHUNK_SIZE = 100;
 
 type ParsedS3Key = {
   key: string;
@@ -44,6 +67,13 @@ type ChapterMeta = {
   class: number;
   chapter_no: number;
   subjectName: string;
+};
+
+type ChapterRow = {
+  id: string;
+  class: number;
+  chapter_no: number;
+  subjects: { name: string } | null;
 };
 
 function normalizeSubjectName(subjectName: string) {
@@ -114,20 +144,74 @@ async function listS3VideoKeys() {
   return { keys, parsed };
 }
 
-async function main() {
-  const [{ keys: s3Keys, parsed: parsedS3Keys }, chapterResponse] = await Promise.all([
-    listS3VideoKeys(),
-    supabase
+async function loadVideosForChapterIds(chapterIds: string[]) {
+  const videos: Array<{
+    id: string;
+    title: string;
+    chapter_id: string;
+    sort_order: number;
+    s3_key: string | null;
+    s3_key_hindi: string | null;
+  }> = [];
+
+  for (let index = 0; index < chapterIds.length; index += VIDEO_CHUNK_SIZE) {
+    const chunk = chapterIds.slice(index, index + VIDEO_CHUNK_SIZE);
+    let from = 0;
+
+    while (true) {
+      const { data, error } = await supabase
+        .from("videos")
+        .select("id, title, chapter_id, sort_order, s3_key, s3_key_hindi")
+        .in("chapter_id", chunk)
+        .order("chapter_id")
+        .order("sort_order")
+        .range(from, from + PAGE_SIZE - 1);
+
+      if (error) throw error;
+
+      const page = data ?? [];
+      videos.push(...page);
+
+      if (page.length < PAGE_SIZE) break;
+      from += PAGE_SIZE;
+    }
+  }
+
+  return videos;
+}
+
+async function loadChapters() {
+  const chapters: ChapterRow[] = [];
+  let from = 0;
+
+  while (true) {
+    const { data, error } = await supabase
       .from("chapters")
       .select("id, class, chapter_no, subjects(name)")
       .order("class")
-      .order("chapter_no"),
+      .order("chapter_no")
+      .range(from, from + PAGE_SIZE - 1);
+
+    if (error) throw error;
+
+    const page = (data ?? []) as ChapterRow[];
+    chapters.push(...page);
+
+    if (page.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
+  }
+
+  return chapters;
+}
+
+async function main() {
+  const [{ keys: s3Keys, parsed: parsedS3Keys }, chapters] = await Promise.all([
+    listS3VideoKeys(),
+    loadChapters(),
   ]);
 
-  if (chapterResponse.error) throw chapterResponse.error;
-
   const chapterMetaById = new Map<string, ChapterMeta>(
-    (chapterResponse.data ?? [])
+    chapters
       .filter((chapter) => (targetClass === null ? true : chapter.class === targetClass))
       .map((chapter) => [
         chapter.id,
@@ -145,14 +229,8 @@ async function main() {
     `Found ${s3Keys.size} MP4 objects in S3${targetClass !== null ? ` for class ${targetClass}` : ""}`
   );
 
-  const { data: videos, error } = chapterIds.length
-    ? await supabase
-        .from("videos")
-        .select("id, title, chapter_id, sort_order, s3_key, s3_key_hindi")
-        .in("chapter_id", chapterIds)
-    : { data: [], error: null };
-
-  if (error) throw error;
+  const videos = chapterIds.length ? await loadVideosForChapterIds(chapterIds) : [];
+  console.log(`Loaded ${videos.length} video rows${targetClass !== null ? ` for class ${targetClass}` : ""}`);
 
   const updates: Array<{ id: string; s3_key?: string; s3_key_hindi?: string }> = [];
 
@@ -162,8 +240,38 @@ async function main() {
     if (!chapter) continue;
 
     const baseKey = [chapter.class, normalizeSubjectName(chapter.subjectName), chapter.chapter_no, video.sort_order].join("|");
-    const englishCandidate = parsedS3Keys.get(`English|${baseKey}`);
-    const hindiCandidate = parsedS3Keys.get(`Hindi|${baseKey}`);
+    let englishCandidate = parsedS3Keys.get(`English|${baseKey}`);
+    let hindiCandidate = parsedS3Keys.get(`Hindi|${baseKey}`);
+
+    if (!englishCandidate && video.s3_key) {
+      const parsedExistingKey = parseS3VideoKey(video.s3_key);
+      if (parsedExistingKey) {
+        englishCandidate = parsedS3Keys.get(
+          [
+            "English",
+            parsedExistingKey.classNum,
+            normalizeSubjectName(parsedExistingKey.subjectName),
+            parsedExistingKey.chapterNo,
+            parsedExistingKey.lessonNo,
+          ].join("|")
+        );
+      }
+    }
+
+    if (!hindiCandidate && video.s3_key_hindi) {
+      const parsedExistingKey = parseS3VideoKey(video.s3_key_hindi);
+      if (parsedExistingKey) {
+        hindiCandidate = parsedS3Keys.get(
+          [
+            "Hindi",
+            parsedExistingKey.classNum,
+            normalizeSubjectName(parsedExistingKey.subjectName),
+            parsedExistingKey.chapterNo,
+            parsedExistingKey.lessonNo,
+          ].join("|")
+        );
+      }
+    }
 
     if (englishCandidate && video.s3_key !== englishCandidate) {
       update.s3_key = englishCandidate;

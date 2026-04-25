@@ -1,3 +1,4 @@
+import { existsSync, readFileSync } from "node:fs";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -9,6 +10,25 @@ import { createClient } from "@supabase/supabase-js";
 import { buildThumbnailKey } from "../src/lib/media";
 
 const execFileAsync = promisify(execFile);
+
+function loadEnvFile(filePath: string) {
+  if (!existsSync(filePath)) return;
+  const contents = readFileSync(filePath, "utf8");
+
+  for (const rawLine of contents.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith("#")) continue;
+    const separatorIndex = line.indexOf("=");
+    if (separatorIndex < 0) continue;
+
+    const key = line.slice(0, separatorIndex).trim();
+    const value = line.slice(separatorIndex + 1).trim();
+    if (!key || process.env[key]) continue;
+    process.env[key] = value;
+  }
+}
+
+loadEnvFile(join(process.cwd(), ".env.local"));
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -60,15 +80,44 @@ type VideoRow = {
   s3_key_hindi: string | null;
 };
 
-function choosePreviewSource(chapter: ChapterRow, video: VideoRow) {
-  const videoKey = chapter.medium === "Hindi" && video.s3_key_hindi ? video.s3_key_hindi : video.s3_key;
-  if (!videoKey) return null;
+type ThumbnailSource = {
+  chapter: ChapterRow;
+  language: "English" | "Hindi";
+  thumbnailKey: string;
+  title: string;
+  videoKey: string;
+};
 
-  return {
-    videoKey,
-    thumbnailKey: buildThumbnailKey(videoKey),
-    title: chapter.medium === "Hindi" && video.title_hindi ? video.title_hindi : video.title,
-  };
+function buildThumbnailSources(chapter: ChapterRow, video: VideoRow): ThumbnailSource[] {
+  const sources: ThumbnailSource[] = [];
+
+  if (video.s3_key) {
+    const thumbnailKey = buildThumbnailKey(video.s3_key);
+    if (thumbnailKey) {
+      sources.push({
+        chapter,
+        language: "English",
+        thumbnailKey,
+        title: video.title,
+        videoKey: video.s3_key,
+      });
+    }
+  }
+
+  if (video.s3_key_hindi) {
+    const thumbnailKey = buildThumbnailKey(video.s3_key_hindi);
+    if (thumbnailKey) {
+      sources.push({
+        chapter,
+        language: "Hindi",
+        thumbnailKey,
+        title: video.title_hindi ?? video.title,
+        videoKey: video.s3_key_hindi,
+      });
+    }
+  }
+
+  return sources;
 }
 
 async function thumbnailExists(key: string) {
@@ -113,6 +162,37 @@ async function createFrameFromVideoUrl(videoUrl: string, outputPath: string) {
   return false;
 }
 
+async function loadVideosForChapterIds(chapterIds: string[]) {
+  const videos: VideoRow[] = [];
+
+  for (let index = 0; index < chapterIds.length; index += VIDEO_CHUNK_SIZE) {
+    const chunk = chapterIds.slice(index, index + VIDEO_CHUNK_SIZE);
+    let from = 0;
+
+    while (true) {
+      const { data, error } = chunk.length
+        ? await supabase
+            .from("videos")
+            .select("id, chapter_id, sort_order, title, title_hindi, s3_key, s3_key_hindi")
+            .in("chapter_id", chunk)
+            .order("chapter_id")
+            .order("sort_order")
+            .range(from, from + PAGE_SIZE - 1)
+        : { data: [], error: null };
+
+      if (error) throw error;
+
+      const page = (data ?? []) as VideoRow[];
+      videos.push(...page);
+
+      if (page.length < PAGE_SIZE) break;
+      from += PAGE_SIZE;
+    }
+  }
+
+  return videos;
+}
+
 async function main() {
   const { count: chapterCount, error: chapterCountError } = await supabase
     .from("chapters")
@@ -143,57 +223,32 @@ async function main() {
   const filteredChapters = chapters.filter((chapter) => (targetClass === null ? true : chapter.class === targetClass));
   const videosByChapter = new Map<string, VideoRow[]>();
   const chapterIds = filteredChapters.map((chapter) => chapter.id);
+  const videos = await loadVideosForChapterIds(chapterIds);
 
-  for (let index = 0; index < chapterIds.length; index += VIDEO_CHUNK_SIZE) {
-    const chunk = chapterIds.slice(index, index + VIDEO_CHUNK_SIZE);
-    const { data, error } = chunk.length
-      ? await supabase
-          .from("videos")
-          .select("id, chapter_id, sort_order, title, title_hindi, s3_key, s3_key_hindi")
-          .in("chapter_id", chunk)
-          .order("chapter_id")
-          .order("sort_order")
-      : { data: [], error: null };
-
-    if (error) throw error;
-
-    for (const video of (data ?? []) as VideoRow[]) {
-      const group = videosByChapter.get(video.chapter_id);
-      if (group) group.push(video);
-      else videosByChapter.set(video.chapter_id, [video]);
-    }
+  for (const video of videos) {
+    const group = videosByChapter.get(video.chapter_id);
+    if (group) group.push(video);
+    else videosByChapter.set(video.chapter_id, [video]);
   }
 
-  const previewSources = filteredChapters
-    .map((chapter) => {
-      const chapterVideos = videosByChapter.get(chapter.id) ?? [];
-      const firstVideo = chapterVideos[0];
-      if (!firstVideo) return null;
-
-      const source = choosePreviewSource(chapter as ChapterRow, firstVideo);
-      if (!source?.thumbnailKey) return null;
-
-      return {
-        chapter: chapter as ChapterRow,
-        source,
-      };
-    })
-    .filter((entry): entry is NonNullable<typeof entry> => entry !== null);
+  const thumbnailSources = filteredChapters.flatMap((chapter) =>
+    (videosByChapter.get(chapter.id) ?? []).flatMap((video) => buildThumbnailSources(chapter as ChapterRow, video))
+  );
 
   const limitedSources =
     generationLimit && Number.isFinite(generationLimit)
-      ? previewSources.slice(0, generationLimit)
-      : previewSources;
+      ? thumbnailSources.slice(0, generationLimit)
+      : thumbnailSources;
 
   console.log(
-    `Preparing thumbnails for ${limitedSources.length} chapter preview videos${targetClass !== null ? ` in class ${targetClass}` : ""}`
+    `Preparing thumbnails for ${limitedSources.length} linked video files${targetClass !== null ? ` in class ${targetClass}` : ""}`
   );
 
   let generatedCount = 0;
   let skippedCount = 0;
 
-  for (const { chapter, source } of limitedSources) {
-    if (!forceRegenerate && source.thumbnailKey && (await thumbnailExists(source.thumbnailKey))) {
+  for (const source of limitedSources) {
+    if (!forceRegenerate && (await thumbnailExists(source.thumbnailKey))) {
       skippedCount += 1;
       continue;
     }
@@ -221,7 +276,7 @@ async function main() {
       await s3.send(
         new PutObjectCommand({
           Bucket: bucketName,
-          Key: source.thumbnailKey!,
+          Key: source.thumbnailKey,
           Body: body,
           ContentType: "image/jpeg",
           CacheControl: "private, max-age=31536000, immutable",
@@ -229,7 +284,9 @@ async function main() {
       );
 
       generatedCount += 1;
-      console.log(`Generated thumbnail for ${chapter.class} / ${chapter.subjects?.name ?? "Unknown"} / ${chapter.chapter_no}`);
+      console.log(
+        `Generated thumbnail for ${source.chapter.class} / ${source.chapter.subjects?.name ?? "Unknown"} / ${source.chapter.chapter_no} / ${source.language} / ${source.title}`
+      );
     } finally {
       await rm(tempDir, { recursive: true, force: true });
     }

@@ -20,6 +20,7 @@ import { createClient } from "@supabase/supabase-js";
 const execFile = promisify(execFileCallback);
 const VARIANTS = ["default", "hindi"] as const;
 const S3_RETRY_ATTEMPTS = 3;
+const PAGE_SIZE = 1000;
 type Variant = (typeof VARIANTS)[number];
 
 type VideoRow = {
@@ -207,6 +208,17 @@ function isRetriableError(error: unknown) {
     error.name === "TimeoutError" ||
     error.name === "RequestTimeout" ||
     error.message.toLowerCase().includes("socket hang up")
+  );
+}
+
+function isMissingS3ObjectError(error: unknown) {
+  if (typeof error !== "object" || error === null) return false;
+  const candidate = error as { name?: unknown; Code?: unknown; $metadata?: { httpStatusCode?: number } };
+  return (
+    candidate.name === "NoSuchKey" ||
+    candidate.name === "NotFound" ||
+    candidate.Code === "NoSuchKey" ||
+    candidate.$metadata?.httpStatusCode === 404
   );
 }
 
@@ -445,23 +457,35 @@ async function loadVideos(args: ReturnType<typeof parseArgs>) {
     },
   });
 
-  let query = supabase
-    .from("videos")
-    .select("id, title, s3_key, s3_key_hindi, chapters!inner(class, medium)")
-    .order("id");
+  const data: unknown[] = [];
+  let from = 0;
 
-  if (args.videoId) {
-    query = query.eq("id", args.videoId);
+  while (true) {
+    let query = supabase
+      .from("videos")
+      .select("id, title, s3_key, s3_key_hindi, chapters!inner(class, medium)")
+      .order("id")
+      .range(from, from + PAGE_SIZE - 1);
+
+    if (args.videoId) {
+      query = query.eq("id", args.videoId);
+    }
+
+    if (args.classNum !== null) {
+      query = query.eq("chapters.class", args.classNum);
+    }
+
+    const { data: pageData, error } = await query;
+    if (error) throw error;
+
+    const page = pageData ?? [];
+    data.push(...page);
+
+    if (page.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
   }
 
-  if (args.classNum !== null) {
-    query = query.eq("chapters.class", args.classNum);
-  }
-
-  const { data, error } = await query;
-  if (error) throw error;
-
-  const videos = dedupeVideosById((data ?? []) as unknown as VideoRow[]);
+  const videos = dedupeVideosById(data as unknown as VideoRow[]);
   const slicedVideos =
     args.sliceCount !== null && args.sliceIndex !== null
       ? videos.filter((_, index) => index % args.sliceCount! === args.sliceIndex)
@@ -514,15 +538,24 @@ async function main() {
       }
 
       console.log(`-> ${video.id} [${variant}] from ${sourceKey}`);
-      await packageVariant({
-        bucket,
-        s3,
-        sourceKey,
-        targetPrefix,
-        transcode: args.transcode,
-        variant,
-        videoId: video.id,
-      });
+      try {
+        await packageVariant({
+          bucket,
+          s3,
+          sourceKey,
+          targetPrefix,
+          transcode: args.transcode,
+          variant,
+          videoId: video.id,
+        });
+      } catch (error) {
+        if (isMissingS3ObjectError(error)) {
+          console.warn(`-> ${video.id} [${variant}] skipped; source object is missing: ${sourceKey}`);
+          continue;
+        }
+
+        throw error;
+      }
     }
   }
 
