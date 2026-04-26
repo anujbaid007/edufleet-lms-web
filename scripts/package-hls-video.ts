@@ -63,7 +63,7 @@ function parseArgs(argv: string[]) {
       [
         "Usage:",
         "  npm run package:hls -- --video-id <uuid> [--variant default|hindi|both] [--transcode]",
-        "  npm run package:hls -- --class <number> [--limit <n>] [--slice-count <n> --slice-index <i>] [--variant default|hindi|both] [--missing-only] [--transcode]",
+        "  npm run package:hls -- --class <number> [--limit <n>] [--id-min <uuid>] [--id-max <uuid>] [--slice-count <n> --slice-index <i>] [--variant default|hindi|both] [--missing-only] [--transcode]",
       ].join("\n")
     );
     process.exit(0);
@@ -71,6 +71,8 @@ function parseArgs(argv: string[]) {
 
   const parsed: {
     classNum: number | null;
+    idMax: string | null;
+    idMin: string | null;
     limit: number | null;
     missingOnly: boolean;
     sliceCount: number | null;
@@ -80,6 +82,8 @@ function parseArgs(argv: string[]) {
     videoId: string | null;
   } = {
     classNum: null,
+    idMax: null,
+    idMin: null,
     limit: null,
     missingOnly: false,
     sliceCount: null,
@@ -100,6 +104,18 @@ function parseArgs(argv: string[]) {
 
     if (arg === "--class") {
       parsed.classNum = Number(argv[index + 1] ?? "NaN");
+      index += 1;
+      continue;
+    }
+
+    if (arg === "--id-min") {
+      parsed.idMin = argv[index + 1] ?? null;
+      index += 1;
+      continue;
+    }
+
+    if (arg === "--id-max") {
+      parsed.idMax = argv[index + 1] ?? null;
       index += 1;
       continue;
     }
@@ -255,29 +271,72 @@ async function hlsVariantExists(params: {
   s3: S3Client;
   targetPrefix: string;
 }) {
+  const playlistKey = `${params.targetPrefix}/playlist.m3u8`;
+
   try {
-    await withRetry(`check ${params.targetPrefix}/playlist.m3u8`, () =>
+    const playlistObject = await withRetry(`get ${playlistKey}`, () =>
       params.s3.send(
-        new HeadObjectCommand({
+        new GetObjectCommand({
           Bucket: params.bucket,
-          Key: `${params.targetPrefix}/playlist.m3u8`,
+          Key: playlistKey,
         })
       )
     );
+
+    if (!playlistObject.Body) return false;
+
+    const playlist = await bodyToString(playlistObject.Body);
+    const segmentNames = playlist
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line && !line.startsWith("#") && line.endsWith(".ts"));
+
+    if (segmentNames.length === 0) return false;
+
+    const firstSegment = segmentNames[0];
+    const lastSegment = segmentNames[segmentNames.length - 1];
+    const probeKeys = new Set([
+      `${params.targetPrefix}/enc.key`,
+      `${params.targetPrefix}/${firstSegment}`,
+      `${params.targetPrefix}/${lastSegment}`,
+    ]);
+
+    for (const key of probeKeys) {
+      await withRetry(`check ${key}`, () =>
+        params.s3.send(
+          new HeadObjectCommand({
+            Bucket: params.bucket,
+            Key: key,
+          })
+        )
+      );
+    }
+
     return true;
   } catch (error) {
-    if (
-      typeof error === "object" &&
-      error !== null &&
-      ("name" in error || "$metadata" in error) &&
-      ((("name" in error ? error.name : undefined) === "NotFound") ||
-        (("$metadata" in error ? error.$metadata : undefined) as { httpStatusCode?: number } | undefined)?.httpStatusCode ===
-          404)
-    ) {
+    if (isMissingS3ObjectError(error)) {
       return false;
     }
     throw error;
   }
+}
+
+async function bodyToString(body: unknown) {
+  if (
+    typeof body === "object" &&
+    body !== null &&
+    "transformToString" in body &&
+    typeof (body as { transformToString?: unknown }).transformToString === "function"
+  ) {
+    return (body as { transformToString: () => Promise<string> }).transformToString();
+  }
+
+  const chunks: Buffer[] = [];
+  for await (const chunk of body as AsyncIterable<Uint8Array | string>) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+
+  return Buffer.concat(chunks).toString("utf8");
 }
 
 async function clearPrefix(s3: S3Client, bucket: string, prefix: string) {
@@ -485,7 +544,10 @@ async function loadVideos(args: ReturnType<typeof parseArgs>) {
     from += PAGE_SIZE;
   }
 
-  const videos = dedupeVideosById(data as unknown as VideoRow[]);
+  let videos = dedupeVideosById(data as unknown as VideoRow[]);
+  if (args.idMin) videos = videos.filter((video) => video.id >= args.idMin!);
+  if (args.idMax) videos = videos.filter((video) => video.id < args.idMax!);
+
   const slicedVideos =
     args.sliceCount !== null && args.sliceIndex !== null
       ? videos.filter((_, index) => index % args.sliceCount! === args.sliceIndex)

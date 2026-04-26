@@ -77,7 +77,11 @@ type ChapterRow = {
 };
 
 function normalizeSubjectName(subjectName: string) {
-  return subjectName.trim().replace(/\s+/g, " ").toLowerCase().replace(/^mathematics$/, "maths");
+  const normalized = subjectName.trim().replace(/\s+/g, " ").toLowerCase();
+  if (normalized === "mathematics") return "maths";
+  if (normalized === "business studies") return "business";
+  if (normalized === "computers") return "computer";
+  return normalized;
 }
 
 function extractLeadingNumber(value: string) {
@@ -232,10 +236,10 @@ async function main() {
   const videos = chapterIds.length ? await loadVideosForChapterIds(chapterIds) : [];
   console.log(`Loaded ${videos.length} video rows${targetClass !== null ? ` for class ${targetClass}` : ""}`);
 
-  const updates: Array<{ id: string; s3_key?: string; s3_key_hindi?: string }> = [];
+  const updates: Array<{ id: string; s3_key?: string | null; s3_key_hindi?: string | null }> = [];
 
   for (const video of videos ?? []) {
-    const update: { id: string; s3_key?: string; s3_key_hindi?: string } = { id: video.id };
+    const update: { id: string; s3_key?: string | null; s3_key_hindi?: string | null } = { id: video.id };
     const chapter = chapterMetaById.get(video.chapter_id);
     if (!chapter) continue;
 
@@ -275,13 +279,17 @@ async function main() {
 
     if (englishCandidate && video.s3_key !== englishCandidate) {
       update.s3_key = englishCandidate;
+    } else if (!englishCandidate && video.s3_key && !s3Keys.has(video.s3_key)) {
+      update.s3_key = null;
     }
 
     if (hindiCandidate && video.s3_key_hindi !== hindiCandidate) {
       update.s3_key_hindi = hindiCandidate;
+    } else if (!hindiCandidate && video.s3_key_hindi && !s3Keys.has(video.s3_key_hindi)) {
+      update.s3_key_hindi = null;
     }
 
-    if (update.s3_key || update.s3_key_hindi) {
+    if ("s3_key" in update || "s3_key_hindi" in update) {
       updates.push(update);
     }
   }
@@ -297,8 +305,8 @@ async function main() {
     const { error: updateError } = await supabase
       .from("videos")
       .update({
-        ...(update.s3_key ? { s3_key: update.s3_key } : {}),
-        ...(update.s3_key_hindi ? { s3_key_hindi: update.s3_key_hindi } : {}),
+        ...("s3_key" in update ? { s3_key: update.s3_key } : {}),
+        ...("s3_key_hindi" in update ? { s3_key_hindi: update.s3_key_hindi } : {}),
       })
       .eq("id", update.id);
 
