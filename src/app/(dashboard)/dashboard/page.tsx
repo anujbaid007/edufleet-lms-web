@@ -14,7 +14,10 @@ function getPreferredVideoKey(
   video: { s3_key?: string | null; s3_key_hindi?: string | null } | null | undefined,
   medium: string | null | undefined
 ) {
-  return medium === "Hindi" && video?.s3_key_hindi ? video.s3_key_hindi : (video?.s3_key ?? null);
+  if (!video) return null;
+  return medium === "Hindi"
+    ? (video.s3_key_hindi ?? video.s3_key ?? null)
+    : (video.s3_key ?? video.s3_key_hindi ?? null);
 }
 
 export default async function DashboardPage() {
