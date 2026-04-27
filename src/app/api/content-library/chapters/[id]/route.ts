@@ -4,25 +4,6 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
-function resolveVideoMediaConnection(
-  chapterMedium: string,
-  video: { s3_key: string | null; s3_key_hindi: string | null }
-) {
-  if (chapterMedium === "Hindi" && video.s3_key_hindi) {
-    return { playbackVariant: "hindi" as const, s3Key: video.s3_key_hindi };
-  }
-
-  if (video.s3_key) {
-    return { playbackVariant: "default" as const, s3Key: video.s3_key };
-  }
-
-  if (video.s3_key_hindi) {
-    return { playbackVariant: "hindi" as const, s3Key: video.s3_key_hindi };
-  }
-
-  return { playbackVariant: "default" as const, s3Key: null };
-}
-
 export async function GET(
   _request: NextRequest,
   { params }: { params: { id: string } }
@@ -76,7 +57,8 @@ export async function GET(
         id: video.id,
         title: chapter.medium === "Hindi" && video.title_hindi ? video.title_hindi : video.title,
         durationSeconds: video.duration_seconds ?? 0,
-        ...resolveVideoMediaConnection(chapter.medium, video),
+        s3Key: chapter.medium === "Hindi" && video.s3_key_hindi ? video.s3_key_hindi : video.s3_key,
+        playbackVariant: chapter.medium === "Hindi" && video.s3_key_hindi ? "hindi" : "default",
       })),
     },
   });
