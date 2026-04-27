@@ -14,6 +14,25 @@ import {
 import { getFallbackQuizMeta, listFallbackAttemptsForUser } from "@/lib/dev-quiz-fallback";
 import { ScrollResetOnMount } from "@/components/ui/scroll-reset-on-mount";
 
+function getPlayableVariant(video: { s3_key: string | null; s3_key_hindi: string | null }, isHindi: boolean) {
+  if (isHindi && video.s3_key_hindi) return "hindi";
+  if (video.s3_key) return "default";
+  if (video.s3_key_hindi) return "hindi";
+  return "default";
+}
+
+function getPlayableDuration(
+  video: {
+    duration_seconds: number;
+    duration_seconds_hindi: number | null;
+  },
+  playbackVariant: "default" | "hindi"
+) {
+  return playbackVariant === "hindi" && video.duration_seconds_hindi
+    ? video.duration_seconds_hindi
+    : video.duration_seconds;
+}
+
 export default async function WatchPage({ params }: { params: { id: string } }) {
   const supabase = await createClient();
   const { data: { session } } = await supabase.auth.getSession();
@@ -39,9 +58,9 @@ export default async function WatchPage({ params }: { params: { id: string } }) 
   if (!video) redirect("/dashboard");
 
   // Use Hindi variants when available and user's medium is Hindi
-  const videoTitle = (isHindi && video.title_hindi) ? video.title_hindi : video.title;
-  const playbackVariant = (isHindi && video.s3_key_hindi) ? "hindi" : "default";
-  const videoDuration = (isHindi && video.duration_seconds_hindi) ? video.duration_seconds_hindi : video.duration_seconds;
+  const playbackVariant = getPlayableVariant(video, isHindi);
+  const videoTitle = (playbackVariant === "hindi" && video.title_hindi) ? video.title_hindi : video.title;
+  const videoDuration = getPlayableDuration(video, playbackVariant);
 
   // Get chapter info
   const { data: chapter } = await supabase
