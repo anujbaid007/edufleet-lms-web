@@ -44,6 +44,22 @@ type LibraryPayload = {
   };
 };
 
+function resolveVideoMediaConnection(chapterMedium: string, video: VideoRow) {
+  if (chapterMedium === "Hindi" && video.s3_key_hindi) {
+    return { playbackVariant: "hindi" as const, s3Key: video.s3_key_hindi };
+  }
+
+  if (video.s3_key) {
+    return { playbackVariant: "default" as const, s3Key: video.s3_key };
+  }
+
+  if (video.s3_key_hindi) {
+    return { playbackVariant: "hindi" as const, s3Key: video.s3_key_hindi };
+  }
+
+  return { playbackVariant: "default" as const, s3Key: null };
+}
+
 const loadContentLibraryData = unstable_cache(
   async (): Promise<LibraryPayload> => {
     const admin = createAdminClient();
@@ -106,6 +122,7 @@ const loadContentLibraryData = unstable_cache(
         const chapterVideos = (videosByChapter.get(chapter.id) ?? []).sort((left, right) => left.sort_order - right.sort_order);
         if (chapterVideos.length === 0) return null;
         const chapterTitle = chapter.medium === "Hindi" && chapter.title_hindi ? chapter.title_hindi : chapter.title;
+        const previewMedia = resolveVideoMediaConnection(chapter.medium, chapterVideos[0]);
 
         const chapterItem: ChapterItem = {
           id: chapter.id,
@@ -119,8 +136,7 @@ const loadContentLibraryData = unstable_cache(
             id: video.id,
             title: chapter.medium === "Hindi" && video.title_hindi ? video.title_hindi : video.title,
             durationSeconds: video.duration_seconds ?? 0,
-            s3Key: chapter.medium === "Hindi" && video.s3_key_hindi ? video.s3_key_hindi : video.s3_key,
-            playbackVariant: chapter.medium === "Hindi" && video.s3_key_hindi ? "hindi" : "default",
+            ...resolveVideoMediaConnection(chapter.medium, video),
             sortOrder: video.sort_order,
           })),
         };
@@ -145,8 +161,7 @@ const loadContentLibraryData = unstable_cache(
             id: chapterVideos[0].id,
             title: chapter.medium === "Hindi" && chapterVideos[0].title_hindi ? chapterVideos[0].title_hindi : chapterVideos[0].title,
             durationSeconds: chapterVideos[0].duration_seconds ?? 0,
-            s3Key: chapter.medium === "Hindi" && chapterVideos[0].s3_key_hindi ? chapterVideos[0].s3_key_hindi : chapterVideos[0].s3_key,
-            playbackVariant: chapter.medium === "Hindi" && chapterVideos[0].s3_key_hindi ? "hindi" : "default",
+            ...previewMedia,
           },
         } satisfies LibraryChapterCard;
       })
@@ -198,7 +213,7 @@ const loadContentLibraryData = unstable_cache(
       },
     };
   },
-  ["admin-content-library-data-v5"],
+  ["admin-content-library-data-v6"],
   { revalidate: 3600 }
 );
 
