@@ -7,6 +7,10 @@ export type AshaClientMessage = {
 
 export const ASHA_DEFAULT_MODEL = "google/gemini-2.5-flash";
 
+export function getOpenRouterApiKey() {
+  return (process.env.OPENROUTER_API_KEY ?? process.env.MISS_ASHA_OPENROUTER_API_KEY ?? "").trim();
+}
+
 function firstName(name: string | null | undefined) {
   return (name ?? "there").trim().split(/\s+/)[0] || "there";
 }

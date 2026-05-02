@@ -412,7 +412,7 @@ function buildQuizLines(questions: QuizQuestion[]) {
 function splitKnowledgeBits(value: string | null | undefined) {
   return compactText(value)
     .replace(/\b\d+\.\s*/g, " ")
-    .split(/(?:;|\.\s+|\n| - | \| )/)
+    .split(/(?:;|•|\.\s+|\n| - | \| )/)
     .map((part) => part.replace(/^[-*•\s]+/, "").trim())
     .filter((part) => part.length >= 35 && part.length <= 220);
 }

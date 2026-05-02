@@ -197,6 +197,29 @@ html[lang="hi"] * {
   .asha-message li {
     overflow-wrap: anywhere;
   }
+
+  .asha-scrollbar {
+    scrollbar-color: rgba(232,135,30,0.38) transparent;
+    scrollbar-width: thin;
+  }
+
+  .asha-scrollbar::-webkit-scrollbar {
+    height: 8px;
+    width: 8px;
+  }
+
+  .asha-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .asha-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(232,135,30,0.28);
+    border-radius: 999px;
+  }
+
+  .asha-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(232,135,30,0.45);
+  }
 }
 
 @layer utilities {

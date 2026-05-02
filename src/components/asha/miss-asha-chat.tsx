@@ -178,7 +178,7 @@ export function MissAshaChat() {
   const pageContext = useMemo(() => parsePageContext(pathname), [pathname]);
   const pageContextKey = useMemo(() => JSON.stringify(pageContext), [pageContext]);
   const inputPlaceholder = lang === "hi" ? "अपना सवाल पूछें..." : "Ask from this lesson...";
-  const focusText = focus?.lessonTitle ?? focus?.chapterTitle ?? focus?.subjectName ?? "EduFleet AI Tutor";
+  const topicText = focus?.lessonTitle ?? focus?.chapterTitle ?? focus?.subjectName ?? null;
   const disableInput = isBootstrapping || isSending;
 
   useEffect(() => {
@@ -265,7 +265,12 @@ export function MissAshaChat() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data?.error || "Miss Asha could not answer right now.");
+        const rawMessage = data?.error || "Miss Asha could not answer right now.";
+        const safeMessage =
+          typeof rawMessage === "string" && /OPENROUTER|API[_ -]?KEY|SECRET/i.test(rawMessage)
+            ? "Miss Asha is connecting to her tutor model. Please try again shortly."
+            : rawMessage;
+        throw new Error(safeMessage);
       }
 
       setMessages((current) => [
@@ -303,52 +308,59 @@ export function MissAshaChat() {
       {open ? (
         <section
           aria-label="Miss Asha chat"
-          className="flex h-[min(700px,calc(100dvh-8rem))] w-[min(440px,calc(100vw-2rem))] flex-col overflow-hidden rounded-[28px] border border-white/75 bg-[#FFF9F1] shadow-[0_28px_80px_rgba(122,75,25,0.24)]"
+          className="flex h-[min(700px,calc(100dvh-8rem))] w-[min(460px,calc(100vw-2rem))] flex-col overflow-hidden rounded-[28px] border border-white/75 bg-[#FFF9F1] shadow-[0_28px_80px_rgba(122,75,25,0.24)]"
         >
           <header className="border-b border-orange-primary/10 bg-[#FFF2DE] px-4 py-3">
-            <div className="flex items-center gap-3">
+            <div className="flex items-start gap-3">
               <AshaAvatar />
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <h2 className="truncate font-poppins text-sm font-bold text-heading">Miss Asha</h2>
-                  <span className="inline-flex h-5 min-w-0 max-w-[min(220px,45vw)] items-center gap-1 rounded-full border border-orange-primary/15 bg-white/65 px-2 text-[11px] font-bold text-orange-primary shadow-[inset_2px_2px_5px_rgba(255,255,255,0.8)]">
-                    <BookOpenCheck className="h-3 w-3 shrink-0" />
-                    <span className="truncate">{focusText}</span>
+                <div className="flex min-w-0 items-center gap-2">
+                  <h2 className="shrink-0 font-poppins text-lg font-bold leading-tight text-heading">Miss Asha</h2>
+                  <span className="rounded-full border border-orange-primary/15 bg-white/70 px-2 py-0.5 text-[11px] font-bold text-orange-primary">
+                    AI Tutor
                   </span>
                 </div>
-                <p className="mt-0.5 truncate text-xs font-semibold text-muted">EduFleet AI Tutor</p>
+                <p className="mt-0.5 truncate text-xs font-semibold text-muted">EduFleet learning companion</p>
+                {topicText ? (
+                  <span className="mt-2 inline-flex h-6 max-w-full items-center gap-1.5 rounded-full border border-orange-primary/15 bg-white/70 px-2.5 text-[11px] font-bold text-orange-primary shadow-[inset_2px_2px_5px_rgba(255,255,255,0.8)]">
+                    <BookOpenCheck className="h-3 w-3 shrink-0" />
+                    <span className="truncate">{topicText}</span>
+                  </span>
+                ) : null}
               </div>
-              <button
-                aria-label="Refresh Miss Asha context"
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl text-muted transition hover:bg-white/80 hover:text-heading"
-                onClick={resetConversation}
-                type="button"
-              >
-                <RefreshCw className="h-4 w-4" />
-              </button>
-              <button
-                aria-label="Minimize Miss Asha"
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl text-muted transition hover:bg-white/80 hover:text-heading"
-                onClick={() => setOpen(false)}
-                type="button"
-              >
-                <Minimize2 className="h-4 w-4" />
-              </button>
-              <button
-                aria-label="Close Miss Asha"
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl text-muted transition hover:bg-white/80 hover:text-heading"
-                onClick={() => {
-                  setOpen(false);
-                  resetConversation();
-                }}
-                type="button"
-              >
-                <X className="h-4 w-4" />
-              </button>
+              <div className="flex shrink-0 items-center gap-1">
+                <button
+                  aria-label="Refresh Miss Asha context"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl text-muted transition hover:bg-white/80 hover:text-heading"
+                  onClick={resetConversation}
+                  type="button"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                </button>
+                <button
+                  aria-label="Minimize Miss Asha"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl text-muted transition hover:bg-white/80 hover:text-heading"
+                  onClick={() => setOpen(false)}
+                  type="button"
+                >
+                  <Minimize2 className="h-4 w-4" />
+                </button>
+                <button
+                  aria-label="Close Miss Asha"
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl text-muted transition hover:bg-white/80 hover:text-heading"
+                  onClick={() => {
+                    setOpen(false);
+                    resetConversation();
+                  }}
+                  type="button"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
             </div>
           </header>
 
-          <div className="flex-1 space-y-4 overflow-y-auto bg-[#FFFDF8] px-4 py-4">
+          <div className="asha-scrollbar flex-1 space-y-4 overflow-y-auto bg-[#FFFDF8] px-4 py-4">
             {isBootstrapping && messages.length === 0 ? (
               <div className="flex justify-start gap-2">
                 <AshaAvatar small />
@@ -392,7 +404,7 @@ export function MissAshaChat() {
 
           {suggestions.length ? (
             <div className="border-t border-orange-primary/10 bg-[#FFF8EE] px-3 py-2">
-              <div className="flex gap-2 overflow-x-auto pb-1">
+              <div className="asha-scrollbar flex gap-2 overflow-x-auto pb-1">
                 {suggestions.map((suggestion) => (
                   <button
                     className="shrink-0 rounded-2xl border border-orange-primary/15 bg-white px-3 py-2 text-left text-xs font-bold text-heading shadow-[0_8px_18px_rgba(122,75,25,0.08)] transition hover:-translate-y-0.5 hover:border-orange-primary/30 disabled:cursor-not-allowed disabled:opacity-50"

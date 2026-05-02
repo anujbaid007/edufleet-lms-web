@@ -4,6 +4,7 @@ import {
   ASHA_DEFAULT_MODEL,
   buildAshaGreeting,
   buildOpenRouterMessages,
+  getOpenRouterApiKey,
   type AshaClientMessage,
 } from "@/lib/ai/asha-tutor";
 import { createClient } from "@/lib/supabase/server";
@@ -101,10 +102,11 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const apiKey = process.env.OPENROUTER_API_KEY;
+  const apiKey = getOpenRouterApiKey();
   if (!apiKey) {
+    console.error("[Miss Asha] Missing OpenRouter API key in the server runtime.");
     return NextResponse.json(
-      { error: "Miss Asha needs OPENROUTER_API_KEY configured on the server." },
+      { error: "Miss Asha is not connected to her tutor model yet. Please try again shortly." },
       { status: 503 }
     );
   }
