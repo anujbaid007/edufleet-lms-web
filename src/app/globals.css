@@ -181,6 +181,22 @@ html[lang="hi"] * {
     height: 2px;
     background: linear-gradient(90deg, transparent, rgba(232,135,30,0.15), transparent);
   }
+
+  .asha-message .katex-display {
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 0.25rem 0;
+  }
+
+  .asha-message .katex {
+    white-space: normal;
+  }
+
+  .asha-message p,
+  .asha-message li {
+    overflow-wrap: anywhere;
+  }
 }
 
 @layer utilities {

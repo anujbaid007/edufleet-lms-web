@@ -10,21 +10,29 @@
     "gen:types": "supabase gen types typescript --project-id pzmsyhohmsczevmihimr > src/lib/supabase/types.ts",
     "import:mcq-quizzes": "tsx scripts/import-mcq-quizzes.ts",
     "generate:library-thumbnails": "tsx scripts/generate-library-thumbnails.ts",
-    "package:hls": "tsx scripts/package-hls-video.ts"
+    "package:hls": "tsx scripts/package-hls-video.ts",
+    "transcribe:asha": "tsx scripts/build-miss-asha-transcripts.ts",
+    "test:asha-live": "tsx scripts/test-miss-asha-live.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1024.0",
+    "@aws-sdk/client-transcribe": "^3.1040.0",
     "@aws-sdk/s3-request-presigner": "^3.1024.0",
     "@supabase/ssr": "^0.10.0",
     "@supabase/supabase-js": "^2.101.1",
     "clsx": "^2.1.1",
     "framer-motion": "^12.38.0",
     "hls.js": "^1.6.16",
+    "katex": "^0.16.45",
     "lucide-react": "^1.7.0",
     "next": "14.2.35",
     "react": "^18",
     "react-dom": "^18",
+    "react-markdown": "^10.1.0",
     "recharts": "^3.8.1",
+    "rehype-katex": "^7.0.1",
+    "remark-gfm": "^4.0.1",
+    "remark-math": "^6.0.0",
     "tailwind-merge": "^3.5.0"
   },
   "devDependencies": {

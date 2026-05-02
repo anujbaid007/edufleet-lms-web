@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Poppins, Inter } from "next/font/google";
+import "katex/dist/katex.min.css";
 import "./globals.css";
 import { getServerLang } from "@/lib/i18n-server";
 

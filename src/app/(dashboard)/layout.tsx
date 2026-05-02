@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { ProfileDrawer } from "@/components/dashboard/profile-drawer";
+import { MissAshaChat } from "@/components/asha/miss-asha-chat";
 import { LanguageProvider } from "@/context/language-context";
 import type { Lang } from "@/lib/i18n";
 
@@ -65,6 +66,7 @@ export default async function DashboardLayout({
             <ProfileDrawer {...drawerProps} />
           </div>
           {children}
+          <MissAshaChat />
         </main>
       </div>
     </LanguageProvider>

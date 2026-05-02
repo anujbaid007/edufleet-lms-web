@@ -14,6 +14,47 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_video_notes: {
+        Row: {
+          created_at: string
+          id: string
+          key_points: string | null
+          language: string
+          summary: string | null
+          transcript: string | null
+          updated_at: string
+          video_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          key_points?: string | null
+          language?: string
+          summary?: string | null
+          transcript?: string | null
+          updated_at?: string
+          video_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          key_points?: string | null
+          language?: string
+          summary?: string | null
+          transcript?: string | null
+          updated_at?: string
+          video_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_video_notes_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       centres: {
         Row: {
           created_at: string
