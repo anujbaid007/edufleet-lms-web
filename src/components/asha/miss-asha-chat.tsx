@@ -453,7 +453,7 @@ export function MissAshaChat({ mode = "floating" }: MissAshaChatProps) {
           className={cn(
             "flex flex-col overflow-hidden border border-white/75 bg-[#FFF9F1] shadow-[0_28px_80px_rgba(122,75,25,0.24)]",
             isPageMode
-              ? "h-[calc(100dvh-8.5rem)] min-h-[620px] w-full rounded-[28px] lg:h-[calc(100dvh-7rem)]"
+              ? "h-full min-h-0 w-full rounded-[28px]"
               : "h-full w-full rounded-[24px] sm:h-[min(700px,calc(100dvh-8rem))] sm:w-[min(460px,calc(100vw-2rem))] sm:rounded-[28px]"
           )}
         >
@@ -610,7 +610,7 @@ export function MissAshaChat({ mode = "floating" }: MissAshaChatProps) {
   );
 
   if (isPageMode) {
-    return <div className="mx-auto w-full max-w-5xl">{chatPanel}</div>;
+    return <div className="mx-auto flex h-full min-h-0 w-full max-w-5xl">{chatPanel}</div>;
   }
 
   return (

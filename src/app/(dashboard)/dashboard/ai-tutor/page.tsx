@@ -7,11 +7,11 @@ export const metadata = { title: "AI Tutor" };
 
 export default function AiTutorPage() {
   return (
-    <div className="space-y-5">
+    <div className="flex h-[calc(100dvh-8.5rem)] min-h-[560px] flex-col gap-5 lg:h-[calc(100dvh-7rem)]">
       <ScrollResetOnMount />
 
-      <section className="overflow-hidden rounded-[28px] border border-white/75 bg-[#FFF5E8] shadow-[0_24px_70px_rgba(122,75,25,0.14)]">
-        <div className="flex flex-col gap-4 px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-7">
+      <section className="shrink-0 overflow-hidden rounded-[28px] border border-white/75 bg-[#FFF5E8] shadow-[0_24px_70px_rgba(122,75,25,0.14)]">
+        <div className="flex flex-col gap-4 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-7">
           <div className="flex min-w-0 items-center gap-4">
             <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full border-2 border-white bg-white shadow-[0_16px_34px_rgba(232,135,30,0.24)]">
               <Image
@@ -45,7 +45,9 @@ export default function AiTutorPage() {
         </div>
       </section>
 
-      <MissAshaChat mode="page" />
+      <div className="min-h-0 flex-1">
+        <MissAshaChat mode="page" />
+      </div>
     </div>
   );
 }
