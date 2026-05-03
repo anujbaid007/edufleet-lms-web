@@ -588,26 +588,26 @@ export function MissAshaChat() {
 
       <button
         aria-label="Open Miss Asha chat"
-        className="group relative flex max-w-[calc(100vw-2rem)] items-center gap-2.5 rounded-full border border-white/80 bg-white/92 px-2.5 py-2 pr-4 text-left shadow-[0_18px_44px_rgba(122,75,25,0.24)] backdrop-blur transition hover:-translate-y-1 hover:border-orange-primary/20 hover:shadow-[0_24px_54px_rgba(232,135,30,0.28)]"
+        className="group relative flex max-w-[calc(100vw-2rem)] items-center gap-2 rounded-full border border-white/80 bg-white/92 px-2 py-1.5 pr-3 text-left shadow-[0_18px_44px_rgba(122,75,25,0.24)] backdrop-blur transition hover:-translate-y-1 hover:border-orange-primary/20 hover:shadow-[0_24px_54px_rgba(232,135,30,0.28)]"
         onClick={() => {
           setOpen(true);
           requestAnimationFrame(() => inputRef.current?.focus());
         }}
         type="button"
       >
-        <span className="relative flex h-16 w-16 shrink-0 overflow-hidden rounded-full border-2 border-white bg-[#FFF2DE] shadow-[0_14px_28px_rgba(232,135,30,0.28)]">
+        <span className="relative flex h-12 w-12 shrink-0 overflow-hidden rounded-full border-2 border-white bg-[#FFF2DE] shadow-[0_14px_28px_rgba(232,135,30,0.28)]">
           <Image
             alt=""
             className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
-            height={64}
+            height={48}
             priority
             src="/miss-asha-avatar.webp"
-            width={64}
+            width={48}
           />
-          <span className="absolute right-1.5 top-1.5 h-3 w-3 rounded-full border-2 border-white bg-orange-primary" />
+          <span className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full border-2 border-white bg-orange-primary" />
         </span>
-        <span className="max-w-[9.5rem] font-poppins text-sm font-bold leading-tight text-heading">
-          Talk to Miss Asha now!
+        <span className="whitespace-nowrap font-poppins text-xs font-bold leading-none text-heading">
+          Ask Miss Asha
         </span>
       </button>
     </div>
