@@ -6,7 +6,6 @@ export type AshaClientMessage = {
 };
 
 export const ASHA_DEFAULT_MODEL = "google/gemini-2.5-flash";
-const MAX_GREETING_CUES = 3;
 
 export function getOpenRouterApiKey() {
   return (process.env.OPENROUTER_API_KEY ?? process.env.MISS_ASHA_OPENROUTER_API_KEY ?? "").trim();
@@ -22,29 +21,6 @@ function focusLabel(tutorContext: AshaTutorContext) {
   if (focus.chapterTitle && focus.subjectName) return `${focus.subjectName}, ${focus.chapterTitle}`;
   if (focus.subjectName) return focus.subjectName;
   return "your lessons";
-}
-
-function sentenceCase(value: string) {
-  const trimmed = value.trim();
-  if (!trimmed) return "";
-  return `${trimmed.charAt(0).toUpperCase()}${trimmed.slice(1)}`;
-}
-
-function withEndingPunctuation(value: string) {
-  const trimmed = value.trim();
-  if (!trimmed) return "";
-  return /[.!?]$/.test(trimmed) ? trimmed : `${trimmed}.`;
-}
-
-function polishStudyCue(value: string) {
-  const cleaned = value
-    .replace(/^[-*•\s]+/, "")
-    .replace(/\s+/g, " ")
-    .replace(/\s+([,.!?])/g, "$1")
-    .trim();
-
-  if (!cleaned) return "";
-  return withEndingPunctuation(sentenceCase(cleaned));
 }
 
 export function buildAshaSystemPrompt(tutorContext: AshaTutorContext) {
@@ -87,16 +63,11 @@ export function buildAshaGreeting(tutorContext: AshaTutorContext) {
   const name = firstName(tutorContext.studentName);
   const focus = focusLabel(tutorContext);
   const progress = tutorContext.focus.progressLabel ? ` Your progress here is ${tutorContext.focus.progressLabel}.` : "";
-  const cues = tutorContext.quickFacts.map(polishStudyCue).filter(Boolean).slice(0, MAX_GREETING_CUES);
-  const cueText = cues.length
-    ? `\n\nA few useful starting points from this lesson:\n${cues.map((cue) => `- ${cue}`).join("\n")}`
-    : "";
 
   return [
     `Hi ${name}, I am Miss Asha, your EduFleet tutor.${progress}`,
     `We are focused on ${focus}.`,
-    cueText,
-    "\nAsk me a doubt, request a simple explanation, or ask for practice questions.",
+    "Ask me a doubt, request a simple explanation, or ask for practice questions.",
   ]
     .filter(Boolean)
     .join("\n");

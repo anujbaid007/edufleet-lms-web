@@ -42,8 +42,16 @@ type BootstrapFocus = {
   subjectName?: string | null;
 };
 
+type StoredChatState = {
+  focus: BootstrapFocus | null;
+  messages: ChatMessage[];
+  suggestions: string[];
+};
+
 const FALLBACK_MESSAGE =
   "Hi, I am Miss Asha, your EduFleet tutor. Ask me anything from your current lesson or chapter.";
+const CHAT_STORAGE_PREFIX = "edufleet:miss-asha-chat:v1";
+const MAX_STORED_MESSAGES = 10;
 
 function parsePageContext(pathname: string): PageContext {
   const watchMatch = pathname.match(/^\/dashboard\/watch\/([^/]+)/);
@@ -161,6 +169,73 @@ function buildQueryString(pageContext: PageContext) {
   return params.toString();
 }
 
+function chatStorageKey(pageContextKey: string) {
+  return `${CHAT_STORAGE_PREFIX}:${pageContextKey}`;
+}
+
+function isChatMessage(value: unknown): value is ChatMessage {
+  if (!value || typeof value !== "object") return false;
+  const message = value as Partial<ChatMessage>;
+  return (
+    typeof message.id === "string" &&
+    typeof message.content === "string" &&
+    (message.role === "assistant" || message.role === "user") &&
+    (message.isBootstrap === undefined || typeof message.isBootstrap === "boolean")
+  );
+}
+
+function readStoredChatState(pageContextKey: string): StoredChatState | null {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const rawState = window.localStorage.getItem(chatStorageKey(pageContextKey));
+    if (!rawState) return null;
+
+    const state = JSON.parse(rawState) as Partial<StoredChatState>;
+    const messages = Array.isArray(state.messages) ? state.messages.filter(isChatMessage).slice(-MAX_STORED_MESSAGES) : [];
+    const suggestions = Array.isArray(state.suggestions)
+      ? state.suggestions.filter((suggestion): suggestion is string => typeof suggestion === "string").slice(0, 4)
+      : [];
+
+    if (!messages.length) return null;
+
+    return {
+      focus: state.focus && typeof state.focus === "object" ? state.focus : null,
+      messages,
+      suggestions,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredChatState(pageContextKey: string, state: StoredChatState) {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.localStorage.setItem(
+      chatStorageKey(pageContextKey),
+      JSON.stringify({
+        focus: state.focus,
+        messages: state.messages.slice(-MAX_STORED_MESSAGES),
+        suggestions: state.suggestions.slice(0, 4),
+      })
+    );
+  } catch {
+    // Storage can be blocked in private mode; the chat should still work normally.
+  }
+}
+
+function clearStoredChatState(pageContextKey: string) {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.localStorage.removeItem(chatStorageKey(pageContextKey));
+  } catch {
+    // Ignore storage failures; refresh still resets the in-memory chat.
+  }
+}
+
 export function MissAshaChat() {
   const pathname = usePathname();
   const { lang } = useLanguage();
@@ -192,6 +267,16 @@ export function MissAshaChat() {
       setError(null);
 
       try {
+        const storedState = readStoredChatState(pageContextKey);
+        if (storedState) {
+          if (cancelled) return;
+          setMessages(storedState.messages);
+          setSuggestions(storedState.suggestions);
+          setFocus(storedState.focus);
+          setBootstrappedKey(pageContextKey);
+          return;
+        }
+
         const response = await fetch(`/api/asha/chat?${buildQueryString(pageContext)}`);
         const data = await response.json();
 
@@ -233,6 +318,11 @@ export function MissAshaChat() {
       cancelled = true;
     };
   }, [bootstrappedKey, open, pageContext, pageContextKey]);
+
+  useEffect(() => {
+    if (!bootstrappedKey || bootstrappedKey !== pageContextKey || messages.length === 0) return;
+    writeStoredChatState(pageContextKey, { focus, messages, suggestions });
+  }, [bootstrappedKey, focus, messages, pageContextKey, suggestions]);
 
   useEffect(() => {
     if (!open) return;
@@ -301,6 +391,7 @@ export function MissAshaChat() {
   }
 
   function resetConversation() {
+    clearStoredChatState(pageContextKey);
     setBootstrappedKey(null);
     setMessages([]);
     setSuggestions([]);
@@ -352,10 +443,7 @@ export function MissAshaChat() {
                 <button
                   aria-label="Close Miss Asha"
                   className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl text-muted transition hover:bg-white/80 hover:text-heading"
-                  onClick={() => {
-                    setOpen(false);
-                    resetConversation();
-                  }}
+                  onClick={() => setOpen(false)}
                   type="button"
                 >
                   <X className="h-4 w-4" />
