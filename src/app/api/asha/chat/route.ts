@@ -91,6 +91,47 @@ function serializeFocus(tutorContext: NonNullable<Awaited<ReturnType<typeof buil
   };
 }
 
+function hasFocusedTopic(tutorContext: NonNullable<Awaited<ReturnType<typeof buildAshaTutorContext>>>) {
+  const { focus } = tutorContext;
+  return Boolean(focus.lessonTitle || focus.chapterTitle || focus.subjectName);
+}
+
+function isDashboardTopicRequest(message: string) {
+  return (
+    /\b(this|current)\s+(topic|lesson|chapter|subject)\b/i.test(message) &&
+    /\b(practice|question|questions|quiz|exam|explain|points?)\b/i.test(message)
+  );
+}
+
+function isGreetingOnly(message: string) {
+  return /^(hi|hello|hey|namaste|good\s+(morning|afternoon|evening))[\s!.?,]*$/i.test(message.trim());
+}
+
+function cleanAssistantAnswer(answer: string, latestUserMessage: string) {
+  const trimmedAnswer = answer.trim();
+  if (isGreetingOnly(latestUserMessage)) return trimmedAnswer;
+
+  let cleaned = trimmedAnswer;
+  for (let count = 0; count < 4; count += 1) {
+    const firstSentence = cleaned.match(/^([^.!?\n]+[.!?])\s*/);
+    if (!firstSentence) break;
+
+    const sentence = firstSentence[1].toLowerCase();
+    const isIntroSentence =
+      /^(hi|hello|hey|namaste)[!.]?$/i.test(firstSentence[1].trim()) ||
+      sentence.includes("miss asha") ||
+      sentence.includes("edufleet") ||
+      sentence.includes("ai tutor") ||
+      sentence.includes("here to help") ||
+      sentence.includes("ready to help");
+
+    if (!isIntroSentence) break;
+    cleaned = cleaned.slice(firstSentence[0].length).trimStart();
+  }
+
+  return cleaned || trimmedAnswer;
+}
+
 export async function GET(request: NextRequest) {
   const { session, supabase } = await getSessionContext();
 
@@ -158,6 +199,15 @@ export async function POST(request: NextRequest) {
 
   const model = getModel();
 
+  if (!hasFocusedTopic(tutorContext) && isDashboardTopicRequest(latestUserMessage.content)) {
+    return NextResponse.json({
+      focus: serializeFocus(tutorContext),
+      message:
+        "Please open a subject, chapter, or lesson first, then I can give you practice questions from that exact topic.",
+      model,
+    });
+  }
+
   try {
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
@@ -194,7 +244,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       focus: serializeFocus(tutorContext),
-      message: answer.trim(),
+      message: cleanAssistantAnswer(answer, latestUserMessage.content),
       model: data?.model ?? model,
     });
   } catch (error) {

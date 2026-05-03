@@ -434,13 +434,22 @@ function buildQuickFacts(notes: VideoNoteSummary[]) {
 }
 
 function buildSuggestedQuestions(focus: AshaPageFocus) {
-  const chapterName = focus.chapterTitle ?? focus.subjectName ?? "this topic";
+  const chapterName = focus.chapterTitle ?? focus.subjectName;
   const lessonName = focus.lessonTitle ?? chapterName;
 
+  if (!chapterName) {
+    return [
+      "Help me choose what to study next.",
+      "Show my recent lessons.",
+      "Which subject should I revise first?",
+      "Give me a quick study plan for today.",
+    ];
+  }
+
   return [
-    `Explain ${lessonName} in simple words.`,
+    `Explain ${lessonName ?? chapterName} in simple words.`,
     `What are the most important exam points from ${chapterName}?`,
-    `Ask me 3 practice questions from ${chapterName}.`,
+    `Give me 3 practice questions from ${chapterName}.`,
     focus.subjectName ? `How is ${chapterName} connected to ${focus.subjectName}?` : null,
   ].filter((question): question is string => Boolean(question));
 }

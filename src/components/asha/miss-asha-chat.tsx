@@ -50,7 +50,14 @@ type StoredChatState = {
 
 const FALLBACK_MESSAGE =
   "Hi, I am Miss Asha, your EduFleet tutor. Ask me anything from your current lesson or chapter.";
-const CHAT_STORAGE_PREFIX = "edufleet:miss-asha-chat:v1";
+const CHAT_STORAGE_KEY = "edufleet:miss-asha-chat:v2:global";
+const LEGACY_CHAT_STORAGE_PREFIX = "edufleet:miss-asha-chat:v1";
+const DASHBOARD_SUGGESTIONS = [
+  "Help me choose what to study next.",
+  "Show my recent lessons.",
+  "Which subject should I revise first?",
+  "Give me a quick study plan for today.",
+];
 const MAX_STORED_MESSAGES = 10;
 
 function parsePageContext(pathname: string): PageContext {
@@ -169,10 +176,6 @@ function buildQueryString(pageContext: PageContext) {
   return params.toString();
 }
 
-function chatStorageKey(pageContextKey: string) {
-  return `${CHAT_STORAGE_PREFIX}:${pageContextKey}`;
-}
-
 function isChatMessage(value: unknown): value is ChatMessage {
   if (!value || typeof value !== "object") return false;
   const message = value as Partial<ChatMessage>;
@@ -184,11 +187,22 @@ function isChatMessage(value: unknown): value is ChatMessage {
   );
 }
 
+function hasFocusedTopic(focus: BootstrapFocus | null) {
+  return Boolean(focus?.lessonTitle || focus?.chapterTitle || focus?.subjectName);
+}
+
+function normalizeStoredSuggestions(focus: BootstrapFocus | null, suggestions: string[]) {
+  if (!hasFocusedTopic(focus)) return DASHBOARD_SUGGESTIONS;
+  return suggestions.map((suggestion) => suggestion.replace(/^Ask me 3 practice questions/i, "Give me 3 practice questions"));
+}
+
 function readStoredChatState(pageContextKey: string): StoredChatState | null {
   if (typeof window === "undefined") return null;
 
   try {
-    const rawState = window.localStorage.getItem(chatStorageKey(pageContextKey));
+    const rawState =
+      window.localStorage.getItem(CHAT_STORAGE_KEY) ??
+      window.localStorage.getItem(`${LEGACY_CHAT_STORAGE_PREFIX}:${pageContextKey}`);
     if (!rawState) return null;
 
     const state = JSON.parse(rawState) as Partial<StoredChatState>;
@@ -198,23 +212,24 @@ function readStoredChatState(pageContextKey: string): StoredChatState | null {
       : [];
 
     if (!messages.length) return null;
+    const focus = state.focus && typeof state.focus === "object" ? state.focus : null;
 
     return {
-      focus: state.focus && typeof state.focus === "object" ? state.focus : null,
+      focus,
       messages,
-      suggestions,
+      suggestions: normalizeStoredSuggestions(focus, suggestions),
     };
   } catch {
     return null;
   }
 }
 
-function writeStoredChatState(pageContextKey: string, state: StoredChatState) {
+function writeStoredChatState(state: StoredChatState) {
   if (typeof window === "undefined") return;
 
   try {
     window.localStorage.setItem(
-      chatStorageKey(pageContextKey),
+      CHAT_STORAGE_KEY,
       JSON.stringify({
         focus: state.focus,
         messages: state.messages.slice(-MAX_STORED_MESSAGES),
@@ -230,7 +245,8 @@ function clearStoredChatState(pageContextKey: string) {
   if (typeof window === "undefined") return;
 
   try {
-    window.localStorage.removeItem(chatStorageKey(pageContextKey));
+    window.localStorage.removeItem(CHAT_STORAGE_KEY);
+    window.localStorage.removeItem(`${LEGACY_CHAT_STORAGE_PREFIX}:${pageContextKey}`);
   } catch {
     // Ignore storage failures; refresh still resets the in-memory chat.
   }
@@ -274,7 +290,6 @@ export function MissAshaChat() {
           setSuggestions(storedState.suggestions);
           setFocus(storedState.focus);
           setBootstrappedKey(pageContextKey);
-          return;
         }
 
         const response = await fetch(`/api/asha/chat?${buildQueryString(pageContext)}`);
@@ -286,14 +301,16 @@ export function MissAshaChat() {
 
         if (cancelled) return;
 
-        setMessages([
-          {
-            content: data?.greeting || FALLBACK_MESSAGE,
-            id: newMessageId("greeting"),
-            isBootstrap: true,
-            role: "assistant",
-          },
-        ]);
+        if (!storedState) {
+          setMessages([
+            {
+              content: data?.greeting || FALLBACK_MESSAGE,
+              id: newMessageId("greeting"),
+              isBootstrap: true,
+              role: "assistant",
+            },
+          ]);
+        }
         setSuggestions(Array.isArray(data?.suggestions) ? data.suggestions.slice(0, 4) : []);
         setFocus(data?.focus ?? null);
         setBootstrappedKey(pageContextKey);
@@ -321,7 +338,7 @@ export function MissAshaChat() {
 
   useEffect(() => {
     if (!bootstrappedKey || bootstrappedKey !== pageContextKey || messages.length === 0) return;
-    writeStoredChatState(pageContextKey, { focus, messages, suggestions });
+    writeStoredChatState({ focus, messages, suggestions });
   }, [bootstrappedKey, focus, messages, pageContextKey, suggestions]);
 
   useEffect(() => {
