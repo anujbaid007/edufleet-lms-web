@@ -24,6 +24,7 @@ import { useLanguage } from "@/context/language-context";
 type ChatMessage = {
   content: string;
   id: string;
+  isBootstrap?: boolean;
   role: "assistant" | "user";
 };
 
@@ -204,6 +205,7 @@ export function MissAshaChat() {
           {
             content: data?.greeting || FALLBACK_MESSAGE,
             id: newMessageId("greeting"),
+            isBootstrap: true,
             role: "assistant",
           },
         ]);
@@ -213,7 +215,7 @@ export function MissAshaChat() {
       } catch (err) {
         if (cancelled) return;
         const message = err instanceof Error ? err.message : "Miss Asha could not load your lesson context.";
-        setMessages([{ content: FALLBACK_MESSAGE, id: newMessageId("fallback"), role: "assistant" }]);
+        setMessages([{ content: FALLBACK_MESSAGE, id: newMessageId("fallback"), isBootstrap: true, role: "assistant" }]);
         setSuggestions([]);
         setError(message);
         setBootstrappedKey(pageContextKey);
@@ -256,7 +258,9 @@ export function MissAshaChat() {
     try {
       const response = await fetch("/api/asha/chat", {
         body: JSON.stringify({
-          messages: nextMessages.map(({ role, content }) => ({ role, content })),
+          messages: nextMessages
+            .filter((message) => !message.isBootstrap)
+            .map(({ role, content }) => ({ role, content })),
           pageContext,
         }),
         headers: { "Content-Type": "application/json" },

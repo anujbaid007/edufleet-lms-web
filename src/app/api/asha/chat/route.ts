@@ -13,11 +13,17 @@ export const dynamic = "force-dynamic";
 
 const MAX_HISTORY_MESSAGES = 12;
 const MAX_MESSAGE_CHARS = 2400;
+const ASSISTANT_GREETING_PATTERNS = [
+  /^hi\b[\s\S]{0,120}\bi am miss asha\b/i,
+  /^hello\b[\s\S]{0,120}\bi am miss asha\b/i,
+  /\ba few useful starting points from this lesson\b/i,
+  /\ba few fun facts to warm up\b/i,
+];
 
 function sanitizeMessages(value: unknown) {
   if (!Array.isArray(value)) return [] as AshaClientMessage[];
 
-  return value
+  const messages = value
     .filter((item): item is AshaClientMessage => {
       if (!item || typeof item !== "object") return false;
       const candidate = item as Partial<AshaClientMessage>;
@@ -32,6 +38,18 @@ function sanitizeMessages(value: unknown) {
       role: message.role,
       content: message.content.slice(0, MAX_MESSAGE_CHARS),
     }));
+
+  const withoutBootstrapGreeting = messages.filter(
+    (message, index) =>
+      !(
+        index === 0 &&
+        message.role === "assistant" &&
+        ASSISTANT_GREETING_PATTERNS.some((pattern) => pattern.test(message.content))
+      )
+  );
+
+  const firstUserIndex = withoutBootstrapGreeting.findIndex((message) => message.role === "user");
+  return firstUserIndex >= 0 ? withoutBootstrapGreeting.slice(firstUserIndex) : withoutBootstrapGreeting;
 }
 
 function cleanContextValue(value: unknown, maxLength = 120) {
