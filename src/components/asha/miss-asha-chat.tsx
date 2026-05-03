@@ -50,7 +50,8 @@ type StoredChatState = {
 
 const FALLBACK_MESSAGE =
   "Hi, I am Miss Asha, your EduFleet tutor. Ask me anything from your current lesson or chapter.";
-const CHAT_STORAGE_KEY = "edufleet:miss-asha-chat:v2:global";
+const CHAT_STORAGE_KEY = "edufleet:miss-asha-chat:v3:global";
+const PREVIOUS_GLOBAL_CHAT_STORAGE_KEY = "edufleet:miss-asha-chat:v2:global";
 const LEGACY_CHAT_STORAGE_PREFIX = "edufleet:miss-asha-chat:v1";
 const DASHBOARD_SUGGESTIONS = [
   "Help me choose what to study next.",
@@ -196,17 +197,34 @@ function normalizeStoredSuggestions(focus: BootstrapFocus | null, suggestions: s
   return suggestions.map((suggestion) => suggestion.replace(/^Ask me 3 practice questions/i, "Give me 3 practice questions"));
 }
 
+function cleanStoredAssistantMessage(message: ChatMessage) {
+  if (message.role !== "assistant" || message.isBootstrap) return message;
+
+  const content = message.content
+    .replace(
+      /^(?:hello|hi|hey|namaste)[!.]?\s*(?:i['’]?m|i am)\s+miss asha,\s+your\s+(?:ai\s+)?tutor\s+from\s+edufleet\.\s*/i,
+      ""
+    )
+    .replace(/^i['’]?m\s+(?:here|ready)\s+to\s+help\s+you\s+(?:with|understand)[^.!?]*[.!?]\s*/i, "")
+    .trim();
+
+  return content ? { ...message, content } : message;
+}
+
 function readStoredChatState(pageContextKey: string): StoredChatState | null {
   if (typeof window === "undefined") return null;
 
   try {
     const rawState =
       window.localStorage.getItem(CHAT_STORAGE_KEY) ??
+      window.localStorage.getItem(PREVIOUS_GLOBAL_CHAT_STORAGE_KEY) ??
       window.localStorage.getItem(`${LEGACY_CHAT_STORAGE_PREFIX}:${pageContextKey}`);
     if (!rawState) return null;
 
     const state = JSON.parse(rawState) as Partial<StoredChatState>;
-    const messages = Array.isArray(state.messages) ? state.messages.filter(isChatMessage).slice(-MAX_STORED_MESSAGES) : [];
+    const messages = Array.isArray(state.messages)
+      ? state.messages.filter(isChatMessage).map(cleanStoredAssistantMessage).slice(-MAX_STORED_MESSAGES)
+      : [];
     const suggestions = Array.isArray(state.suggestions)
       ? state.suggestions.filter((suggestion): suggestion is string => typeof suggestion === "string").slice(0, 4)
       : [];
@@ -246,6 +264,7 @@ function clearStoredChatState(pageContextKey: string) {
 
   try {
     window.localStorage.removeItem(CHAT_STORAGE_KEY);
+    window.localStorage.removeItem(PREVIOUS_GLOBAL_CHAT_STORAGE_KEY);
     window.localStorage.removeItem(`${LEGACY_CHAT_STORAGE_PREFIX}:${pageContextKey}`);
   } catch {
     // Ignore storage failures; refresh still resets the in-memory chat.
@@ -271,7 +290,7 @@ export function MissAshaChat() {
   const pageContextKey = useMemo(() => JSON.stringify(pageContext), [pageContext]);
   const inputPlaceholder = lang === "hi" ? "अपना सवाल पूछें..." : "Ask from this lesson...";
   const topicText = focus?.lessonTitle ?? focus?.chapterTitle ?? focus?.subjectName ?? null;
-  const disableInput = isBootstrapping || isSending;
+  const disableInput = isSending || (isBootstrapping && messages.length === 0);
 
   useEffect(() => {
     if (!open || bootstrappedKey === pageContextKey) return;
@@ -317,7 +336,11 @@ export function MissAshaChat() {
       } catch (err) {
         if (cancelled) return;
         const message = err instanceof Error ? err.message : "Miss Asha could not load your lesson context.";
-        setMessages([{ content: FALLBACK_MESSAGE, id: newMessageId("fallback"), isBootstrap: true, role: "assistant" }]);
+        setMessages((current) =>
+          current.length
+            ? current
+            : [{ content: FALLBACK_MESSAGE, id: newMessageId("fallback"), isBootstrap: true, role: "assistant" }]
+        );
         setSuggestions([]);
         setError(message);
         setBootstrappedKey(pageContextKey);
