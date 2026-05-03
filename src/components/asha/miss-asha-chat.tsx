@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
@@ -9,13 +10,10 @@ import remarkMath from "remark-math";
 import {
   AlertCircle,
   BookOpenCheck,
-  GraduationCap,
   Loader2,
-  MessageCircle,
   Minimize2,
   RefreshCw,
   Send,
-  Sparkles,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -85,22 +83,19 @@ function AshaAvatar({ small = false }: { small?: boolean }) {
   return (
     <div
       className={cn(
-        "relative shrink-0 overflow-hidden border border-orange-primary/20 bg-[#FFF4E5] text-orange-primary shadow-[inset_3px_3px_7px_rgba(255,255,255,0.85),inset_-5px_-5px_10px_rgba(214,145,74,0.16),0_12px_26px_rgba(122,75,25,0.16)]",
-        small ? "h-9 w-9 rounded-[16px]" : "h-12 w-12 rounded-[20px]"
+        "relative shrink-0 overflow-hidden rounded-full border border-orange-primary/20 bg-[#FFF4E5] shadow-[inset_3px_3px_7px_rgba(255,255,255,0.85),inset_-5px_-5px_10px_rgba(214,145,74,0.16),0_12px_26px_rgba(122,75,25,0.16)]",
+        small ? "h-9 w-9" : "h-12 w-12"
       )}
       aria-hidden="true"
     >
-      <div className="absolute inset-x-0 top-0 h-1/2 bg-white/50" />
-      <GraduationCap className={cn("absolute left-1/2 top-2 -translate-x-1/2", small ? "h-4 w-4" : "h-5 w-5")} />
-      <span
-        className={cn(
-          "absolute inset-x-0 bottom-1 text-center font-poppins font-bold leading-none",
-          small ? "text-base" : "text-lg"
-        )}
-      >
-        A
-      </span>
-      <Sparkles className="absolute right-1.5 top-1.5 h-3 w-3 text-[#D58A25]" />
+      <Image
+        alt=""
+        className="h-full w-full object-cover"
+        height={small ? 36 : 48}
+        priority={!small}
+        src="/miss-asha-avatar.webp"
+        width={small ? 36 : 48}
+      />
     </div>
   );
 }
@@ -593,16 +588,27 @@ export function MissAshaChat() {
 
       <button
         aria-label="Open Miss Asha chat"
-        className="group relative flex h-16 w-16 items-center justify-center overflow-hidden rounded-[24px] bg-orange-primary text-white shadow-[0_18px_40px_rgba(232,135,30,0.38)] transition hover:-translate-y-1 hover:shadow-[0_22px_48px_rgba(232,135,30,0.45)]"
+        className="group relative flex max-w-[calc(100vw-2rem)] items-center gap-2.5 rounded-full border border-white/80 bg-white/92 px-2.5 py-2 pr-4 text-left shadow-[0_18px_44px_rgba(122,75,25,0.24)] backdrop-blur transition hover:-translate-y-1 hover:border-orange-primary/20 hover:shadow-[0_24px_54px_rgba(232,135,30,0.28)]"
         onClick={() => {
           setOpen(true);
           requestAnimationFrame(() => inputRef.current?.focus());
         }}
         type="button"
       >
-        <span className="absolute inset-x-0 top-0 h-1/2 bg-white/18" />
-        <MessageCircle className="relative h-7 w-7 transition group-hover:scale-105" />
-        <span className="absolute right-3 top-3 h-2.5 w-2.5 rounded-full border-2 border-orange-primary bg-white" />
+        <span className="relative flex h-16 w-16 shrink-0 overflow-hidden rounded-full border-2 border-white bg-[#FFF2DE] shadow-[0_14px_28px_rgba(232,135,30,0.28)]">
+          <Image
+            alt=""
+            className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+            height={64}
+            priority
+            src="/miss-asha-avatar.webp"
+            width={64}
+          />
+          <span className="absolute right-1.5 top-1.5 h-3 w-3 rounded-full border-2 border-white bg-orange-primary" />
+        </span>
+        <span className="max-w-[9.5rem] font-poppins text-sm font-bold leading-tight text-heading">
+          Talk to Miss Asha now!
+        </span>
       </button>
     </div>
   );
