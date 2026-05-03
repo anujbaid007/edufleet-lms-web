@@ -457,21 +457,34 @@ export function MissAshaChat({ mode = "floating" }: MissAshaChatProps) {
               : "h-full w-full rounded-[24px] sm:h-[min(700px,calc(100dvh-8rem))] sm:w-[min(460px,calc(100vw-2rem))] sm:rounded-[28px]"
           )}
         >
-          <header className="shrink-0 border-b border-orange-primary/10 bg-[#FFF2DE] px-3 py-2.5 sm:px-4 sm:py-3">
-            <div className="flex items-start gap-3">
-              <AshaAvatar />
+          <header
+            className={cn(
+              "shrink-0 border-b border-orange-primary/10 bg-[#FFF2DE] px-3 sm:px-4",
+              isPageMode ? "py-2" : "py-2.5 sm:py-3"
+            )}
+          >
+            <div className={cn("flex gap-3", isPageMode ? "items-center" : "items-start")}>
+              {!isPageMode ? <AshaAvatar /> : null}
               <div className="min-w-0 flex-1">
-                <div className="flex min-w-0 items-center gap-2">
-                  <h2 className="shrink-0 font-poppins text-lg font-bold leading-tight text-heading">Miss Asha</h2>
-                  <span className="rounded-full border border-orange-primary/15 bg-white/70 px-2 py-0.5 text-[11px] font-bold text-orange-primary">
-                    AI Tutor
-                  </span>
-                </div>
-                <p className="mt-0.5 truncate text-xs font-semibold text-muted">EduFleet learning companion</p>
+                {!isPageMode ? (
+                  <>
+                    <div className="flex min-w-0 items-center gap-2">
+                      <h2 className="shrink-0 font-poppins text-lg font-bold leading-tight text-heading">Miss Asha</h2>
+                      <span className="rounded-full border border-orange-primary/15 bg-white/70 px-2 py-0.5 text-[11px] font-bold text-orange-primary">
+                        AI Tutor
+                      </span>
+                    </div>
+                    <p className="mt-0.5 truncate text-xs font-semibold text-muted">EduFleet learning companion</p>
+                  </>
+                ) : null}
                 {topicText ? (
-                  <span className="mt-2 inline-flex h-6 max-w-full items-center gap-1.5 rounded-full border border-orange-primary/15 bg-white/70 px-2.5 text-[11px] font-bold text-orange-primary shadow-[inset_2px_2px_5px_rgba(255,255,255,0.8)]">
+                  <span className="inline-flex h-7 max-w-full items-center gap-1.5 rounded-full border border-orange-primary/15 bg-white/70 px-2.5 text-[11px] font-bold text-orange-primary shadow-[inset_2px_2px_5px_rgba(255,255,255,0.8)]">
                     <BookOpenCheck className="h-3 w-3 shrink-0" />
                     <span className="truncate">{topicText}</span>
+                  </span>
+                ) : isPageMode ? (
+                  <span className="inline-flex h-7 items-center rounded-full border border-orange-primary/15 bg-white/70 px-2.5 text-[11px] font-bold text-orange-primary">
+                    Ready for your study questions
                   </span>
                 ) : null}
               </div>
