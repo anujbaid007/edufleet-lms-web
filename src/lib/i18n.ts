@@ -7,6 +7,7 @@ const dict = {
     "nav.subjects": "Subjects",
     "nav.quiz": "Quiz",
     "nav.progress": "My Progress",
+    "nav.aiTutor": "AI Tutor",
     "nav.students": "My Students",
     "nav.signOut": "Sign Out",
     "nav.language": "Language",
@@ -139,6 +140,7 @@ const dict = {
     "nav.subjects": "विषय",
     "nav.quiz": "क्विज़",
     "nav.progress": "मेरी प्रगति",
+    "nav.aiTutor": "AI ट्यूटर",
     "nav.students": "मेरे छात्र",
     "nav.signOut": "लॉग आउट",
     "nav.language": "भाषा",
@@ -284,4 +286,3 @@ export function t(
   if (!vars) return raw;
   return raw.replace(/\{(\w+)\}/g, (_, k) => String(vars[k] ?? `{${k}}`));
 }
-

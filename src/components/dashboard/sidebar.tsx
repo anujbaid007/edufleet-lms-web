@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import {
   Home,
   BarChart3,
+  Bot,
   Users,
   LogOut,
   ChevronLeft,
@@ -68,6 +69,7 @@ export function Sidebar({ userRole, userName, mobileSlot }: SidebarProps) {
     { href: "/dashboard/subjects", label: t("nav.subjects"), icon: BookOpen, isActive: isSubjectsActive },
     { href: "/dashboard/quizzes", label: t("nav.quiz"), icon: Trophy, isActive: isQuizActive },
     { href: "/dashboard/progress", label: t("nav.progress"), icon: BarChart3 },
+    { href: "/dashboard/ai-tutor", label: t("nav.aiTutor"), icon: Bot },
   ] satisfies DashboardLink[];
 
   const teacherLinks = [
@@ -76,6 +78,7 @@ export function Sidebar({ userRole, userName, mobileSlot }: SidebarProps) {
     { href: "/dashboard/quizzes", label: t("nav.quiz"), icon: Trophy, isActive: isQuizActive },
     { href: "/dashboard/students", label: t("nav.students"), icon: Users },
     { href: "/dashboard/progress", label: t("nav.progress"), icon: BarChart3 },
+    { href: "/dashboard/ai-tutor", label: t("nav.aiTutor"), icon: Bot },
   ] satisfies DashboardLink[];
 
   const links = userRole === "teacher" ? teacherLinks : studentLinks;
@@ -259,7 +262,7 @@ export function Sidebar({ userRole, userName, mobileSlot }: SidebarProps) {
 
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-orange-primary/10 bg-[rgba(253,248,243,0.96)] px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 backdrop-blur-xl lg:hidden">
         <div className="grid grid-cols-5 gap-1">
-          {links.map((link) => {
+          {links.slice(0, 4).map((link) => {
             const isActive = isLinkActive(link);
 
             return (

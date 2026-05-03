@@ -46,6 +46,10 @@ type StoredChatState = {
   suggestions: string[];
 };
 
+type MissAshaChatProps = {
+  mode?: "floating" | "page";
+};
+
 const FALLBACK_MESSAGE =
   "Hi, I am Miss Asha, your EduFleet tutor. Ask me anything from your current lesson or chapter.";
 const CHAT_STORAGE_KEY = "edufleet:miss-asha-chat:v3:global";
@@ -266,10 +270,11 @@ function clearStoredChatState(pageContextKey: string) {
   }
 }
 
-export function MissAshaChat() {
+export function MissAshaChat({ mode = "floating" }: MissAshaChatProps) {
   const pathname = usePathname();
   const { lang } = useLanguage();
-  const [open, setOpen] = useState(false);
+  const isPageMode = mode === "page";
+  const [open, setOpen] = useState(isPageMode);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [isBootstrapping, setIsBootstrapping] = useState(false);
@@ -286,9 +291,14 @@ export function MissAshaChat() {
   const inputPlaceholder = lang === "hi" ? "अपना सवाल पूछें..." : "Ask from this lesson...";
   const topicText = focus?.lessonTitle ?? focus?.chapterTitle ?? focus?.subjectName ?? null;
   const disableInput = isSending || (isBootstrapping && messages.length === 0);
+  const showChatPanel = isPageMode || open;
 
   useEffect(() => {
-    if (!open || bootstrappedKey === pageContextKey) return;
+    if (isPageMode) setOpen(true);
+  }, [isPageMode]);
+
+  useEffect(() => {
+    if (!showChatPanel || bootstrappedKey === pageContextKey) return;
 
     let cancelled = false;
 
@@ -352,7 +362,7 @@ export function MissAshaChat() {
     return () => {
       cancelled = true;
     };
-  }, [bootstrappedKey, open, pageContext, pageContextKey]);
+  }, [bootstrappedKey, pageContext, pageContextKey, showChatPanel]);
 
   useEffect(() => {
     if (!bootstrappedKey || bootstrappedKey !== pageContextKey || messages.length === 0) return;
@@ -360,9 +370,9 @@ export function MissAshaChat() {
   }, [bootstrappedKey, focus, messages, pageContextKey, suggestions]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!showChatPanel) return;
     messagesEndRef.current?.scrollIntoView({ block: "end" });
-  }, [isBootstrapping, isSending, messages, open]);
+  }, [isBootstrapping, isSending, messages, showChatPanel]);
 
   async function sendQuestion(question: string) {
     const trimmedQuestion = question.trim();
@@ -433,14 +443,21 @@ export function MissAshaChat() {
     setError(null);
   }
 
-  return (
-    <div className="fixed bottom-24 right-4 z-50 flex flex-col items-end gap-3 lg:bottom-6 lg:right-6">
-      {open ? (
+  if (!isPageMode && pathname === "/dashboard/ai-tutor") {
+    return null;
+  }
+
+  const chatPanel = (
         <section
           aria-label="Miss Asha chat"
-          className="flex h-[min(700px,calc(100dvh-8rem))] w-[min(460px,calc(100vw-2rem))] flex-col overflow-hidden rounded-[28px] border border-white/75 bg-[#FFF9F1] shadow-[0_28px_80px_rgba(122,75,25,0.24)]"
+          className={cn(
+            "flex flex-col overflow-hidden border border-white/75 bg-[#FFF9F1] shadow-[0_28px_80px_rgba(122,75,25,0.24)]",
+            isPageMode
+              ? "h-[calc(100dvh-8.5rem)] min-h-[620px] w-full rounded-[28px] lg:h-[calc(100dvh-7rem)]"
+              : "h-full w-full rounded-[24px] sm:h-[min(700px,calc(100dvh-8rem))] sm:w-[min(460px,calc(100vw-2rem))] sm:rounded-[28px]"
+          )}
         >
-          <header className="border-b border-orange-primary/10 bg-[#FFF2DE] px-4 py-3">
+          <header className="shrink-0 border-b border-orange-primary/10 bg-[#FFF2DE] px-3 py-2.5 sm:px-4 sm:py-3">
             <div className="flex items-start gap-3">
               <AshaAvatar />
               <div className="min-w-0 flex-1">
@@ -469,7 +486,10 @@ export function MissAshaChat() {
                 </button>
                 <button
                   aria-label="Minimize Miss Asha"
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl text-muted transition hover:bg-white/80 hover:text-heading"
+                  className={cn(
+                    "h-9 w-9 shrink-0 items-center justify-center rounded-2xl text-muted transition hover:bg-white/80 hover:text-heading",
+                    isPageMode ? "hidden" : "flex"
+                  )}
                   onClick={() => setOpen(false)}
                   type="button"
                 >
@@ -477,7 +497,10 @@ export function MissAshaChat() {
                 </button>
                 <button
                   aria-label="Close Miss Asha"
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl text-muted transition hover:bg-white/80 hover:text-heading"
+                  className={cn(
+                    "h-9 w-9 shrink-0 items-center justify-center rounded-2xl text-muted transition hover:bg-white/80 hover:text-heading",
+                    isPageMode ? "hidden" : "flex"
+                  )}
                   onClick={() => setOpen(false)}
                   type="button"
                 >
@@ -487,7 +510,7 @@ export function MissAshaChat() {
             </div>
           </header>
 
-          <div className="asha-scrollbar flex-1 space-y-4 overflow-y-auto bg-[#FFFDF8] px-4 py-4">
+          <div className="asha-scrollbar flex-1 space-y-3 overflow-y-auto bg-[#FFFDF8] px-3 py-3 sm:space-y-4 sm:px-4 sm:py-4">
             {isBootstrapping && messages.length === 0 ? (
               <div className="flex justify-start gap-2">
                 <AshaAvatar small />
@@ -506,7 +529,7 @@ export function MissAshaChat() {
                 {message.role === "assistant" ? <AshaAvatar small /> : null}
                 <div
                   className={cn(
-                    "max-w-[84%] rounded-[22px] px-4 py-3 shadow-[0_12px_28px_rgba(122,75,25,0.11)]",
+                    "max-w-[82%] rounded-[22px] px-3.5 py-2.5 shadow-[0_12px_28px_rgba(122,75,25,0.11)] sm:max-w-[84%] sm:px-4 sm:py-3",
                     message.role === "user"
                       ? "bg-orange-primary text-white shadow-[0_16px_30px_rgba(232,135,30,0.28)]"
                       : "border border-orange-primary/10 bg-white"
@@ -556,10 +579,10 @@ export function MissAshaChat() {
             </div>
           ) : null}
 
-          <form className="border-t border-orange-primary/10 bg-white p-3" onSubmit={sendMessage}>
+          <form className="shrink-0 border-t border-orange-primary/10 bg-white p-2.5 sm:p-3" onSubmit={sendMessage}>
             <div className="flex items-end gap-2 rounded-[22px] border border-orange-primary/15 bg-[#FFF8F0] p-2 shadow-[inset_4px_4px_9px_rgba(200,160,120,0.09),inset_-4px_-4px_9px_rgba(255,255,255,0.78)]">
               <textarea
-                className="max-h-28 min-h-11 flex-1 resize-none bg-transparent px-3 py-2.5 text-sm leading-6 text-heading outline-none placeholder:text-muted"
+                className="max-h-24 min-h-11 flex-1 resize-none bg-transparent px-3 py-2.5 text-base leading-6 text-heading outline-none placeholder:text-muted sm:max-h-28 sm:text-sm"
                 disabled={disableInput}
                 onChange={(event) => setDraft(event.target.value)}
                 onKeyDown={(event) => {
@@ -584,8 +607,23 @@ export function MissAshaChat() {
             </div>
           </form>
         </section>
-      ) : null}
+  );
 
+  if (isPageMode) {
+    return <div className="mx-auto w-full max-w-5xl">{chatPanel}</div>;
+  }
+
+  return (
+    <div
+      className={cn(
+        "fixed z-50 flex flex-col items-end gap-3",
+        showChatPanel
+          ? "inset-x-2 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] top-[calc(4.75rem+env(safe-area-inset-top))] sm:inset-auto sm:bottom-6 sm:right-6 sm:top-auto sm:h-[min(700px,calc(100dvh-8rem))] sm:w-[min(460px,calc(100vw-2rem))]"
+          : "bottom-24 right-4 lg:bottom-6 lg:right-6"
+      )}
+    >
+      {showChatPanel ? chatPanel : null}
+      {!showChatPanel ? (
       <button
         aria-label="Open Miss Asha chat"
         className="group relative flex max-w-[calc(100vw-2rem)] items-center gap-2 rounded-full border border-white/80 bg-white/92 px-2 py-1.5 pr-3 text-left shadow-[0_18px_44px_rgba(122,75,25,0.24)] backdrop-blur transition hover:-translate-y-1 hover:border-orange-primary/20 hover:shadow-[0_24px_54px_rgba(232,135,30,0.28)]"
@@ -610,6 +648,7 @@ export function MissAshaChat() {
           Ask Miss Asha
         </span>
       </button>
+      ) : null}
     </div>
   );
 }
