@@ -340,10 +340,8 @@ function SummaryCards({ dataset }: { dataset: AnalyticsDataset }) {
   const isOfflineCentreView = dataset.level === "classes" && dataset.rows.length > 0 && dataset.rows.every((r) => r.isOffline);
 
   if (isOfflineCentreView) {
-    const classCount = dataset.rows.length;
-    const hasAnalytics = (summary.videoPlays ?? 0) > 0 || (summary.quizAttempts ?? 0) > 0;
     return (
-      <div className={`grid grid-cols-1 gap-4 ${hasAnalytics ? "md:grid-cols-5" : "md:grid-cols-3"}`}>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
         <ClayCard hover={false} className="relative !p-5">
           <div className="flex items-center gap-4">
             <div className="flex h-12 w-12 items-center justify-center rounded-clay-sm clay-surface shadow-clay-pill">
@@ -358,67 +356,50 @@ function SummaryCards({ dataset }: { dataset: AnalyticsDataset }) {
 
         <ClayCard hover={false} className="relative !p-5">
           <div className="flex items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-clay-sm bg-amber-50 shadow-clay-pill">
-              <BookOpen className="h-6 w-6 text-amber-700" />
+            <div className="flex h-12 w-12 items-center justify-center rounded-clay-sm bg-emerald-50 shadow-clay-pill">
+              <Activity className="h-6 w-6 text-emerald-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-heading">{classCount}</p>
-              <p className="text-xs text-muted">Classes</p>
+              <p className="text-2xl font-bold text-heading">{summary.activeStudents}</p>
+              <p className="text-xs text-muted">Active in last 7 days</p>
             </div>
           </div>
         </ClayCard>
 
-        {hasAnalytics ? (
-          <>
-            <ClayCard hover={false} className="relative !p-5">
-              <div className="flex items-center gap-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-clay-sm bg-blue-50 shadow-clay-pill">
-                  <CirclePlay className="h-6 w-6 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-heading">{summary.videoPlays}</p>
-                  <p className="text-xs text-muted">Video plays</p>
-                </div>
-              </div>
-            </ClayCard>
-
-            <ClayCard hover={false} className="relative !p-5">
-              <div className="flex items-center gap-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-clay-sm bg-purple-50 shadow-clay-pill">
-                  <Target className="h-6 w-6 text-purple-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-heading">{summary.quizAttempts}</p>
-                  <p className="text-xs text-muted">Quiz attempts</p>
-                </div>
-              </div>
-            </ClayCard>
-
-            <ClayCard hover={false} className="relative !p-5">
-              <div className="flex items-center gap-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-clay-sm bg-green-50 shadow-clay-pill">
-                  <CheckCircle2 className="h-6 w-6 text-green-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-heading">{summary.avgQuizScore != null ? `${summary.avgQuizScore}%` : "—"}</p>
-                  <p className="text-xs text-muted">Avg quiz score</p>
-                </div>
-              </div>
-            </ClayCard>
-          </>
-        ) : (
-          <ClayCard hover={false} className="relative !p-5">
-            <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-clay-sm bg-amber-50 shadow-clay-pill">
-                <WifiOff className="h-6 w-6 text-amber-700" />
-              </div>
-              <div>
-                <p className="text-sm font-bold text-heading">Pen drive delivery</p>
-                <p className="text-xs text-muted">Usage analytics will sync from Android TV app</p>
-              </div>
+        <ClayCard hover={false} className="relative !p-5">
+          <div className="flex items-center gap-4">
+            <ProgressRing percentage={summary.completionRate} size={60} strokeWidth={7}>
+              <span className="text-xs font-bold text-heading">{summary.completionRate}%</span>
+            </ProgressRing>
+            <div className="min-w-0">
+              <p className="text-lg font-bold leading-8 text-heading">Syllabus completion</p>
             </div>
-          </ClayCard>
-        )}
+          </div>
+        </ClayCard>
+
+        <ClayCard hover={false} className="relative !p-5">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-clay-sm bg-blue-50 shadow-clay-pill">
+              <CheckCircle2 className="h-6 w-6 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-heading">{summary.completedChapters}</p>
+              <p className="text-xs text-muted">Chapters completed</p>
+            </div>
+          </div>
+        </ClayCard>
+
+        <ClayCard hover={false} className="relative !p-5">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-clay-sm bg-amber-50 shadow-clay-pill">
+              <BookOpen className="h-6 w-6 text-amber-700" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-heading">{summary.trackedChapters}</p>
+              <p className="text-xs text-muted">Chapters in syllabus</p>
+            </div>
+          </div>
+        </ClayCard>
       </div>
     );
   }
