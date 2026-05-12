@@ -539,7 +539,7 @@ type OfflineCentreStatsRow = {
 
 type OfflineClassBreakdown = {
   classNum: number;
-  completedChapterIds: Set<string>;
+  playedVideosByChapter: Map<string, Set<string>>;
   videoPlays: number;
   quizAttempts: number;
   boards: Set<string>;
@@ -626,6 +626,21 @@ async function fetchOfflineCentreStats(
     }
   }
 
+  // Fetch total video count per chapter so we can determine true completion
+  const chapterVideoCountMap = new Map<string, number>();
+  if (allChapterIds.length > 0) {
+    for (const idChunk of chunkValues(allChapterIds, VIDEO_ID_CHUNK)) {
+      const { data, error } = await supabase
+        .from("videos")
+        .select("chapter_id")
+        .in("chapter_id", idChunk);
+      if (error) throw error;
+      for (const row of data ?? []) {
+        chapterVideoCountMap.set(row.chapter_id, (chapterVideoCountMap.get(row.chapter_id) ?? 0) + 1);
+      }
+    }
+  }
+
   const activeSince7d = new Date(Date.now() - ACTIVE_DAYS * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
   // Group rows by centre
@@ -643,13 +658,13 @@ async function fetchOfflineCentreStats(
     let quizScoreCount = 0;
     let lastSyncAt: string | null = null;
     let hasRecentActivity = false;
-    const uniqueChapterIds = new Set<string>();
+    const centrePlayedVideosByChapter = new Map<string, Set<string>>();
     const classBreakdown = new Map<number, OfflineClassBreakdown>();
 
     const getClassBreakdown = (classNum: number): OfflineClassBreakdown => {
       let entry = classBreakdown.get(classNum);
       if (!entry) {
-        entry = { classNum, completedChapterIds: new Set(), videoPlays: 0, quizAttempts: 0, boards: new Set(), media: new Set() };
+        entry = { classNum, playedVideosByChapter: new Map(), videoPlays: 0, quizAttempts: 0, boards: new Set(), media: new Set() };
         classBreakdown.set(classNum, entry);
       }
       return entry;
@@ -662,11 +677,17 @@ async function fetchOfflineCentreStats(
         totalVideoPlays += row.play_count;
         const chapterId = videoChapterMap.get(row.video_id);
         if (chapterId) {
-          uniqueChapterIds.add(chapterId);
+          // Track played videos at centre level
+          const centreSet = centrePlayedVideosByChapter.get(chapterId) ?? new Set<string>();
+          centreSet.add(row.video_id);
+          centrePlayedVideosByChapter.set(chapterId, centreSet);
+
           const detail = chapterDetailMap.get(chapterId);
           if (detail) {
             const cb = getClassBreakdown(detail.class);
-            cb.completedChapterIds.add(chapterId);
+            const played = cb.playedVideosByChapter.get(chapterId) ?? new Set<string>();
+            played.add(row.video_id);
+            cb.playedVideosByChapter.set(chapterId, played);
             cb.videoPlays += row.play_count;
             cb.boards.add(detail.board);
             cb.media.add(detail.medium);
@@ -681,14 +702,12 @@ async function fetchOfflineCentreStats(
         }
         const chapterId = quizChapterMap.get(row.quiz_id);
         if (chapterId) {
-          uniqueChapterIds.add(chapterId);
           const detail = chapterDetailMap.get(chapterId);
           if (detail) {
             const cb = getClassBreakdown(detail.class);
-            cb.completedChapterIds.add(chapterId);
-            cb.quizAttempts += row.quiz_attempt_count;
             cb.boards.add(detail.board);
             cb.media.add(detail.medium);
+            cb.quizAttempts += row.quiz_attempt_count;
           }
         }
       }
@@ -711,13 +730,22 @@ async function fetchOfflineCentreStats(
     const totalStudents = Object.values(counts).reduce((sum, c) => sum + c, 0);
     const activeStudents = hasRecentActivity ? totalStudents : 0;
 
+    // Count chapters where ALL videos have been played (true completion)
+    let completedChapterCount = 0;
+    for (const [chapterId, playedVideos] of Array.from(centrePlayedVideosByChapter.entries())) {
+      const totalVideos = chapterVideoCountMap.get(chapterId) ?? 0;
+      if (totalVideos > 0 && playedVideos.size >= totalVideos) {
+        completedChapterCount += 1;
+      }
+    }
+
     result.set(centreId, {
       totalVideoPlays,
       totalQuizAttempts,
       avgQuizScore: quizScoreCount > 0 ? Math.round(quizScoreSum / quizScoreCount) : null,
       lastSyncAt,
       activeStudents,
-      uniqueChapters: uniqueChapterIds.size,
+      uniqueChapters: completedChapterCount,
       dailyStats: Array.from(dailyMap.entries())
         .map(([date, stats]) => ({ date, ...stats }))
         .sort((a, b) => a.date.localeCompare(b.date)),
@@ -1549,6 +1577,7 @@ async function buildAnalyticsDataset(viewer: AnalyticsViewer, request: Analytics
       }
 
       // Build class rows with real metrics
+      // A chapter is "completed" only if ALL its videos have been played
       let overallCompleted = 0;
       let overallTracked = 0;
       const rows: AnalyticsRow[] = classNums
@@ -1556,7 +1585,15 @@ async function buildAnalyticsDataset(viewer: AnalyticsViewer, request: Analytics
         .map((classNum) => {
           const studentCount = counts[String(classNum)] ?? 0;
           const cb = stats?.classBreakdown.get(classNum);
-          const completedChapters = cb?.completedChapterIds.size ?? 0;
+          let completedChapters = 0;
+          if (cb) {
+            for (const [chapterId, playedVideos] of Array.from(cb.playedVideosByChapter.entries())) {
+              const totalVideos = videoCountMap.get(chapterId) ?? 0;
+              if (totalVideos > 0 && playedVideos.size >= totalVideos) {
+                completedChapters += 1;
+              }
+            }
+          }
           const trackedChapters = totalChaptersByClass.get(classNum) ?? 0;
           const completionRate = trackedChapters > 0 ? Math.round((completedChapters / trackedChapters) * 100) : 0;
           overallCompleted += completedChapters;
