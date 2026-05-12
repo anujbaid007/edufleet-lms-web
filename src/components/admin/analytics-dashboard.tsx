@@ -1420,6 +1420,8 @@ export function AnalyticsDashboard({
   const [selectedChapterId, setSelectedChapterId] = useState<string | null>(null);
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [modeFilter, setModeFilter] = useState<"all" | "online" | "offline">("all");
+  const [modeLoading, setModeLoading] = useState(false);
   const chapterStudentSectionRef = useRef<HTMLDivElement | null>(null);
 
   const current = history[history.length - 1];
@@ -1462,6 +1464,35 @@ export function AnalyticsDashboard({
   useEffect(() => {
     setComparisonMetric("students");
   }, [current.dataset.level]);
+
+  const handleModeFilter = (mode: "all" | "online" | "offline") => {
+    if (mode === modeFilter) return;
+    const nextRequest: AnalyticsRequest = {
+      ...initialRequest,
+      centreMode: mode === "all" ? undefined : mode,
+    };
+    setModeFilter(mode);
+    setModeLoading(true);
+    setError(null);
+
+    startTransition(() => {
+      void fetchDatasetWithRetry(nextRequest)
+        .then((dataset) => {
+          setHistory([{ label: rootLabel, request: nextRequest, dataset }]);
+          setLastUpdatedAt(new Date().toISOString());
+          setSelectedChapterId(null);
+          setSelectedStudentId(null);
+        })
+        .catch((caughtError) => {
+          const message = caughtError instanceof Error ? caughtError.message : "Failed to load analytics.";
+          setError(message);
+          setModeFilter(modeFilter); // revert on failure
+        })
+        .finally(() => {
+          setModeLoading(false);
+        });
+    });
+  };
 
   const handleModeDrill = (mode: "online" | "offline") => {
     const nextRequest: AnalyticsRequest = {
@@ -1569,7 +1600,7 @@ export function AnalyticsDashboard({
             </div>
             <h1 className="font-poppins text-2xl font-bold text-heading">{current.dataset.title}</h1>
             <p className="mt-2 max-w-3xl text-sm text-muted">{current.dataset.subtitle}</p>
-            <div className="mt-4 flex flex-wrap gap-2">
+            <div className="mt-4 flex flex-wrap items-center gap-2">
               <span className="rounded-full bg-orange-primary/10 px-3 py-1 text-xs font-semibold text-orange-primary">
                 {scopeSummary(viewer)}
               </span>
@@ -1579,6 +1610,29 @@ export function AnalyticsDashboard({
               <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-muted shadow-[inset_0_0_0_1px_rgba(232,135,30,0.08)]">
                 Completion is based on accessible chapters in the current scope
               </span>
+
+              {history.length === 1 && (
+                <div className="ml-auto flex items-center gap-1 rounded-full bg-white p-1 shadow-[inset_0_0_0_1px_rgba(232,135,30,0.15)]">
+                  {(["all", "online", "offline"] as const).map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      disabled={modeLoading}
+                      onClick={() => handleModeFilter(mode)}
+                      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold transition ${
+                        modeFilter === mode
+                          ? "bg-orange-primary text-white shadow-sm"
+                          : "text-muted hover:text-heading"
+                      }`}
+                    >
+                      {mode === "all" && "All"}
+                      {mode === "online" && <><Wifi className="h-3 w-3" /> Online</>}
+                      {mode === "offline" && <><WifiOff className="h-3 w-3" /> Offline</>}
+                    </button>
+                  ))}
+                  {modeLoading && <Loader2 className="ml-1 h-3.5 w-3.5 animate-spin text-orange-primary" />}
+                </div>
+              )}
             </div>
           </div>
 
