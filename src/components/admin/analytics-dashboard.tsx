@@ -14,6 +14,7 @@ import {
   Target,
   TrendingUp,
   Users,
+  Wifi,
   WifiOff,
   X,
 } from "lucide-react";
@@ -444,6 +445,174 @@ function SummaryCards({ dataset }: { dataset: AnalyticsDataset }) {
   );
 }
 
+function DrilldownRowCard({
+  row,
+  dataset,
+  onSelect,
+  loadingRowId,
+  selectedRowId,
+}: {
+  row: AnalyticsRow;
+  dataset: AnalyticsDataset;
+  onSelect: (row: AnalyticsRow) => void;
+  loadingRowId: string | null;
+  selectedRowId?: string | null;
+}) {
+  const isOfflineClassRow = row.isOffline && dataset.level === "classes";
+  const clickable = canDrill(dataset.level) && !isOfflineClassRow;
+  const interactive = (clickable || dataset.level === "chapters") && !isOfflineClassRow;
+  const chapterFocusMode = dataset.level === "chapters";
+  const selected = selectedRowId === row.id;
+  const completionWidth = `${Math.min(row.completionRate, 100)}%`;
+  const containerClassName = [
+    "w-full rounded-clay px-4 py-4 text-left",
+    chapterFocusMode
+      ? "cursor-pointer border border-orange-primary/15 bg-white shadow-clay-pill ring-1 ring-orange-primary/5 transition hover:-translate-y-0.5 hover:border-orange-primary/35 hover:bg-[#fffaf4] hover:shadow-clay-orange focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-primary/35"
+      : interactive
+        ? "cursor-pointer border border-orange-primary/10 bg-cream/60 transition hover:border-orange-primary/20 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-primary/30"
+        : "border border-orange-primary/12 bg-white shadow-clay-pill",
+    selected
+      ? "border-orange-primary/35 bg-gradient-to-br from-white to-[#fff8f0] shadow-clay-orange"
+      : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  const content = (
+    <>
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <div className="flex items-center gap-3">
+            <p className="truncate text-base font-semibold text-heading">{row.label}</p>
+            {row.isOffline && dataset.level !== "centres" && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                <WifiOff className="h-3 w-3" /> Offline
+              </span>
+            )}
+            {clickable && !chapterFocusMode && !row.isOffline && (
+              <span className="rounded-full bg-orange-primary/10 px-2 py-0.5 text-[11px] font-semibold text-orange-primary">
+                Drill
+              </span>
+            )}
+            {clickable && !chapterFocusMode && row.isOffline && (
+              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                Drill
+              </span>
+            )}
+            {selected && dataset.level === "chapters" && (
+              <span className="rounded-full bg-orange-primary px-2 py-0.5 text-[11px] font-semibold text-white">
+                Selected
+              </span>
+            )}
+          </div>
+          {row.subtitle && (
+            <p className={`mt-1 text-sm ${chapterFocusMode ? "text-heading/70" : "text-muted"}`}>
+              {row.subtitle}
+            </p>
+          )}
+        </div>
+
+        <div className="flex items-center gap-3 text-right">
+          {chapterFocusMode && (
+            <span className="hidden rounded-full bg-orange-primary/10 px-3 py-1 text-[11px] font-semibold text-orange-primary md:inline-flex">
+              View students
+            </span>
+          )}
+          {loadingRowId === row.id ? (
+            <Loader2 className="h-4 w-4 animate-spin text-orange-primary" />
+          ) : interactive ? (
+            <ChevronRight className={`h-4 w-4 ${chapterFocusMode ? "text-orange-primary" : "text-muted"}`} />
+          ) : null}
+        </div>
+      </div>
+
+      {isOfflineClassRow ? (
+        <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3">
+          <div className="rounded-2xl bg-white/80 px-3 py-2 shadow-clay-pill">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Students</p>
+            <p className="mt-1 text-base font-bold text-heading">{row.students}</p>
+          </div>
+          <div className="col-span-1 md:col-span-2 rounded-2xl bg-amber-50/80 px-3 py-2 shadow-clay-pill">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-600">Usage analytics</p>
+            <p className="mt-1 text-sm text-amber-700">Awaiting first sync from Android TV app</p>
+          </div>
+        </div>
+      ) : row.isOffline && dataset.level === "centres" ? (
+        <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3">
+          <div className="rounded-2xl bg-white/80 px-3 py-2 shadow-clay-pill">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Students</p>
+            <p className="mt-1 text-base font-bold text-heading">{row.students}</p>
+          </div>
+          <div className="rounded-2xl bg-white/80 px-3 py-2 shadow-clay-pill">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Delivery</p>
+            <p className="mt-1 text-sm font-semibold text-heading">Pen drive</p>
+          </div>
+          <div className="rounded-2xl bg-amber-50/80 px-3 py-2 shadow-clay-pill">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-600">Usage</p>
+            <p className="mt-1 text-sm text-amber-700">Awaiting sync</p>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-5">
+            <div className={`rounded-2xl px-3 py-2 shadow-clay-pill ${chapterFocusMode ? "bg-[#fff9f4]" : "bg-white/80"}`}>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Students</p>
+              <p className="mt-1 text-base font-bold text-heading">{row.students}</p>
+            </div>
+            <div className={`rounded-2xl px-3 py-2 shadow-clay-pill ${chapterFocusMode ? "bg-[#fff9f4]" : "bg-white/80"}`}>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Active 7d</p>
+              <p className="mt-1 text-base font-bold text-heading">{row.activeStudents}</p>
+            </div>
+            <div className={`rounded-2xl px-3 py-2 shadow-clay-pill ${chapterFocusMode ? "bg-[#fff9f4]" : "bg-white/80"}`}>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Completed chapters</p>
+              <p className="mt-1 text-base font-bold text-heading">{row.completedChapters}</p>
+            </div>
+            <div className={`rounded-2xl px-3 py-2 shadow-clay-pill ${chapterFocusMode ? "bg-[#fff9f4]" : "bg-white/80"}`}>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Completion</p>
+              <p className="mt-1 text-base font-bold text-heading">{row.completionRate}%</p>
+            </div>
+            <div className={`rounded-2xl px-3 py-2 shadow-clay-pill ${chapterFocusMode ? "bg-[#fff9f4]" : "bg-white/80"}`}>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Last activity</p>
+              <p className="mt-1 text-sm font-semibold text-heading">{formatDate(row.lastActivityAt)}</p>
+            </div>
+          </div>
+
+          <div className="mt-4">
+            <div className="mb-1 flex items-center justify-between text-xs text-muted">
+              <span>{dataset.level === "chapters" ? "Lesson progress" : "Chapter completion"}</span>
+              <span>{row.completionRate}%</span>
+            </div>
+            <div className="h-2 rounded-full bg-orange-primary/10">
+              <div
+                className="h-2 rounded-full bg-gradient-to-r from-orange-primary to-orange-400"
+                style={{ width: completionWidth }}
+              />
+            </div>
+          </div>
+        </>
+      )}
+    </>
+  );
+
+  if (!interactive) {
+    return (
+      <div className={containerClassName}>
+        {content}
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(row)}
+      className={containerClassName}
+    >
+      {content}
+    </button>
+  );
+}
+
 function DrilldownList({
   dataset,
   metric,
@@ -462,6 +631,88 @@ function DrilldownList({
       <ClayCard hover={false} className="!p-8">
         <p className="text-sm text-muted">{dataset.emptyMessage}</p>
       </ClayCard>
+    );
+  }
+
+  // Split online/offline centres into separate sections
+  if (dataset.level === "centres") {
+    const onlineRows = dataset.rows.filter((r) => !r.isOffline);
+    const offlineRows = dataset.rows.filter((r) => r.isOffline);
+    const hasOffline = offlineRows.length > 0;
+    const hasOnline = onlineRows.length > 0;
+    const totalOfflineStudents = offlineRows.reduce((sum, r) => sum + r.students, 0);
+
+    return (
+      <div className="space-y-6">
+        {hasOnline && (
+          <ClayCard hover={false} className="!p-6">
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-green-100">
+                    <Wifi className="h-3.5 w-3.5 text-green-700" />
+                  </div>
+                  <h3 className="font-poppins text-lg font-bold text-heading">Online Centres</h3>
+                  <span className="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-700">
+                    {onlineRows.length} centre{onlineRows.length === 1 ? "" : "s"}
+                  </span>
+                </div>
+                <p className="mt-1 text-sm text-muted">
+                  Click a centre to drill into class-wise analytics.
+                </p>
+              </div>
+              <div className="rounded-full bg-orange-primary/10 px-3 py-1 text-xs font-semibold text-orange-primary">
+                Ranking by {comparisonMetricOptions.find((option) => option.key === metric)?.label.toLowerCase()}
+              </div>
+            </div>
+            <div className="space-y-3">
+              {onlineRows.map((row) => (
+                <DrilldownRowCard
+                  key={row.id}
+                  row={row}
+                  dataset={dataset}
+                  onSelect={onSelect}
+                  loadingRowId={loadingRowId}
+                  selectedRowId={selectedRowId}
+                />
+              ))}
+            </div>
+          </ClayCard>
+        )}
+
+        {hasOffline && (
+          <ClayCard hover={false} className="!p-6 border-amber-200/50">
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-amber-100">
+                    <WifiOff className="h-3.5 w-3.5 text-amber-700" />
+                  </div>
+                  <h3 className="font-poppins text-lg font-bold text-heading">Offline Centres</h3>
+                  <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-700">
+                    {offlineRows.length} centre{offlineRows.length === 1 ? "" : "s"} · {totalOfflineStudents} students
+                  </span>
+                </div>
+                <p className="mt-1 text-sm text-muted">
+                  Pen drive based centres. Click to view class-wise student headcount.
+                </p>
+              </div>
+            </div>
+            <div className="space-y-3">
+              {offlineRows.map((row) => (
+                <DrilldownRowCard
+                  key={row.id}
+                  row={row}
+                  dataset={dataset}
+                  onSelect={onSelect}
+                  loadingRowId={loadingRowId}
+                  selectedRowId={selectedRowId}
+                />
+              ))}
+            </div>
+          </ClayCard>
+        )}
+      </div>
     );
   }
 
@@ -484,143 +735,16 @@ function DrilldownList({
       </div>
 
       <div className="space-y-3">
-        {dataset.rows.map((row) => {
-          // Offline class rows (inside offline centre drill) are not drillable
-          const isOfflineClassRow = row.isOffline && dataset.level === "classes";
-          const clickable = canDrill(dataset.level) && !isOfflineClassRow;
-          const interactive = (clickable || dataset.level === "chapters") && !isOfflineClassRow;
-          const chapterFocusMode = dataset.level === "chapters";
-          const selected = selectedRowId === row.id;
-          const completionWidth = `${Math.min(row.completionRate, 100)}%`;
-          const containerClassName = [
-            "w-full rounded-clay px-4 py-4 text-left",
-            chapterFocusMode
-              ? "cursor-pointer border border-orange-primary/15 bg-white shadow-clay-pill ring-1 ring-orange-primary/5 transition hover:-translate-y-0.5 hover:border-orange-primary/35 hover:bg-[#fffaf4] hover:shadow-clay-orange focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-primary/35"
-              : interactive
-                ? "cursor-pointer border border-orange-primary/10 bg-cream/60 transition hover:border-orange-primary/20 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-primary/30"
-                : "border border-orange-primary/12 bg-white shadow-clay-pill",
-            selected
-              ? "border-orange-primary/35 bg-gradient-to-br from-white to-[#fff8f0] shadow-clay-orange"
-              : "",
-          ]
-            .filter(Boolean)
-            .join(" ");
-
-          const content = (
-            <>
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-3">
-                    <p className="truncate text-base font-semibold text-heading">{row.label}</p>
-                    {row.isOffline && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
-                        <WifiOff className="h-3 w-3" /> Offline
-                      </span>
-                    )}
-                    {clickable && !chapterFocusMode && !row.isOffline && (
-                      <span className="rounded-full bg-orange-primary/10 px-2 py-0.5 text-[11px] font-semibold text-orange-primary">
-                        Drill
-                      </span>
-                    )}
-                    {selected && dataset.level === "chapters" && (
-                      <span className="rounded-full bg-orange-primary px-2 py-0.5 text-[11px] font-semibold text-white">
-                        Selected
-                      </span>
-                    )}
-                  </div>
-                  {row.subtitle && (
-                    <p className={`mt-1 text-sm ${chapterFocusMode ? "text-heading/70" : "text-muted"}`}>
-                      {row.subtitle}
-                    </p>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-3 text-right">
-                  {chapterFocusMode && (
-                    <span className="hidden rounded-full bg-orange-primary/10 px-3 py-1 text-[11px] font-semibold text-orange-primary md:inline-flex">
-                      View students
-                    </span>
-                  )}
-                  {loadingRowId === row.id ? (
-                    <Loader2 className="h-4 w-4 animate-spin text-orange-primary" />
-                  ) : interactive ? (
-                    <ChevronRight className={`h-4 w-4 ${chapterFocusMode ? "text-orange-primary" : "text-muted"}`} />
-                  ) : null}
-                </div>
-              </div>
-
-              {isOfflineClassRow ? (
-                <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3">
-                  <div className="rounded-2xl bg-white/80 px-3 py-2 shadow-clay-pill">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Students</p>
-                    <p className="mt-1 text-base font-bold text-heading">{row.students}</p>
-                  </div>
-                  <div className="col-span-1 md:col-span-2 rounded-2xl bg-amber-50/80 px-3 py-2 shadow-clay-pill">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-600">Usage analytics</p>
-                    <p className="mt-1 text-sm text-amber-700">Awaiting first sync from Android TV app</p>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-5">
-                    <div className={`rounded-2xl px-3 py-2 shadow-clay-pill ${chapterFocusMode ? "bg-[#fff9f4]" : "bg-white/80"}`}>
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Students</p>
-                      <p className="mt-1 text-base font-bold text-heading">{row.students}</p>
-                    </div>
-                    <div className={`rounded-2xl px-3 py-2 shadow-clay-pill ${chapterFocusMode ? "bg-[#fff9f4]" : "bg-white/80"}`}>
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Active 7d</p>
-                      <p className="mt-1 text-base font-bold text-heading">{row.activeStudents}</p>
-                    </div>
-                    <div className={`rounded-2xl px-3 py-2 shadow-clay-pill ${chapterFocusMode ? "bg-[#fff9f4]" : "bg-white/80"}`}>
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Completed chapters</p>
-                      <p className="mt-1 text-base font-bold text-heading">{row.completedChapters}</p>
-                    </div>
-                    <div className={`rounded-2xl px-3 py-2 shadow-clay-pill ${chapterFocusMode ? "bg-[#fff9f4]" : "bg-white/80"}`}>
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Completion</p>
-                      <p className="mt-1 text-base font-bold text-heading">{row.completionRate}%</p>
-                    </div>
-                    <div className={`rounded-2xl px-3 py-2 shadow-clay-pill ${chapterFocusMode ? "bg-[#fff9f4]" : "bg-white/80"}`}>
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Last activity</p>
-                      <p className="mt-1 text-sm font-semibold text-heading">{formatDate(row.lastActivityAt)}</p>
-                    </div>
-                  </div>
-
-                  <div className="mt-4">
-                    <div className="mb-1 flex items-center justify-between text-xs text-muted">
-                      <span>{dataset.level === "chapters" ? "Lesson progress" : "Chapter completion"}</span>
-                      <span>{row.completionRate}%</span>
-                    </div>
-                    <div className="h-2 rounded-full bg-orange-primary/10">
-                      <div
-                        className="h-2 rounded-full bg-gradient-to-r from-orange-primary to-orange-400"
-                        style={{ width: completionWidth }}
-                      />
-                    </div>
-                  </div>
-                </>
-              )}
-            </>
-          );
-
-          if (!interactive) {
-            return (
-              <div key={row.id} className={containerClassName}>
-                {content}
-              </div>
-            );
-          }
-
-          return (
-            <button
-              type="button"
-              key={row.id}
-              onClick={() => onSelect(row)}
-              className={containerClassName}
-            >
-              {content}
-            </button>
-          );
-        })}
+        {dataset.rows.map((row) => (
+          <DrilldownRowCard
+            key={row.id}
+            row={row}
+            dataset={dataset}
+            onSelect={onSelect}
+            loadingRowId={loadingRowId}
+            selectedRowId={selectedRowId}
+          />
+        ))}
       </div>
     </ClayCard>
   );
