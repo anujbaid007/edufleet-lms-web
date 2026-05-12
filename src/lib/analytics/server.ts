@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import type { PostgrestError, SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import type { Database } from "@/lib/supabase/types";
+import type { Database, Json } from "@/lib/supabase/types";
 import { createRequestProfiler } from "@/lib/perf";
 import type {
   AnalyticsChapterView,
@@ -46,6 +46,8 @@ type CentreRow = {
   name: string;
   org_id: string;
   location: string | null;
+  mode: string;
+  offline_student_counts: Json | null;
 };
 
 type ProgressRow = {
@@ -375,7 +377,7 @@ async function fetchCentres(supabase: Supabase, request: AnalyticsRequest) {
   return fetchAllPages<CentreRow>(async (from, to) => {
     let query = supabase
       .from("centres")
-      .select("id, name, org_id, location")
+      .select("id, name, org_id, location, mode, offline_student_counts")
       .eq("is_active", true)
       .order("name")
       .range(from, to);
@@ -967,7 +969,15 @@ function getDatasetText(
   }
 
   if (level === "classes") {
-    const centreName = request.centreId ? centresById.get(request.centreId)?.name ?? viewer.centreName : viewer.centreName;
+    const centre = request.centreId ? centresById.get(request.centreId) : null;
+    const centreName = centre?.name ?? viewer.centreName;
+    if (centre?.mode === "offline") {
+      return {
+        title: centreName ? `${centreName} Student Headcount` : "Student Headcount",
+        subtitle: "Class-wise student counts for this offline centre. Usage analytics will appear once the Android TV app starts syncing.",
+        emptyMessage: "No student counts have been entered for this offline centre yet.",
+      };
+    }
     return {
       title: centreName ? `${centreName} Class Analytics` : "Class Analytics",
       subtitle: "Understand how each class is progressing before drilling into subject performance.",
@@ -1002,13 +1012,20 @@ function buildDatasetRows(
 ) {
   if (level === "organizations") {
     const centreCountByOrg = new Map<string, number>();
+    const offlineStudentsByOrg = new Map<string, number>();
     for (const centre of centres) {
       centreCountByOrg.set(centre.org_id, (centreCountByOrg.get(centre.org_id) ?? 0) + 1);
+      if (centre.mode === "offline" && centre.offline_student_counts) {
+        const counts = centre.offline_student_counts as Record<string, number>;
+        const total = Object.values(counts).reduce((sum, c) => sum + c, 0);
+        offlineStudentsByOrg.set(centre.org_id, (offlineStudentsByOrg.get(centre.org_id) ?? 0) + total);
+      }
     }
 
     return organizations.map<AnalyticsRow>((organization) => {
       const orgSnapshots = snapshots.filter((snapshot) => snapshot.orgId === organization.id);
       const summary = buildSummary(orgSnapshots);
+      const offlineStudents = offlineStudentsByOrg.get(organization.id) ?? 0;
       const lastActivityAt = orgSnapshots.reduce<string | null>((latest, snapshot) => {
         if (!snapshot.lastWatchedAt) return latest;
         if (!latest || latest < snapshot.lastWatchedAt) return snapshot.lastWatchedAt;
@@ -1019,7 +1036,7 @@ function buildDatasetRows(
         id: organization.id,
         label: organization.name,
         subtitle: `${centreCountByOrg.get(organization.id) ?? 0} centres`,
-        students: summary.students,
+        students: summary.students + offlineStudents,
         activeStudents: summary.activeStudents,
         completedChapters: summary.completedChapters,
         completionRate: summary.completionRate,
@@ -1032,6 +1049,25 @@ function buildDatasetRows(
 
   if (level === "centres") {
     return centres.map<AnalyticsRow>((centre) => {
+      if (centre.mode === "offline") {
+        const counts = (centre.offline_student_counts as Record<string, number> | null) ?? {};
+        const totalStudents = Object.values(counts).reduce((sum, c) => sum + c, 0);
+        const classCount = Object.keys(counts).length;
+        return {
+          id: centre.id,
+          label: centre.name,
+          subtitle: centre.location ? `${centre.location} · ${classCount} classes` : `${classCount} classes`,
+          students: totalStudents,
+          activeStudents: 0,
+          completedChapters: 0,
+          completionRate: 0,
+          avgWatchPercentage: 0,
+          trackedChapters: 0,
+          lastActivityAt: null,
+          isOffline: true,
+        };
+      }
+
       const centreSnapshots = snapshots.filter((snapshot) => snapshot.centreId === centre.id);
       const summary = buildSummary(centreSnapshots);
       const lastActivityAt = centreSnapshots.reduce<string | null>((latest, snapshot) => {
@@ -1056,6 +1092,30 @@ function buildDatasetRows(
   }
 
   if (level === "classes") {
+    // Offline centre: build rows from offline_student_counts
+    if (request.centreId) {
+      const centre = centres.find((c) => c.id === request.centreId);
+      if (centre?.mode === "offline" && centre.offline_student_counts) {
+        const counts = centre.offline_student_counts as Record<string, number>;
+        return Object.entries(counts)
+          .map(([classKey, count]) => ({ classNum: Number(classKey), count }))
+          .sort((a, b) => a.classNum - b.classNum)
+          .map<AnalyticsRow>(({ classNum, count }) => ({
+            id: String(classNum),
+            label: classNum === 0 ? "KG" : `Class ${classNum}`,
+            subtitle: `${count} student${count === 1 ? "" : "s"}`,
+            students: count,
+            activeStudents: 0,
+            completedChapters: 0,
+            completionRate: 0,
+            avgWatchPercentage: 0,
+            trackedChapters: 0,
+            lastActivityAt: null,
+            isOffline: true,
+          }));
+      }
+    }
+
     const classNumbers = Array.from(
       new Set(snapshots.map((snapshot) => snapshot.classNum).filter((value): value is number => value !== null))
     ).sort((left, right) => left - right);
@@ -1179,6 +1239,39 @@ async function buildAnalyticsDataset(viewer: AnalyticsViewer, request: Analytics
   perf.record("studentCount", students.length);
   perf.mark("base-entities");
 
+  const organizationsById = new Map(organizations.map((row) => [row.id, row]));
+  const centresById = new Map(centres.map((row) => [row.id, row]));
+
+  // Fast path for offline centre drill-down: no student profiles exist, just headcounts
+  if (level === "classes" && normalized.centreId) {
+    const centre = centresById.get(normalized.centreId);
+    if (centre?.mode === "offline") {
+      const counts = (centre.offline_student_counts as Record<string, number> | null) ?? {};
+      const totalStudents = Object.values(counts).reduce((sum, c) => sum + c, 0);
+      const rows = buildDatasetRows(level, [], organizations, centres, normalized, organizationsById, new Map());
+      const copy = getDatasetText(level, viewer, normalized, organizationsById, centresById, new Map());
+      perf.mark("offline-shortpath");
+      perf.flush();
+      return {
+        level,
+        title: copy.title,
+        subtitle: copy.subtitle,
+        summary: {
+          students: totalStudents,
+          activeStudents: 0,
+          completedChapters: 0,
+          completionRate: 0,
+          avgWatchPercentage: 0,
+          trackedChapters: 0,
+        },
+        rows,
+        timeline: [],
+        inactiveStudents: [],
+        emptyMessage: copy.emptyMessage,
+      };
+    }
+  }
+
   const orgIds = Array.from(
     new Set(
       [
@@ -1222,9 +1315,6 @@ async function buildAnalyticsDataset(viewer: AnalyticsViewer, request: Analytics
   perf.record("progressVideoIdCount", progressVideoIds.length);
   perf.record("videoCount", videos.length);
   perf.mark("video-lookup");
-
-  const organizationsById = new Map(organizations.map((row) => [row.id, row]));
-  const centresById = new Map(centres.map((row) => [row.id, row]));
 
   const videoCountMap = new Map<string, number>();
   for (const row of videoCounts.data ?? []) {
@@ -1396,7 +1486,18 @@ async function buildAnalyticsDataset(viewer: AnalyticsViewer, request: Analytics
     list.push(video);
     videosByChapter.set(video.chapter_id, list);
   }
-  const summary = buildSummary(snapshotList, datasetFilter);
+  const baseSummary = buildSummary(snapshotList, datasetFilter);
+  // Add offline centre headcounts to the summary student total
+  let offlineStudentTotal = 0;
+  if (level === "organizations" || level === "centres") {
+    for (const centre of centres) {
+      if (centre.mode === "offline" && centre.offline_student_counts) {
+        const counts = centre.offline_student_counts as Record<string, number>;
+        offlineStudentTotal += Object.values(counts).reduce((sum, c) => sum + c, 0);
+      }
+    }
+  }
+  const summary = { ...baseSummary, students: baseSummary.students + offlineStudentTotal };
   const rows = buildDatasetRows(
     level,
     snapshotList,

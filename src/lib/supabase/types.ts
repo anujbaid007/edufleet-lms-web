@@ -60,6 +60,7 @@ export type Database = {
           created_at: string
           id: string
           is_active: boolean
+          last_offline_sync_at: string | null
           location: string | null
           mode: string
           name: string
@@ -70,6 +71,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          last_offline_sync_at?: string | null
           location?: string | null
           mode?: string
           name: string
@@ -80,6 +82,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          last_offline_sync_at?: string | null
           location?: string | null
           mode?: string
           name?: string
@@ -246,6 +249,74 @@ export type Database = {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      offline_centre_analytics: {
+        Row: {
+          id: string
+          centre_id: string
+          date: string
+          teacher_id: string | null
+          video_id: string | null
+          play_count: number
+          quiz_id: string | null
+          quiz_attempt_count: number
+          quiz_avg_score: number | null
+          synced_at: string
+        }
+        Insert: {
+          id?: string
+          centre_id: string
+          date: string
+          teacher_id?: string | null
+          video_id?: string | null
+          play_count?: number
+          quiz_id?: string | null
+          quiz_attempt_count?: number
+          quiz_avg_score?: number | null
+          synced_at?: string
+        }
+        Update: {
+          id?: string
+          centre_id?: string
+          date?: string
+          teacher_id?: string | null
+          video_id?: string | null
+          play_count?: number
+          quiz_id?: string | null
+          quiz_attempt_count?: number
+          quiz_avg_score?: number | null
+          synced_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "offline_centre_analytics_centre_id_fkey"
+            columns: ["centre_id"]
+            isOneToOne: false
+            referencedRelation: "centres"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offline_centre_analytics_teacher_id_fkey"
+            columns: ["teacher_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offline_centre_analytics_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "videos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offline_centre_analytics_quiz_id_fkey"
+            columns: ["quiz_id"]
+            isOneToOne: false
+            referencedRelation: "chapter_quizzes"
             referencedColumns: ["id"]
           },
         ]

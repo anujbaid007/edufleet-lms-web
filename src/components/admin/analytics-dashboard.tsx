@@ -14,6 +14,7 @@ import {
   Target,
   TrendingUp,
   Users,
+  WifiOff,
   X,
 } from "lucide-react";
 import {
@@ -302,6 +303,51 @@ function TrendChart({ dataset }: { dataset: AnalyticsDataset }) {
 
 function SummaryCards({ dataset }: { dataset: AnalyticsDataset }) {
   const { summary } = dataset;
+  const isOfflineCentreView = dataset.level === "classes" && dataset.rows.length > 0 && dataset.rows.every((r) => r.isOffline);
+
+  if (isOfflineCentreView) {
+    const classCount = dataset.rows.length;
+    return (
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <ClayCard hover={false} className="relative !p-5">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-clay-sm clay-surface shadow-clay-pill">
+              <Users className="h-6 w-6 text-orange-primary" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-heading">{summary.students}</p>
+              <p className="text-xs text-muted">Total students (headcount)</p>
+            </div>
+          </div>
+        </ClayCard>
+
+        <ClayCard hover={false} className="relative !p-5">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-clay-sm bg-amber-50 shadow-clay-pill">
+              <BookOpen className="h-6 w-6 text-amber-700" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-heading">{classCount}</p>
+              <p className="text-xs text-muted">Classes</p>
+            </div>
+          </div>
+        </ClayCard>
+
+        <ClayCard hover={false} className="relative !p-5">
+          <div className="flex items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-clay-sm bg-amber-50 shadow-clay-pill">
+              <WifiOff className="h-6 w-6 text-amber-700" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-heading">Pen drive delivery</p>
+              <p className="text-xs text-muted">Usage analytics will sync from Android TV app</p>
+            </div>
+          </div>
+        </ClayCard>
+      </div>
+    );
+  }
+
   const scopedCompletionRate =
     dataset.level === "chapters"
       ? summary.trackedChapters
@@ -439,8 +485,10 @@ function DrilldownList({
 
       <div className="space-y-3">
         {dataset.rows.map((row) => {
-          const clickable = canDrill(dataset.level);
-          const interactive = clickable || dataset.level === "chapters";
+          // Offline class rows (inside offline centre drill) are not drillable
+          const isOfflineClassRow = row.isOffline && dataset.level === "classes";
+          const clickable = canDrill(dataset.level) && !isOfflineClassRow;
+          const interactive = (clickable || dataset.level === "chapters") && !isOfflineClassRow;
           const chapterFocusMode = dataset.level === "chapters";
           const selected = selectedRowId === row.id;
           const completionWidth = `${Math.min(row.completionRate, 100)}%`;
@@ -464,7 +512,12 @@ function DrilldownList({
                 <div className="min-w-0">
                   <div className="flex items-center gap-3">
                     <p className="truncate text-base font-semibold text-heading">{row.label}</p>
-                    {clickable && !chapterFocusMode && (
+                    {row.isOffline && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                        <WifiOff className="h-3 w-3" /> Offline
+                      </span>
+                    )}
+                    {clickable && !chapterFocusMode && !row.isOffline && (
                       <span className="rounded-full bg-orange-primary/10 px-2 py-0.5 text-[11px] font-semibold text-orange-primary">
                         Drill
                       </span>
@@ -496,41 +549,56 @@ function DrilldownList({
                 </div>
               </div>
 
-              <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-5">
-                <div className={`rounded-2xl px-3 py-2 shadow-clay-pill ${chapterFocusMode ? "bg-[#fff9f4]" : "bg-white/80"}`}>
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Students</p>
-                  <p className="mt-1 text-base font-bold text-heading">{row.students}</p>
+              {isOfflineClassRow ? (
+                <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3">
+                  <div className="rounded-2xl bg-white/80 px-3 py-2 shadow-clay-pill">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Students</p>
+                    <p className="mt-1 text-base font-bold text-heading">{row.students}</p>
+                  </div>
+                  <div className="col-span-1 md:col-span-2 rounded-2xl bg-amber-50/80 px-3 py-2 shadow-clay-pill">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-600">Usage analytics</p>
+                    <p className="mt-1 text-sm text-amber-700">Awaiting first sync from Android TV app</p>
+                  </div>
                 </div>
-                <div className={`rounded-2xl px-3 py-2 shadow-clay-pill ${chapterFocusMode ? "bg-[#fff9f4]" : "bg-white/80"}`}>
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Active 7d</p>
-                  <p className="mt-1 text-base font-bold text-heading">{row.activeStudents}</p>
-                </div>
-                <div className={`rounded-2xl px-3 py-2 shadow-clay-pill ${chapterFocusMode ? "bg-[#fff9f4]" : "bg-white/80"}`}>
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Completed chapters</p>
-                  <p className="mt-1 text-base font-bold text-heading">{row.completedChapters}</p>
-                </div>
-                <div className={`rounded-2xl px-3 py-2 shadow-clay-pill ${chapterFocusMode ? "bg-[#fff9f4]" : "bg-white/80"}`}>
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Completion</p>
-                  <p className="mt-1 text-base font-bold text-heading">{row.completionRate}%</p>
-                </div>
-                <div className={`rounded-2xl px-3 py-2 shadow-clay-pill ${chapterFocusMode ? "bg-[#fff9f4]" : "bg-white/80"}`}>
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Last activity</p>
-                  <p className="mt-1 text-sm font-semibold text-heading">{formatDate(row.lastActivityAt)}</p>
-                </div>
-              </div>
+              ) : (
+                <>
+                  <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-5">
+                    <div className={`rounded-2xl px-3 py-2 shadow-clay-pill ${chapterFocusMode ? "bg-[#fff9f4]" : "bg-white/80"}`}>
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Students</p>
+                      <p className="mt-1 text-base font-bold text-heading">{row.students}</p>
+                    </div>
+                    <div className={`rounded-2xl px-3 py-2 shadow-clay-pill ${chapterFocusMode ? "bg-[#fff9f4]" : "bg-white/80"}`}>
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Active 7d</p>
+                      <p className="mt-1 text-base font-bold text-heading">{row.activeStudents}</p>
+                    </div>
+                    <div className={`rounded-2xl px-3 py-2 shadow-clay-pill ${chapterFocusMode ? "bg-[#fff9f4]" : "bg-white/80"}`}>
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Completed chapters</p>
+                      <p className="mt-1 text-base font-bold text-heading">{row.completedChapters}</p>
+                    </div>
+                    <div className={`rounded-2xl px-3 py-2 shadow-clay-pill ${chapterFocusMode ? "bg-[#fff9f4]" : "bg-white/80"}`}>
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Completion</p>
+                      <p className="mt-1 text-base font-bold text-heading">{row.completionRate}%</p>
+                    </div>
+                    <div className={`rounded-2xl px-3 py-2 shadow-clay-pill ${chapterFocusMode ? "bg-[#fff9f4]" : "bg-white/80"}`}>
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Last activity</p>
+                      <p className="mt-1 text-sm font-semibold text-heading">{formatDate(row.lastActivityAt)}</p>
+                    </div>
+                  </div>
 
-              <div className="mt-4">
-                <div className="mb-1 flex items-center justify-between text-xs text-muted">
-                  <span>{dataset.level === "chapters" ? "Lesson progress" : "Chapter completion"}</span>
-                  <span>{row.completionRate}%</span>
-                </div>
-                <div className="h-2 rounded-full bg-orange-primary/10">
-                  <div
-                    className="h-2 rounded-full bg-gradient-to-r from-orange-primary to-orange-400"
-                    style={{ width: completionWidth }}
-                  />
-                </div>
-              </div>
+                  <div className="mt-4">
+                    <div className="mb-1 flex items-center justify-between text-xs text-muted">
+                      <span>{dataset.level === "chapters" ? "Lesson progress" : "Chapter completion"}</span>
+                      <span>{row.completionRate}%</span>
+                    </div>
+                    <div className="h-2 rounded-full bg-orange-primary/10">
+                      <div
+                        className="h-2 rounded-full bg-gradient-to-r from-orange-primary to-orange-400"
+                        style={{ width: completionWidth }}
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
             </>
           );
 

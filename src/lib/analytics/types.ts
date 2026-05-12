@@ -45,6 +45,7 @@ export type AnalyticsRow = {
   avgWatchPercentage: number;
   trackedChapters: number;
   lastActivityAt: string | null;
+  isOffline?: boolean;
 };
 
 export type AnalyticsTimelinePoint = {
