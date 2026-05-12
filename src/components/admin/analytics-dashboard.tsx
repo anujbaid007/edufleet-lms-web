@@ -1460,16 +1460,23 @@ export function AnalyticsDashboard({
     setSelectedStudentId(null);
   }, [current.dataset.level, currentChapterView, selectedStudentId]);
 
-  // Reset comparison metric to "students" when drill level changes
+  // Reset comparison metric and mode filter when drill level changes
   useEffect(() => {
     setComparisonMetric("students");
-  }, [current.dataset.level]);
+    setModeFilter(current.request.centreMode ?? "all");
+  }, [current.dataset.level, current.request.centreMode]);
+
+  const modeFilterLevel = current.dataset.level === "organizations" || current.dataset.level === "centres";
 
   const handleModeFilter = (mode: "all" | "online" | "offline") => {
     if (mode === modeFilter) return;
+    const prevMode = modeFilter;
     const nextRequest: AnalyticsRequest = {
-      ...initialRequest,
+      ...current.request,
       centreMode: mode === "all" ? undefined : mode,
+      centreId: undefined,
+      classNum: undefined,
+      subjectId: undefined,
     };
     setModeFilter(mode);
     setModeLoading(true);
@@ -1478,7 +1485,11 @@ export function AnalyticsDashboard({
     startTransition(() => {
       void fetchDatasetWithRetry(nextRequest)
         .then((dataset) => {
-          setHistory([{ label: rootLabel, request: nextRequest, dataset }]);
+          // Replace current entry in history, keeping prior breadcrumbs
+          setHistory((prev) => [
+            ...prev.slice(0, -1),
+            { label: prev[prev.length - 1].label, request: nextRequest, dataset },
+          ]);
           setLastUpdatedAt(new Date().toISOString());
           setSelectedChapterId(null);
           setSelectedStudentId(null);
@@ -1486,7 +1497,7 @@ export function AnalyticsDashboard({
         .catch((caughtError) => {
           const message = caughtError instanceof Error ? caughtError.message : "Failed to load analytics.";
           setError(message);
-          setModeFilter(modeFilter); // revert on failure
+          setModeFilter(prevMode);
         })
         .finally(() => {
           setModeLoading(false);
@@ -1611,7 +1622,7 @@ export function AnalyticsDashboard({
                 Completion is based on accessible chapters in the current scope
               </span>
 
-              {history.length === 1 && (
+              {modeFilterLevel && (
                 <div className="ml-auto flex items-center gap-1 rounded-full bg-white p-1 shadow-[inset_0_0_0_1px_rgba(232,135,30,0.15)]">
                   {(["all", "online", "offline"] as const).map((mode) => (
                     <button
