@@ -60,12 +60,17 @@ export async function createCentre(formData: FormData) {
   const name = formData.get("name") as string;
   const orgId = formData.get("org_id") as string;
   const location = (formData.get("location") as string) || null;
+  const mode = (formData.get("mode") as string) || "online";
+  const offlineStudentCountsRaw = formData.get("offline_student_counts") as string;
+  const offlineStudentCounts = mode === "offline" && offlineStudentCountsRaw
+    ? JSON.parse(offlineStudentCountsRaw)
+    : null;
 
   if (!name || !orgId) return { error: "Name and organization are required" };
 
   const { error } = await supabase
     .from("centres")
-    .insert({ name, org_id: orgId, location });
+    .insert({ name, org_id: orgId, location, mode, offline_student_counts: offlineStudentCounts });
 
   if (error) return { error: error.message };
   revalidatePath("/admin/centres");
@@ -77,10 +82,15 @@ export async function updateCentre(id: string, formData: FormData) {
   const name = formData.get("name") as string;
   const location = (formData.get("location") as string) || null;
   const isActive = formData.get("is_active") === "true";
+  const mode = (formData.get("mode") as string) || "online";
+  const offlineStudentCountsRaw = formData.get("offline_student_counts") as string;
+  const offlineStudentCounts = mode === "offline" && offlineStudentCountsRaw
+    ? JSON.parse(offlineStudentCountsRaw)
+    : null;
 
   const { error } = await supabase
     .from("centres")
-    .update({ name, location, is_active: isActive })
+    .update({ name, location, is_active: isActive, mode, offline_student_counts: offlineStudentCounts })
     .eq("id", id);
 
   if (error) return { error: error.message };

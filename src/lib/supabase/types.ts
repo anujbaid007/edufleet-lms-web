@@ -61,7 +61,9 @@ export type Database = {
           id: string
           is_active: boolean
           location: string | null
+          mode: string
           name: string
+          offline_student_counts: Json | null
           org_id: string
         }
         Insert: {
@@ -69,7 +71,9 @@ export type Database = {
           id?: string
           is_active?: boolean
           location?: string | null
+          mode?: string
           name: string
+          offline_student_counts?: Json | null
           org_id: string
         }
         Update: {
@@ -77,7 +81,9 @@ export type Database = {
           id?: string
           is_active?: boolean
           location?: string | null
+          mode?: string
           name?: string
+          offline_student_counts?: Json | null
           org_id?: string
         }
         Relationships: [

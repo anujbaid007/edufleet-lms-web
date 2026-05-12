@@ -4,7 +4,7 @@ import { Header } from "@/components/dashboard/header";
 import { ClayCard } from "@/components/ui/clay-card";
 import { CreateCentreForm } from "@/components/admin/create-centre-form";
 import { EditCentreRow } from "@/components/admin/edit-centre-row";
-import { Building2, MapPin } from "lucide-react";
+import { Building2, MapPin, Wifi, WifiOff } from "lucide-react";
 
 export const metadata = { title: "Centres" };
 
@@ -25,7 +25,7 @@ export default async function CentresPage() {
 
   const [{ data: orgs }, { data: centres }, { data: users }] = await Promise.all([
     supabase.from("organizations").select("id, name").eq("is_active", true).order("name"),
-    supabase.from("centres").select("id, name, location, is_active, org_id, organizations(name)").order("name"),
+    supabase.from("centres").select("id, name, location, is_active, org_id, mode, offline_student_counts, organizations(name)").order("name"),
     supabase.from("profiles").select("id, centre_id").eq("is_active", true),
   ]);
 
@@ -94,17 +94,40 @@ export default async function CentresPage() {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
                               <p className="text-sm font-bold text-heading">{centre.name}</p>
+                              {centre.mode === "offline" ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] bg-amber-100 text-amber-700 rounded-full font-semibold">
+                                  <WifiOff className="w-3 h-3" /> Offline
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] bg-green-100 text-green-700 rounded-full font-semibold">
+                                  <Wifi className="w-3 h-3" /> Online
+                                </span>
+                              )}
                               {!centre.is_active && (
                                 <span className="px-2 py-0.5 text-xs bg-red-100 text-red-600 rounded-full font-medium">Inactive</span>
                               )}
                             </div>
                             <p className="text-xs text-muted mt-0.5">
-                              {centre.location || "No location"} · {centre.userCount} users
+                              {centre.location || "No location"}
+                              {centre.mode === "offline"
+                                ? (() => {
+                                    const counts = centre.offline_student_counts as Record<string, number> | null;
+                                    const total = counts ? Object.values(counts).reduce((sum: number, c: number) => sum + c, 0) : 0;
+                                    return total > 0 ? ` · ${total} offline students` : "";
+                                  })()
+                                : ` · ${centre.userCount} users`}
                             </p>
                           </div>
                           {canCreate && (
                             <EditCentreRow
-                              centre={{ id: centre.id, name: centre.name, location: centre.location, is_active: centre.is_active }}
+                              centre={{
+                                id: centre.id,
+                                name: centre.name,
+                                location: centre.location,
+                                is_active: centre.is_active,
+                                mode: centre.mode,
+                                offline_student_counts: centre.offline_student_counts as Record<string, number> | null,
+                              }}
                             />
                           )}
                         </div>
