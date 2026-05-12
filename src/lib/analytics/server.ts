@@ -33,6 +33,7 @@ type StudentRow = {
   board: string | null;
   medium: string | null;
   teacher_id: string | null;
+  teacher_ids: string[];
 };
 
 type OrganizationRow = {
@@ -390,7 +391,7 @@ async function fetchStudents(supabase: Supabase, request: AnalyticsRequest) {
   return fetchAllPages<StudentRow>(async (from, to) => {
     let query = supabase
       .from("profiles")
-      .select("id, name, org_id, centre_id, class, board, medium, teacher_id")
+      .select("id, name, org_id, centre_id, class, board, medium, teacher_id, teacher_ids")
       .eq("role", "student")
       .eq("is_active", true)
       .order("name")

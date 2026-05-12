@@ -34,6 +34,12 @@ const roleOptions: Record<string, Array<{ value: string; label: string }>> = {
   ],
 };
 
+const ALL_CLASSES = Array.from({ length: 13 }, (_, i) => i); // 0 (KG) through 12
+
+function classLabel(c: number) {
+  return c === 0 ? "KG" : `Class ${c}`;
+}
+
 export function CreateUserForm({
   organizations,
   centres,
@@ -48,13 +54,32 @@ export function CreateUserForm({
   const [selectedRole, setSelectedRole] = useState("student");
   const [selectedOrgId, setSelectedOrgId] = useState(currentUserOrgId || "");
   const [selectedCentreId, setSelectedCentreId] = useState(currentUserCentreId || "");
+  const [selectedClasses, setSelectedClasses] = useState<number[]>([]);
+  const [selectedTeacherIds, setSelectedTeacherIds] = useState<string[]>([]);
 
   const filteredCentres = centres.filter((c) => c.org_id === selectedOrgId);
   const filteredTeachers = teachers.filter((t) => t.centre_id === selectedCentreId);
   const showAcademicDetails = selectedRole === "student" || selectedRole === "teacher";
-  const showClass = selectedRole === "student" || selectedRole === "teacher";
-  const showTeacher = selectedRole === "student";
+  const showTeachers = selectedRole === "student";
   const availableRoles = roleOptions[currentUserRole] ?? [];
+
+  function toggleClass(c: number) {
+    setSelectedClasses((prev) =>
+      prev.includes(c) ? prev.filter((v) => v !== c) : [...prev, c]
+    );
+  }
+
+  function toggleAllClasses() {
+    setSelectedClasses((prev) =>
+      prev.length === ALL_CLASSES.length ? [] : [...ALL_CLASSES]
+    );
+  }
+
+  function toggleTeacher(id: string) {
+    setSelectedTeacherIds((prev) =>
+      prev.includes(id) ? prev.filter((v) => v !== id) : [...prev, id]
+    );
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -62,6 +87,12 @@ export function CreateUserForm({
     setError(null);
 
     const formData = new FormData(e.currentTarget);
+    if (selectedRole === "teacher") {
+      formData.set("classes", selectedClasses.join(","));
+    }
+    if (selectedRole === "student") {
+      formData.set("teacher_ids", selectedTeacherIds.join(","));
+    }
     const result = await createUser(formData);
 
     if (result.error) {
@@ -71,6 +102,8 @@ export function CreateUserForm({
       setOpen(false);
       setLoading(false);
       setError(null);
+      setSelectedClasses([]);
+      setSelectedTeacherIds([]);
     }
   }
 
@@ -101,7 +134,7 @@ export function CreateUserForm({
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
             <label className="block text-sm font-semibold text-heading font-poppins mb-2">Role</label>
-            <select name="role" required className="clay-input w-full" value={selectedRole} onChange={(e) => setSelectedRole(e.target.value)}>
+            <select name="role" required className="clay-input w-full" value={selectedRole} onChange={(e) => { setSelectedRole(e.target.value); setSelectedClasses([]); setSelectedTeacherIds([]); }}>
               {availableRoles.map((r) => (
                 <option key={r.value} value={r.value}>{r.label}</option>
               ))}
@@ -115,7 +148,7 @@ export function CreateUserForm({
               required
               className="clay-input w-full"
               value={selectedOrgId}
-              onChange={(e) => { setSelectedOrgId(e.target.value); setSelectedCentreId(""); }}
+              onChange={(e) => { setSelectedOrgId(e.target.value); setSelectedCentreId(""); setSelectedTeacherIds([]); }}
               disabled={currentUserRole !== "platform_admin"}
             >
               <option value="">Select organization</option>
@@ -134,7 +167,7 @@ export function CreateUserForm({
               required={selectedRole !== "org_admin"}
               className="clay-input w-full"
               value={selectedCentreId}
-              onChange={(e) => setSelectedCentreId(e.target.value)}
+              onChange={(e) => { setSelectedCentreId(e.target.value); setSelectedTeacherIds([]); }}
               disabled={currentUserRole === "centre_admin"}
             >
               <option value="">{selectedRole === "org_admin" ? "None (org-level)" : "Select centre"}</option>
@@ -144,22 +177,33 @@ export function CreateUserForm({
             </select>
           </div>
 
-          {showTeacher && (
+          {showTeachers && (
             <div>
-              <label className="block text-sm font-semibold text-heading font-poppins mb-2">Teacher</label>
-              <select name="teacher_id" className="clay-input w-full">
-                <option value="">None</option>
-                {filteredTeachers.map((t) => (
-                  <option key={t.id} value={t.id}>{t.name}</option>
-                ))}
-              </select>
+              <label className="block text-sm font-semibold text-heading font-poppins mb-2">Teachers</label>
+              <div className="clay-input w-full max-h-32 overflow-y-auto !p-2 space-y-1">
+                {filteredTeachers.length === 0 ? (
+                  <p className="text-xs text-muted px-1">No teachers in this centre</p>
+                ) : (
+                  filteredTeachers.map((t) => (
+                    <label key={t.id} className="flex items-center gap-2 px-1 py-0.5 rounded hover:bg-orange-50/60 cursor-pointer text-sm">
+                      <input
+                        type="checkbox"
+                        checked={selectedTeacherIds.includes(t.id)}
+                        onChange={() => toggleTeacher(t.id)}
+                        className="accent-orange-500"
+                      />
+                      <span className="truncate">{t.name}</span>
+                    </label>
+                  ))
+                )}
+              </div>
             </div>
           )}
         </div>
 
         {showAcademicDetails && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {showClass && (
+            {selectedRole === "student" && (
               <div>
                 <label className="block text-sm font-semibold text-heading font-poppins mb-2">Class</label>
                 <select name="class" className="clay-input w-full">
@@ -169,6 +213,40 @@ export function CreateUserForm({
                     <option key={i + 1} value={i + 1}>Class {i + 1}</option>
                   ))}
                 </select>
+              </div>
+            )}
+            {selectedRole === "teacher" && (
+              <div>
+                <label className="block text-sm font-semibold text-heading font-poppins mb-2">Classes</label>
+                <div className="clay-input w-full max-h-32 overflow-y-auto !p-2 space-y-1">
+                  <label className="flex items-center gap-2 px-1 py-0.5 rounded hover:bg-orange-50/60 cursor-pointer text-sm font-semibold text-orange-primary">
+                    <input
+                      type="checkbox"
+                      checked={selectedClasses.length === ALL_CLASSES.length}
+                      onChange={toggleAllClasses}
+                      className="accent-orange-500"
+                    />
+                    ALL Classes
+                  </label>
+                  {ALL_CLASSES.map((c) => (
+                    <label key={c} className="flex items-center gap-2 px-1 py-0.5 rounded hover:bg-orange-50/60 cursor-pointer text-sm">
+                      <input
+                        type="checkbox"
+                        checked={selectedClasses.includes(c)}
+                        onChange={() => toggleClass(c)}
+                        className="accent-orange-500"
+                      />
+                      {classLabel(c)}
+                    </label>
+                  ))}
+                </div>
+                {selectedClasses.length > 0 && (
+                  <p className="text-xs text-muted mt-1">
+                    {selectedClasses.length === ALL_CLASSES.length
+                      ? "All classes selected"
+                      : `${selectedClasses.length} class${selectedClasses.length > 1 ? "es" : ""} selected`}
+                  </p>
+                )}
               </div>
             )}
             <div>

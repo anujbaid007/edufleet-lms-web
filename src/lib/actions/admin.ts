@@ -111,9 +111,16 @@ export async function createUser(formData: FormData) {
   const role = formData.get("role") as UserRole;
   const orgId = (formData.get("org_id") as string) || null;
   const centreId = (formData.get("centre_id") as string) || null;
-  const teacherId = (formData.get("teacher_id") as string) || null;
-  const classNum = (role === "student" || role === "teacher") && formData.get("class")
+  const teacherIdsRaw = formData.get("teacher_ids") as string;
+  const teacherIds = role === "student" && teacherIdsRaw
+    ? teacherIdsRaw.split(",").filter(Boolean)
+    : [];
+  const classNum = role === "student" && formData.get("class")
     ? Number(formData.get("class"))
+    : null;
+  const classesRaw = formData.get("classes") as string;
+  const classes = role === "teacher" && classesRaw
+    ? classesRaw.split(",").filter(Boolean).map(Number)
     : null;
   const board = (formData.get("board") as string) || null;
   const medium = (formData.get("medium") as string) || null;
@@ -149,8 +156,10 @@ export async function createUser(formData: FormData) {
       role,
       org_id: orgId,
       centre_id: centreId,
-      teacher_id: role === "student" ? teacherId : null,
+      teacher_ids: teacherIds,
+      teacher_id: teacherIds[0] ?? null,
       class: classNum,
+      classes,
       board,
       medium,
       phone,
@@ -169,9 +178,16 @@ export async function updateUser(id: string, formData: FormData) {
   const role = formData.get("role") as UserRole;
   const orgId = (formData.get("org_id") as string) || null;
   const centreId = (formData.get("centre_id") as string) || null;
-  const teacherId = (formData.get("teacher_id") as string) || null;
-  const classNum = (role === "student" || role === "teacher") && formData.get("class")
+  const teacherIdsRaw = formData.get("teacher_ids") as string;
+  const teacherIds = role === "student" && teacherIdsRaw
+    ? teacherIdsRaw.split(",").filter(Boolean)
+    : [];
+  const classNum = role === "student" && formData.get("class")
     ? Number(formData.get("class"))
+    : null;
+  const classesRaw = formData.get("classes") as string;
+  const classes = role === "teacher" && classesRaw
+    ? classesRaw.split(",").filter(Boolean).map(Number)
     : null;
   const board = (formData.get("board") as string) || null;
   const medium = (formData.get("medium") as string) || null;
@@ -198,8 +214,10 @@ export async function updateUser(id: string, formData: FormData) {
       role,
       org_id: orgId,
       centre_id: centreId,
-      teacher_id: role === "student" ? teacherId : null,
+      teacher_ids: teacherIds,
+      teacher_id: teacherIds[0] ?? null,
       class: classNum,
+      classes,
       board,
       medium,
       phone,
@@ -241,8 +259,9 @@ export async function bulkCreateUsers(
     role: UserRole;
     org_id: string | null;
     centre_id: string | null;
-    teacher_id: string | null;
+    teacher_ids: string[];
     class: number | null;
+    classes: number[] | null;
     board: string | null;
     medium: string | null;
   }>
@@ -262,6 +281,8 @@ export async function bulkCreateUsers(
       continue;
     }
 
+    const teacherIds = user.role === "student" ? user.teacher_ids : [];
+
     const { error: profileError } = await admin
       .from("profiles")
       .update({
@@ -269,8 +290,10 @@ export async function bulkCreateUsers(
         role: user.role,
         org_id: user.org_id,
         centre_id: user.centre_id,
-        teacher_id: user.role === "student" ? user.teacher_id : null,
+        teacher_ids: teacherIds,
+        teacher_id: teacherIds[0] ?? null,
         class: user.role === "student" ? user.class : null,
+        classes: user.role === "teacher" ? user.classes : null,
         board: user.board,
         medium: user.medium,
       })

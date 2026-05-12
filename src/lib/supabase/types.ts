@@ -277,6 +277,7 @@ export type Database = {
           board: string | null
           centre_id: string | null
           class: number | null
+          classes: number[] | null
           created_at: string
           id: string
           is_active: boolean
@@ -286,12 +287,14 @@ export type Database = {
           phone: string | null
           role: Database["public"]["Enums"]["user_role"]
           teacher_id: string | null
+          teacher_ids: string[]
         }
         Insert: {
           avatar_url?: string | null
           board?: string | null
           centre_id?: string | null
           class?: number | null
+          classes?: number[] | null
           created_at?: string
           id: string
           is_active?: boolean
@@ -301,12 +304,14 @@ export type Database = {
           phone?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           teacher_id?: string | null
+          teacher_ids?: string[]
         }
         Update: {
           avatar_url?: string | null
           board?: string | null
           centre_id?: string | null
           class?: number | null
+          classes?: number[] | null
           created_at?: string
           id?: string
           is_active?: boolean
@@ -316,6 +321,7 @@ export type Database = {
           phone?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           teacher_id?: string | null
+          teacher_ids?: string[]
         }
         Relationships: [
           {

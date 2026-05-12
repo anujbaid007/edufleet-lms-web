@@ -21,7 +21,7 @@ export async function assignStudentToTeacher(formData: FormData) {
 
   const { data: teacherProfile, error: teacherError } = await supabase
     .from("profiles")
-    .select("id, role, org_id, centre_id, class, board, medium")
+    .select("id, role, org_id, centre_id, classes, board, medium")
     .eq("id", user.id)
     .single();
 
@@ -32,7 +32,7 @@ export async function assignStudentToTeacher(formData: FormData) {
   const admin = createAdminClient();
   const { data: studentProfile, error: studentError } = await admin
     .from("profiles")
-    .select("id, name, role, org_id, centre_id, class, board, medium, teacher_id, is_active")
+    .select("id, name, role, org_id, centre_id, class, board, medium, teacher_ids, is_active")
     .eq("id", studentId)
     .single();
 
@@ -44,8 +44,12 @@ export async function assignStudentToTeacher(formData: FormData) {
     return { error: "You can only add students from your own centre." };
   }
 
-  if (teacherProfile.class !== null && studentProfile.class !== teacherProfile.class) {
-    return { error: "This student is outside your assigned class scope." };
+  // Check class scope: teacher's classes array (null/empty = all classes allowed)
+  const teacherClasses = teacherProfile.classes as number[] | null;
+  if (teacherClasses && teacherClasses.length > 0 && studentProfile.class !== null) {
+    if (!teacherClasses.includes(studentProfile.class)) {
+      return { error: "This student is outside your assigned class scope." };
+    }
   }
 
   if (teacherProfile.board && studentProfile.board !== teacherProfile.board) {
@@ -56,13 +60,21 @@ export async function assignStudentToTeacher(formData: FormData) {
     return { error: "This student uses a different medium." };
   }
 
-  if (studentProfile.teacher_id && studentProfile.teacher_id !== user.id) {
-    return { error: "This student is already assigned to another teacher." };
+  // Check if already assigned to this teacher
+  const existingTeacherIds = (studentProfile.teacher_ids as string[]) ?? [];
+  if (existingTeacherIds.includes(user.id)) {
+    return { error: "This student is already assigned to you." };
   }
+
+  // Add this teacher to the student's teacher_ids array
+  const updatedTeacherIds = [...existingTeacherIds, user.id];
 
   const { error: updateError } = await admin
     .from("profiles")
-    .update({ teacher_id: user.id })
+    .update({
+      teacher_ids: updatedTeacherIds,
+      teacher_id: updatedTeacherIds[0],
+    })
     .eq("id", studentId);
 
   if (updateError) {

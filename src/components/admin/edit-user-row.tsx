@@ -5,6 +5,12 @@ import { Pencil, Trash2, X, Check, Loader2 } from "lucide-react";
 import { updateUser, deleteUser } from "@/lib/actions/admin";
 import { useRouter } from "next/navigation";
 
+const ALL_CLASSES = Array.from({ length: 13 }, (_, i) => i);
+
+function classLabel(c: number) {
+  return c === 0 ? "KG" : `Class ${c}`;
+}
+
 interface Props {
   user: {
     id: string;
@@ -15,7 +21,9 @@ interface Props {
     org_id: string | null;
     centre_id: string | null;
     teacher_id: string | null;
+    teacher_ids: string[];
     class: number | null;
+    classes: number[] | null;
     board: string | null;
     medium: string | null;
     is_active: boolean;
@@ -62,8 +70,9 @@ export function EditUserRow({ user, organizations, centres, teachers }: Props) {
   const [role, setRole] = useState(user.role);
   const [orgId, setOrgId] = useState(user.org_id ?? "");
   const [centreId, setCentreId] = useState(user.centre_id ?? "");
-  const [teacherId, setTeacherId] = useState(user.teacher_id ?? "");
+  const [selectedTeacherIds, setSelectedTeacherIds] = useState<string[]>(user.teacher_ids ?? []);
   const [classNum, setClassNum] = useState(user.class?.toString() ?? "");
+  const [selectedClasses, setSelectedClasses] = useState<number[]>(user.classes ?? []);
   const [board, setBoard] = useState(user.board ?? "");
   const [medium, setMedium] = useState(user.medium ?? "");
   const router = useRouter();
@@ -71,10 +80,21 @@ export function EditUserRow({ user, organizations, centres, teachers }: Props) {
   const filteredCentres = orgId ? centres.filter((c) => c.org_id === orgId) : centres;
   const filteredTeachers = centreId ? teachers.filter((t) => t.centre_id === centreId) : teachers;
 
+  function toggleClass(c: number) {
+    setSelectedClasses((prev) => prev.includes(c) ? prev.filter((v) => v !== c) : [...prev, c]);
+  }
+
+  function toggleAllClasses() {
+    setSelectedClasses((prev) => prev.length === ALL_CLASSES.length ? [] : [...ALL_CLASSES]);
+  }
+
+  function toggleTeacher(id: string) {
+    setSelectedTeacherIds((prev) => prev.includes(id) ? prev.filter((v) => v !== id) : [...prev, id]);
+  }
+
   async function handleSave() {
     setLoading(true);
     setError(null);
-    const effectiveClassNum = role === "student" ? classNum : "";
     const fd = new FormData();
     fd.set("name", name);
     fd.set("email", email);
@@ -83,8 +103,13 @@ export function EditUserRow({ user, organizations, centres, teachers }: Props) {
     fd.set("role", role);
     fd.set("org_id", orgId);
     fd.set("centre_id", centreId);
-    fd.set("teacher_id", teacherId);
-    if (effectiveClassNum) fd.set("class", effectiveClassNum);
+    if (role === "student") {
+      fd.set("teacher_ids", selectedTeacherIds.join(","));
+      if (classNum) fd.set("class", classNum);
+    }
+    if (role === "teacher") {
+      fd.set("classes", selectedClasses.join(","));
+    }
     if (board) fd.set("board", board);
     if (medium) fd.set("medium", medium);
     fd.set("is_active", String(user.is_active));
@@ -118,8 +143,9 @@ export function EditUserRow({ user, organizations, centres, teachers }: Props) {
     setRole(user.role);
     setOrgId(user.org_id ?? "");
     setCentreId(user.centre_id ?? "");
-    setTeacherId(user.teacher_id ?? "");
+    setSelectedTeacherIds(user.teacher_ids ?? []);
     setClassNum(user.class?.toString() ?? "");
+    setSelectedClasses(user.classes ?? []);
     setBoard(user.board ?? "");
     setMedium(user.medium ?? "");
     setError(null);
@@ -247,23 +273,36 @@ export function EditUserRow({ user, organizations, centres, teachers }: Props) {
                 </select>
               </Field>
               <Field label="Organization">
-                <select value={orgId} onChange={(e) => { setOrgId(e.target.value); setCentreId(""); setTeacherId(""); }} className={inputClass}>
+                <select value={orgId} onChange={(e) => { setOrgId(e.target.value); setCentreId(""); setSelectedTeacherIds([]); }} className={inputClass}>
                   <option value="">No org</option>
                   {organizations.map((o) => (<option key={o.id} value={o.id}>{o.name}</option>))}
                 </select>
               </Field>
               <Field label="Centre">
-                <select value={centreId} onChange={(e) => { setCentreId(e.target.value); setTeacherId(""); }} className={inputClass}>
+                <select value={centreId} onChange={(e) => { setCentreId(e.target.value); setSelectedTeacherIds([]); }} className={inputClass}>
                   <option value="">No centre</option>
                   {filteredCentres.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
                 </select>
               </Field>
               {role === "student" && (
-                <Field label="Teacher">
-                  <select value={teacherId} onChange={(e) => setTeacherId(e.target.value)} className={inputClass}>
-                    <option value="">No teacher</option>
-                    {filteredTeachers.map((t) => (<option key={t.id} value={t.id}>{t.name}</option>))}
-                  </select>
+                <Field label="Teachers">
+                  <div className={`${inputClass} !h-auto max-h-32 overflow-y-auto !p-2 space-y-1`}>
+                    {filteredTeachers.length === 0 ? (
+                      <p className="text-xs text-muted px-1">No teachers in this centre</p>
+                    ) : (
+                      filteredTeachers.map((t) => (
+                        <label key={t.id} className="flex items-center gap-2 px-1 py-0.5 rounded hover:bg-orange-50/60 cursor-pointer text-sm">
+                          <input
+                            type="checkbox"
+                            checked={selectedTeacherIds.includes(t.id)}
+                            onChange={() => toggleTeacher(t.id)}
+                            className="accent-orange-500"
+                          />
+                          <span className="truncate">{t.name}</span>
+                        </label>
+                      ))
+                    )}
+                  </div>
                 </Field>
               )}
             </div>
@@ -282,6 +321,22 @@ export function EditUserRow({ user, organizations, centres, teachers }: Props) {
                       <option value="0">KG</option>
                       {Array.from({ length: 12 }, (_, i) => (<option key={i + 1} value={String(i + 1)}>Class {i + 1}</option>))}
                     </select>
+                  </Field>
+                )}
+                {role === "teacher" && (
+                  <Field label="Classes" hint={selectedClasses.length === ALL_CLASSES.length ? "All classes" : selectedClasses.length > 0 ? `${selectedClasses.length} selected` : "None (all classes)"}>
+                    <div className={`${inputClass} !h-auto max-h-40 overflow-y-auto !p-2 space-y-1`}>
+                      <label className="flex items-center gap-2 px-1 py-0.5 rounded hover:bg-orange-50/60 cursor-pointer text-sm font-semibold text-orange-primary">
+                        <input type="checkbox" checked={selectedClasses.length === ALL_CLASSES.length} onChange={toggleAllClasses} className="accent-orange-500" />
+                        ALL Classes
+                      </label>
+                      {ALL_CLASSES.map((c) => (
+                        <label key={c} className="flex items-center gap-2 px-1 py-0.5 rounded hover:bg-orange-50/60 cursor-pointer text-sm">
+                          <input type="checkbox" checked={selectedClasses.includes(c)} onChange={() => toggleClass(c)} className="accent-orange-500" />
+                          {classLabel(c)}
+                        </label>
+                      ))}
+                    </div>
                   </Field>
                 )}
                 <Field label="Board">

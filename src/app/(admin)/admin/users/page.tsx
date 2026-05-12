@@ -91,7 +91,7 @@ export default async function UsersPage({
   let usersQuery = supabase
     .from("profiles")
     .select(
-      "id, name, role, org_id, centre_id, class, board, medium, is_active, teacher_id, phone, created_at",
+      "id, name, role, org_id, centre_id, class, classes, board, medium, is_active, teacher_id, teacher_ids, phone, created_at",
       { count: "exact" }
     )
     .order("name");

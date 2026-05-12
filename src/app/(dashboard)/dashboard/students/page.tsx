@@ -34,7 +34,7 @@ export default async function MyStudentsPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role, org_id, centre_id, class, board, medium")
+    .select("role, org_id, centre_id, classes, board, medium")
     .eq("id", userId)
     .single();
 
@@ -49,11 +49,12 @@ export default async function MyStudentsPage() {
     .eq("is_active", true)
     .eq("org_id", profile.org_id)
     .eq("centre_id", profile.centre_id)
-    .is("teacher_id", null)
     .order("name");
 
-  if (profile.class !== null) {
-    assignableStudentsQuery = assignableStudentsQuery.eq("class", profile.class);
+  // Filter by teacher's classes (null/empty = all classes)
+  const teacherClasses = profile.classes as number[] | null;
+  if (teacherClasses && teacherClasses.length > 0) {
+    assignableStudentsQuery = assignableStudentsQuery.in("class", teacherClasses);
   }
 
   if (profile.board) {
@@ -66,11 +67,11 @@ export default async function MyStudentsPage() {
 
   const { data: assignableStudents } = await assignableStudentsQuery;
 
-  // Get students assigned to this teacher
-  const { data: students } = await supabase
+  // Get students assigned to this teacher (teacher_ids array contains this teacher)
+  const { data: students } = await adminClient
     .from("profiles")
     .select("id, name, class, board, medium, org_id")
-    .eq("teacher_id", userId)
+    .contains("teacher_ids", [userId])
     .eq("is_active", true)
     .order("name");
 

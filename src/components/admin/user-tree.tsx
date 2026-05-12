@@ -14,7 +14,9 @@ interface UserData {
   org_id: string | null;
   centre_id: string | null;
   teacher_id: string | null;
+  teacher_ids: string[];
   class: number | null;
+  classes: number[] | null;
   board: string | null;
   medium: string | null;
   is_active: boolean;
@@ -76,7 +78,9 @@ function UserRow({
           <p className="mt-1 text-xs text-muted">
             {u.email}
             {u.phone ? ` · ${u.phone}` : ""}
-            {u.class !== null ? ` · ${u.class === 0 ? "KG" : u.class === 99 ? "General" : `Class ${u.class}`}` : ""}
+            {u.role === "teacher" && u.classes && u.classes.length > 0
+              ? ` · ${u.classes.length === 13 ? "All Classes" : u.classes.map((c) => c === 0 ? "KG" : `Class ${c}`).join(", ")}`
+              : u.class !== null ? ` · ${u.class === 0 ? "KG" : u.class === 99 ? "General" : `Class ${u.class}`}` : ""}
             {u.board ? ` · ${u.board}` : ""}
             {u.medium ? ` · ${u.medium}` : ""}
           </p>

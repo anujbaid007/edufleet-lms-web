@@ -19,9 +19,10 @@ interface ParsedUser {
   password: string;
   role: UserRole;
   class: number | null;
+  classes: number[] | null;
   board: string | null;
   medium: string | null;
-  teacher_id: string | null;
+  teacher_ids: string[];
 }
 
 interface UploadResult {
@@ -59,9 +60,13 @@ export function BulkUploadForm({ defaultOrgId, defaultCentreId }: BulkUploadForm
       const passwordIdx = headers.indexOf("password");
       const roleIdx = headers.indexOf("role");
       const classIdx = headers.indexOf("class");
+      const classesIdx = headers.indexOf("classes");
       const boardIdx = headers.indexOf("board");
       const mediumIdx = headers.indexOf("medium");
-      const teacherIdx = headers.indexOf("teacher_id");
+      const teacherIdsIdx = headers.indexOf("teacher_ids");
+      // Backward compat: also check old column name
+      const teacherIdxLegacy = teacherIdsIdx === -1 ? headers.indexOf("teacher_id") : -1;
+      const effectiveTeacherIdx = teacherIdsIdx !== -1 ? teacherIdsIdx : teacherIdxLegacy;
 
       if (nameIdx === -1 || emailIdx === -1 || passwordIdx === -1) {
         setError("CSV must have: name, email, password columns (role optional, defaults to student)");
@@ -73,21 +78,24 @@ export function BulkUploadForm({ defaultOrgId, defaultCentreId }: BulkUploadForm
         const cols = lines[i].split(",").map((c) => c.trim());
         if (!cols[emailIdx]) continue;
 
+        const role = (roleIdx !== -1 ? (cols[roleIdx] || "student") : "student") as UserRole;
+
         users.push({
           name: cols[nameIdx] || "",
           email: cols[emailIdx] || "",
           password: cols[passwordIdx] || "",
-          role: (roleIdx !== -1 ? (cols[roleIdx] || "student") : "student") as UserRole,
-          class:
-            ["student", "teacher"].includes(roleIdx !== -1 ? (cols[roleIdx] || "student") : "student") && classIdx !== -1 && cols[classIdx]
-              ? Number(cols[classIdx])
+          role,
+          class: role === "student" && classIdx !== -1 && cols[classIdx] ? Number(cols[classIdx]) : null,
+          classes:
+            role === "teacher" && classesIdx !== -1 && cols[classesIdx]
+              ? cols[classesIdx].split(";").filter(Boolean).map(Number)
               : null,
           board: boardIdx !== -1 ? (cols[boardIdx] || null) : null,
           medium: mediumIdx !== -1 ? (cols[mediumIdx] || null) : null,
-          teacher_id:
-            (roleIdx !== -1 ? (cols[roleIdx] || "student") : "student") === "student" && teacherIdx !== -1
-              ? (cols[teacherIdx] || null)
-              : null,
+          teacher_ids:
+            role === "student" && effectiveTeacherIdx !== -1 && cols[effectiveTeacherIdx]
+              ? cols[effectiveTeacherIdx].split(";").filter(Boolean)
+              : [],
         });
       }
 
@@ -122,7 +130,7 @@ export function BulkUploadForm({ defaultOrgId, defaultCentreId }: BulkUploadForm
           <Upload className="w-10 h-10 text-orange-primary mx-auto mb-3" />
           <h3 className="font-poppins font-bold text-heading mb-1">Upload CSV File</h3>
           <p className="text-xs text-muted mb-4">
-            Required columns: <strong>name, email, password</strong>. Optional: role, class, board, medium, teacher_id
+            Required columns: <strong>name, email, password</strong>. Optional: role, class, classes (semicolon-separated), board, medium, teacher_ids (semicolon-separated)
           </p>
           <input
             ref={fileRef}
