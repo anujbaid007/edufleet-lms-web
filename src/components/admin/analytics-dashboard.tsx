@@ -219,7 +219,11 @@ function ComparisonChart({
   }
 
   return (
-    <ResponsiveContainer width="100%" height={280}>
+    <>
+    {rows.length > 8 && (
+      <p className="mb-2 text-xs text-muted">Showing top 8 of {rows.length}</p>
+    )}
+    <ResponsiveContainer width="100%" height={rows.length > 8 ? 260 : 280}>
       <BarChart data={topRows} layout="vertical" margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#eadbc8" horizontal={false} />
         <XAxis type="number" tick={{ fill: "#7c6a58", fontSize: 12 }} axisLine={false} tickLine={false} />
@@ -247,6 +251,7 @@ function ComparisonChart({
         </Bar>
       </BarChart>
     </ResponsiveContainer>
+    </>
   );
 }
 
@@ -255,7 +260,8 @@ function TrendChart({ dataset }: { dataset: AnalyticsDataset }) {
     return <p className="text-sm text-muted">No trend data yet.</p>;
   }
 
-  const isOffline = dataset.level === "classes" && dataset.rows.length > 0 && dataset.rows.every((r) => r.isOffline);
+  const isOffline = dataset.rows.length > 0 && dataset.rows.every((r) => r.isOffline);
+  const hasOfflineData = dataset.timeline.some((p) => (p.videoPlays ?? 0) > 0 || (p.quizAttempts ?? 0) > 0);
 
   return (
     <ResponsiveContainer width="100%" height={280}>
@@ -281,35 +287,48 @@ function TrendChart({ dataset }: { dataset: AnalyticsDataset }) {
             backgroundColor: "#fff9f1",
           }}
         />
-        <Area
-          type="monotone"
-          dataKey="watchSessions"
-          stroke="#E8871E"
-          fill="url(#watchSessionsFill)"
-          strokeWidth={3}
-          dot={false}
-          name={isOffline ? "Video plays" : "Watch sessions"}
-        />
-        {isOffline ? (
-          <Area
-            type="monotone"
-            dataKey="completedChapters"
-            stroke="#7c3aed"
-            fill="url(#activeStudentsFill)"
-            strokeWidth={3}
-            dot={false}
-            name="Quiz attempts"
-          />
+        {isOffline && hasOfflineData ? (
+          <>
+            <Area
+              type="monotone"
+              dataKey="videoPlays"
+              stroke="#E8871E"
+              fill="url(#watchSessionsFill)"
+              strokeWidth={3}
+              dot={false}
+              name="Video plays"
+            />
+            <Area
+              type="monotone"
+              dataKey="quizAttempts"
+              stroke="#7c3aed"
+              fill="url(#activeStudentsFill)"
+              strokeWidth={3}
+              dot={false}
+              name="Quiz attempts"
+            />
+          </>
         ) : (
-          <Area
-            type="monotone"
-            dataKey="activeStudents"
-            stroke="#2A9D8F"
-            fill="url(#activeStudentsFill)"
-            strokeWidth={3}
-            dot={false}
-            name="Active students"
-          />
+          <>
+            <Area
+              type="monotone"
+              dataKey="watchSessions"
+              stroke="#E8871E"
+              fill="url(#watchSessionsFill)"
+              strokeWidth={3}
+              dot={false}
+              name="Watch sessions"
+            />
+            <Area
+              type="monotone"
+              dataKey="activeStudents"
+              stroke="#2A9D8F"
+              fill="url(#activeStudentsFill)"
+              strokeWidth={3}
+              dot={false}
+              name="Active students"
+            />
+          </>
         )}
       </AreaChart>
     </ResponsiveContainer>
@@ -539,7 +558,7 @@ function DrilldownRowCard({
         <div className="min-w-0">
           <div className="flex items-center gap-3">
             <p className="truncate text-base font-semibold text-heading">{row.label}</p>
-            {row.isOffline && dataset.level !== "centres" && (
+            {row.isOffline && (
               <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
                 <WifiOff className="h-3 w-3" /> Offline
               </span>
@@ -590,25 +609,6 @@ function DrilldownRowCard({
           <div className="rounded-2xl bg-amber-50/80 px-3 py-2 shadow-clay-pill">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-600">Delivery</p>
             <p className="mt-1 text-sm text-amber-700">Pen drive · Offline</p>
-          </div>
-        </div>
-      ) : row.isOffline && dataset.level === "centres" ? (
-        <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-          <div className="rounded-2xl bg-white/80 px-3 py-2 shadow-clay-pill">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Students</p>
-            <p className="mt-1 text-base font-bold text-heading">{row.students}</p>
-          </div>
-          <div className="rounded-2xl bg-white/80 px-3 py-2 shadow-clay-pill">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Video plays</p>
-            <p className="mt-1 text-base font-bold text-heading">{row.videoPlays ?? 0}</p>
-          </div>
-          <div className="rounded-2xl bg-white/80 px-3 py-2 shadow-clay-pill">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Quiz attempts</p>
-            <p className="mt-1 text-base font-bold text-heading">{row.quizAttempts ?? 0}</p>
-          </div>
-          <div className="rounded-2xl bg-white/80 px-3 py-2 shadow-clay-pill">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Avg quiz score</p>
-            <p className="mt-1 text-base font-bold text-heading">{row.avgQuizScore != null ? `${row.avgQuizScore}%` : "—"}</p>
           </div>
         </div>
       ) : (
@@ -705,21 +705,16 @@ function DrilldownList({
     const onlineTotalStudents = onlineRows.reduce((sum, r) => sum + r.students, 0);
     const onlineActiveStudents = onlineRows.reduce((sum, r) => sum + r.activeStudents, 0);
     const onlineCompletedChapters = onlineRows.reduce((sum, r) => sum + r.completedChapters, 0);
-    const onlineAvgCompletion = onlineRows.length
-      ? Math.round(onlineRows.reduce((sum, r) => sum + r.completionRate, 0) / onlineRows.length)
+    const onlineAvgCompletion = onlineTotalStudents > 0
+      ? Math.round(onlineRows.reduce((sum, r) => sum + r.completionRate * r.students, 0) / onlineTotalStudents)
       : 0;
 
     const offlineTotalStudents = offlineRows.reduce((sum, r) => sum + r.students, 0);
-    const offlineTotalVideoPlays = offlineRows.reduce((sum, r) => sum + (r.videoPlays ?? 0), 0);
-    const offlineTotalQuizAttempts = offlineRows.reduce((sum, r) => sum + (r.quizAttempts ?? 0), 0);
-    const offlineAvgQuizScore = (() => {
-      const withScores = offlineRows.filter((r) => r.avgQuizScore != null && (r.quizAttempts ?? 0) > 0);
-      if (withScores.length === 0) return null;
-      const weighted = withScores.reduce((sum, r) => sum + (r.avgQuizScore ?? 0) * (r.quizAttempts ?? 0), 0);
-      const totalAttempts = withScores.reduce((sum, r) => sum + (r.quizAttempts ?? 0), 0);
-      return totalAttempts > 0 ? Math.round(weighted / totalAttempts) : null;
-    })();
-    const hasOfflineAnalytics = offlineTotalVideoPlays > 0 || offlineTotalQuizAttempts > 0;
+    const offlineActiveStudents = offlineRows.reduce((sum, r) => sum + r.activeStudents, 0);
+    const offlineCompletedChapters = offlineRows.reduce((sum, r) => sum + r.completedChapters, 0);
+    const offlineAvgCompletion = offlineTotalStudents > 0
+      ? Math.round(offlineRows.reduce((sum, r) => sum + r.completionRate * r.students, 0) / offlineTotalStudents)
+      : 0;
 
     return (
       <div className="space-y-6">
@@ -800,16 +795,16 @@ function DrilldownList({
                     <p className="text-xl font-bold text-heading">{offlineTotalStudents}</p>
                   </div>
                   <div className="rounded-xl bg-white/90 px-3 py-2 shadow-sm">
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted">Video plays</p>
-                    <p className="text-xl font-bold text-heading">{hasOfflineAnalytics ? offlineTotalVideoPlays : <span className="text-sm font-semibold text-amber-600">—</span>}</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted">Active 7d</p>
+                    <p className="text-xl font-bold text-heading">{offlineActiveStudents}</p>
                   </div>
                   <div className="rounded-xl bg-white/90 px-3 py-2 shadow-sm">
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted">Quiz attempts</p>
-                    <p className="text-xl font-bold text-heading">{hasOfflineAnalytics ? offlineTotalQuizAttempts : <span className="text-sm font-semibold text-amber-600">—</span>}</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted">Completion</p>
+                    <p className="text-xl font-bold text-heading">{offlineAvgCompletion}%</p>
                   </div>
                   <div className="rounded-xl bg-white/90 px-3 py-2 shadow-sm">
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted">Avg quiz score</p>
-                    <p className="text-xl font-bold text-heading">{offlineAvgQuizScore != null ? `${offlineAvgQuizScore}%` : <span className="text-sm font-semibold text-amber-600">—</span>}</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted">Chapters done</p>
+                    <p className="text-xl font-bold text-heading">{offlineCompletedChapters}</p>
                   </div>
                 </div>
               </button>
@@ -1174,14 +1169,14 @@ function StudentDetailDrawer({
             </div>
 
             <div className="space-y-3">
-              {detail.lessons.map((lesson, index) => (
+              {detail.lessons.map((lesson) => (
                 <div
                   key={lesson.id}
                   className="rounded-[28px] border border-orange-primary/10 bg-white/90 px-4 py-4"
                 >
                   <div className="flex items-start gap-3">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-orange-50 text-sm font-semibold text-orange-primary">
-                      {index + 1}
+                      {lesson.sortOrder}
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
@@ -1231,10 +1226,12 @@ function StudentDetailDrawer({
 
 function AlertsPanel({
   rows,
+  totalCount,
   onSelect,
   selectedStudentId,
 }: {
   rows: AnalyticsStudentRow[];
+  totalCount: number;
   onSelect?: (student: AnalyticsStudentRow) => void;
   selectedStudentId?: string | null;
 }) {
@@ -1335,7 +1332,12 @@ function AlertsPanel({
                 </div>
                 <div>
                   <h3 className="font-poppins text-lg font-bold text-heading">Drop-off alerts</h3>
-                  <p className="text-sm text-muted">Students who have gone quiet or never started in the current scope.</p>
+                  <p className="text-sm text-muted">
+                    Students who have gone quiet or never started in the current scope.
+                    {totalCount > rows.length && (
+                      <span className="ml-1 font-medium text-orange-primary">Showing {rows.length} of {totalCount}.</span>
+                    )}
+                  </p>
                 </div>
               </div>
 
@@ -1347,7 +1349,7 @@ function AlertsPanel({
             <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
               <div className="rounded-2xl bg-red-50/70 px-4 py-3 shadow-clay-pill">
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Students at risk</p>
-                <p className="mt-1 text-2xl font-bold text-heading">{rows.length}</p>
+                <p className="mt-1 text-2xl font-bold text-heading">{totalCount}</p>
               </div>
               <div className="rounded-2xl bg-orange-50/70 px-4 py-3 shadow-clay-pill">
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Gone quiet</p>
@@ -1396,6 +1398,26 @@ function AlertsPanel({
   );
 }
 
+const DRILL_TIMEOUT_MS = 30_000;
+
+async function fetchDatasetWithRetry(request: AnalyticsRequest, retries = 1): Promise<AnalyticsDataset> {
+  let lastError: Error | undefined;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await Promise.race([
+        getAnalyticsDatasetAction(request),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("Request timed out. Please try again.")), DRILL_TIMEOUT_MS)
+        ),
+      ]);
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error("Unknown error");
+      if (attempt < retries) continue;
+    }
+  }
+  throw lastError ?? new Error("Failed to load analytics.");
+}
+
 export function AnalyticsDashboard({
   viewer,
   rootLabel,
@@ -1428,6 +1450,8 @@ export function AnalyticsDashboard({
     current.dataset.level === "chapters" ? currentChapterView?.students : current.dataset.students;
   const visibleInactiveStudents =
     current.dataset.level === "chapters" ? currentChapterView?.inactiveStudents ?? [] : current.dataset.inactiveStudents;
+  const visibleInactiveTotalCount =
+    current.dataset.level === "chapters" ? currentChapterView?.totalInactiveStudents ?? 0 : current.dataset.totalInactiveStudents;
   const selectedStudent = selectedStudentId ? visibleStudents?.find((student) => student.id === selectedStudentId) ?? null : null;
   const selectedStudentDetail = selectedStudentId
     ? currentChapterView?.studentDetails.find((detail) => detail.studentId === selectedStudentId) ?? null
@@ -1453,6 +1477,11 @@ export function AnalyticsDashboard({
     setSelectedStudentId(null);
   }, [current.dataset.level, currentChapterView, selectedStudentId]);
 
+  // Reset comparison metric to "students" when drill level changes
+  useEffect(() => {
+    setComparisonMetric("students");
+  }, [current.dataset.level]);
+
   const handleModeDrill = (mode: "online" | "offline") => {
     const nextRequest: AnalyticsRequest = {
       ...current.request,
@@ -1465,7 +1494,7 @@ export function AnalyticsDashboard({
     setError(null);
 
     startTransition(() => {
-      void getAnalyticsDatasetAction(nextRequest)
+      void fetchDatasetWithRetry(nextRequest)
         .then((dataset) => {
           setHistory((previous) => [
             ...previous,
@@ -1509,7 +1538,7 @@ export function AnalyticsDashboard({
     setError(null);
 
     startTransition(() => {
-      void getAnalyticsDatasetAction(nextRequest)
+      void fetchDatasetWithRetry(nextRequest)
         .then((dataset) => {
           setHistory((previous) => [
             ...previous,
@@ -1575,7 +1604,7 @@ export function AnalyticsDashboard({
           <div className="rounded-clay bg-gradient-to-br from-orange-primary/10 via-white to-amber-50 px-4 py-3 shadow-clay">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-orange-primary">Current focus</p>
             <p className="mt-1 text-lg font-bold text-heading">{comparisonHeading(current.dataset.level)}</p>
-            <p className="text-sm text-muted">{current.dataset.rows.length} visible segments</p>
+            <p className="text-sm text-muted">{current.dataset.rows.length} visible segment{current.dataset.rows.length === 1 ? "" : "s"}</p>
           </div>
         </div>
       </ClayCard>
@@ -1665,6 +1694,7 @@ export function AnalyticsDashboard({
 
             <AlertsPanel
               rows={visibleInactiveStudents}
+              totalCount={visibleInactiveTotalCount}
               onSelect={current.dataset.level === "chapters" ? (student) => setSelectedStudentId(student.id) : undefined}
               selectedStudentId={selectedStudentId}
             />

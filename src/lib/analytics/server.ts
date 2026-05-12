@@ -142,6 +142,7 @@ type StudentSnapshot = {
   chapterTotals: Map<string, number>;
   subjectMeta: Map<string, SubjectMeta>;
   chaptersBySubject: Map<string, ChapterCatalogItem[]>;
+  videoCountByChapter: Map<string, number>;
   active7d: boolean;
   activeSubjectIds: Set<string>;
   activeChapterIds: Set<string>;
@@ -193,6 +194,11 @@ const ANALYTICS_REVALIDATE_SECONDS = 120;
 const ADMIN_ROLES = new Set<UserRole>(["platform_admin", "org_admin", "centre_admin"]);
 
 function serializeCacheKey(value: AnalyticsViewer | AnalyticsRequest) {
+  if ("role" in value && "roleScope" in value) {
+    // Strip display-only fields from viewer to avoid cache fragmentation
+    const { role, roleScope, orgId, centreId } = value;
+    return JSON.stringify({ role, roleScope, orgId, centreId });
+  }
   return JSON.stringify(value);
 }
 
@@ -266,6 +272,7 @@ function normalizeRequest(viewer: AnalyticsViewer, request: AnalyticsRequest): A
     return {
       orgId: request.orgId,
       centreId: request.centreId,
+      centreMode: request.centreMode,
       classNum: request.classNum,
       subjectId: request.subjectId,
     };
@@ -275,6 +282,7 @@ function normalizeRequest(viewer: AnalyticsViewer, request: AnalyticsRequest): A
     return {
       orgId: viewer.orgId ?? request.orgId,
       centreId: request.centreId,
+      centreMode: request.centreMode,
       classNum: request.classNum,
       subjectId: request.subjectId,
     };
@@ -283,6 +291,7 @@ function normalizeRequest(viewer: AnalyticsViewer, request: AnalyticsRequest): A
   return {
     orgId: viewer.orgId ?? request.orgId,
     centreId: viewer.centreId ?? request.centreId,
+    centreMode: request.centreMode,
     classNum: request.classNum,
     subjectId: request.subjectId,
   };
@@ -444,21 +453,20 @@ async function fetchChapters(
 async function fetchProgressForUsers(supabase: Supabase, userIds: string[]) {
   if (!userIds.length) return [] as ProgressRow[];
 
-  const progressRows: ProgressRow[] = [];
+  const chunks = chunkValues(userIds, USER_ID_CHUNK);
+  const results = await Promise.all(
+    chunks.map((idChunk) =>
+      fetchAllPages<ProgressRow>(async (from, to) => {
+        return supabase
+          .from("video_progress")
+          .select("user_id, video_id, completed, last_watched_at, watched_percentage")
+          .in("user_id", idChunk)
+          .range(from, to);
+      })
+    )
+  );
 
-  for (const idChunk of chunkValues(userIds, USER_ID_CHUNK)) {
-    const chunkRows = await fetchAllPages<ProgressRow>(async (from, to) => {
-      return supabase
-        .from("video_progress")
-        .select("user_id, video_id, completed, last_watched_at, watched_percentage")
-        .in("user_id", idChunk)
-        .range(from, to);
-    });
-
-    progressRows.push(...chunkRows);
-  }
-
-  return progressRows;
+  return results.flat();
 }
 
 async function fetchVideosByIds(supabase: Supabase, videoIds: string[]) {
@@ -534,12 +542,15 @@ type OfflineCentreStats = {
   totalQuizAttempts: number;
   avgQuizScore: number | null;
   lastSyncAt: string | null;
+  activeStudents: number;
+  uniqueChapters: number;
   dailyStats: { date: string; videoPlays: number; quizAttempts: number }[];
 };
 
 async function fetchOfflineCentreStats(
   supabase: Supabase,
-  centreIds: string[]
+  centreIds: string[],
+  centresById: Map<string, CentreRow>
 ): Promise<Map<string, OfflineCentreStats>> {
   const result = new Map<string, OfflineCentreStats>();
   if (centreIds.length === 0) return result;
@@ -552,6 +563,40 @@ async function fetchOfflineCentreStats(
       .order("date", { ascending: false })
       .range(from, to);
   });
+
+  // Resolve video_id → chapter_id for unique chapter counting
+  const videoIds = Array.from(new Set(rows.filter((r) => r.video_id).map((r) => r.video_id as string)));
+  const videoChapterMap = new Map<string, string>();
+  if (videoIds.length > 0) {
+    const videoRows = await fetchAllPages<{ id: string; chapter_id: string }>(async (from, to) => {
+      return supabase
+        .from("videos")
+        .select("id, chapter_id")
+        .in("id", videoIds)
+        .range(from, to);
+    });
+    for (const row of videoRows) {
+      videoChapterMap.set(row.id, row.chapter_id);
+    }
+  }
+
+  // Resolve quiz_id → chapter_id for unique chapter counting
+  const quizIds = Array.from(new Set(rows.filter((r) => r.quiz_id).map((r) => r.quiz_id as string)));
+  const quizChapterMap = new Map<string, string>();
+  if (quizIds.length > 0) {
+    const quizRows = await fetchAllPages<{ id: string; chapter_id: string }>(async (from, to) => {
+      return supabase
+        .from("chapter_quizzes")
+        .select("id, chapter_id")
+        .in("id", quizIds)
+        .range(from, to);
+    });
+    for (const row of quizRows) {
+      quizChapterMap.set(row.id, row.chapter_id);
+    }
+  }
+
+  const activeSince7d = new Date(Date.now() - ACTIVE_DAYS * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
   // Group rows by centre
   const byCentre = new Map<string, OfflineCentreStatsRow[]>();
@@ -567,12 +612,16 @@ async function fetchOfflineCentreStats(
     let quizScoreSum = 0;
     let quizScoreCount = 0;
     let lastSyncAt: string | null = null;
+    let hasRecentActivity = false;
+    const uniqueChapterIds = new Set<string>();
 
     const dailyMap = new Map<string, { videoPlays: number; quizAttempts: number }>();
 
     for (const row of centreRows) {
       if (row.video_id) {
         totalVideoPlays += row.play_count;
+        const chapterId = videoChapterMap.get(row.video_id);
+        if (chapterId) uniqueChapterIds.add(chapterId);
       }
       if (row.quiz_id) {
         totalQuizAttempts += row.quiz_attempt_count;
@@ -580,9 +629,14 @@ async function fetchOfflineCentreStats(
           quizScoreSum += row.quiz_avg_score * row.quiz_attempt_count;
           quizScoreCount += row.quiz_attempt_count;
         }
+        const chapterId = quizChapterMap.get(row.quiz_id);
+        if (chapterId) uniqueChapterIds.add(chapterId);
       }
       if (!lastSyncAt || row.synced_at > lastSyncAt) {
         lastSyncAt = row.synced_at;
+      }
+      if (row.date >= activeSince7d) {
+        hasRecentActivity = true;
       }
 
       const day = dailyMap.get(row.date) ?? { videoPlays: 0, quizAttempts: 0 };
@@ -591,11 +645,19 @@ async function fetchOfflineCentreStats(
       dailyMap.set(row.date, day);
     }
 
+    // If there was activity in last 7 days, count all headcount students as active
+    const centre = centresById.get(centreId);
+    const counts = (centre?.offline_student_counts as Record<string, number> | null) ?? {};
+    const totalStudents = Object.values(counts).reduce((sum, c) => sum + c, 0);
+    const activeStudents = hasRecentActivity ? totalStudents : 0;
+
     result.set(centreId, {
       totalVideoPlays,
       totalQuizAttempts,
       avgQuizScore: quizScoreCount > 0 ? Math.round(quizScoreSum / quizScoreCount) : null,
       lastSyncAt,
+      activeStudents,
+      uniqueChapters: uniqueChapterIds.size,
       dailyStats: Array.from(dailyMap.entries())
         .map(([date, stats]) => ({ date, ...stats }))
         .sort((a, b) => a.date.localeCompare(b.date)),
@@ -738,10 +800,7 @@ function getScopedMetrics(snapshot: StudentSnapshot, filter?: ScopeFilter): Scop
     };
   }
 
-  const chapterMeta = Array.from(snapshot.chaptersBySubject.values())
-    .flat()
-    .find((chapter) => chapter.id === filter.chapterId);
-  const trackedLessons = chapterMeta?.videoCount ?? 0;
+  const trackedLessons = snapshot.videoCountByChapter.get(filter.chapterId) ?? 0;
   const completedLessons = snapshot.completedLessonsByChapter.get(filter.chapterId) ?? 0;
 
   return {
@@ -761,25 +820,34 @@ function getScopedMetrics(snapshot: StudentSnapshot, filter?: ScopeFilter): Scop
 
 function buildSummary(snapshots: StudentSnapshot[], filter?: ScopeFilter): AnalyticsSummary {
   let activeStudents = 0;
-  let completedChapters = 0;
   let completionNumerator = 0;
   let completionDenominator = 0;
-  let watchSum = 0;
-  let progressCount = 0;
+  let studentWatchSum = 0;
+  let studentsWithProgress = 0;
   const trackedChapterIds = new Set<string>();
+  const completedChapterIds = new Set<string>();
+  // At chapter scope, count how many students completed the chapter (not distinct chapters)
+  let studentsCompletedChapter = 0;
 
   for (const snapshot of snapshots) {
     const metrics = getScopedMetrics(snapshot, filter);
     if (metrics.active) activeStudents += 1;
-    completedChapters += metrics.completedChapters;
     completionNumerator += metrics.completionNumerator;
     completionDenominator += metrics.completionDenominator;
-    watchSum += metrics.watchSum;
-    progressCount += metrics.progressCount;
+
+    // Student-weighted watch percentage: compute per-student avg, then avg across students
+    if (metrics.progressCount > 0) {
+      studentWatchSum += metrics.watchSum / metrics.progressCount;
+      studentsWithProgress += 1;
+    }
 
     if (!filter) {
       for (const chapterId of Array.from(snapshot.chapterTotals.keys())) {
         trackedChapterIds.add(chapterId);
+      }
+      // Track distinct completed chapters across all students
+      for (const [chapterId, count] of Array.from(snapshot.completedByChapter.entries())) {
+        if (count > 0) completedChapterIds.add(chapterId);
       }
       continue;
     }
@@ -787,21 +855,34 @@ function buildSummary(snapshots: StudentSnapshot[], filter?: ScopeFilter): Analy
     if ("subjectId" in filter) {
       for (const chapter of snapshot.chaptersBySubject.get(filter.subjectId) ?? []) {
         trackedChapterIds.add(chapter.id);
+        if (snapshot.completedByChapter.get(chapter.id)) {
+          completedChapterIds.add(chapter.id);
+        }
       }
       continue;
     }
 
+    // Chapter filter: count students who completed this chapter
     if ((snapshot.chapterTotals.get(filter.chapterId) ?? 0) > 0) {
       trackedChapterIds.add(filter.chapterId);
     }
+    if (snapshot.completedByChapter.get(filter.chapterId)) {
+      studentsCompletedChapter += 1;
+    }
   }
+
+  // For chapter-level drill, completedChapters = students who completed (useful metric).
+  // For all other levels, completedChapters = distinct chapters with at least one completion.
+  const completedChapters = filter && "chapterId" in filter
+    ? studentsCompletedChapter
+    : completedChapterIds.size;
 
   return {
     students: snapshots.length,
     activeStudents,
     completedChapters,
     completionRate: toPercentage(completionNumerator, completionDenominator),
-    avgWatchPercentage: progressCount ? Math.round(watchSum / progressCount) : 0,
+    avgWatchPercentage: studentsWithProgress ? Math.round(studentWatchSum / studentsWithProgress) : 0,
     trackedChapters: trackedChapterIds.size,
   };
 }
@@ -818,7 +899,7 @@ function buildStudentRows(
         id: snapshot.id,
         name: snapshot.name,
         centreName: snapshot.centreId ? centresById.get(snapshot.centreId)?.name ?? null : null,
-        classLabel: snapshot.classNum ? `Class ${snapshot.classNum}` : null,
+        classLabel: snapshot.classNum != null ? (snapshot.classNum === 0 ? "KG" : `Class ${snapshot.classNum}`) : null,
         board: snapshot.board,
         medium: snapshot.medium,
         completedChapters: metrics.completedChapters,
@@ -861,11 +942,13 @@ function buildChapterViews(
       .map<[string, AnalyticsChapterView]>((chapter) => {
         const chapterSnapshots = snapshots.filter((snapshot) => (snapshot.chapterTotals.get(chapter.id) ?? 0) > 0);
         const students = buildStudentRows(chapterSnapshots, centresById, { chapterId: chapter.id });
-        const inactiveStudents = buildStudentRows(
+        const allInactiveStudents = buildStudentRows(
           chapterSnapshots.filter((snapshot) => !getScopedMetrics(snapshot, { chapterId: chapter.id }).active),
           centresById,
           { chapterId: chapter.id }
-        ).slice(0, 8);
+        );
+        const totalInactiveStudents = allInactiveStudents.length;
+        const inactiveStudents = allInactiveStudents.slice(0, 8);
         const lessons = videosByChapter.get(chapter.id) ?? [];
 
         const studentDetails = students.map<AnalyticsStudentDetail>((student) => {
@@ -923,6 +1006,7 @@ function buildChapterViews(
             lessonCount: lessons.length,
             students,
             inactiveStudents,
+            totalInactiveStudents,
             studentDetails,
           },
         ];
@@ -964,12 +1048,14 @@ function buildTimeline(
     });
   }
 
+  // First pass: build full chapter completion state from ALL progress rows (not windowed)
+  // so that chapters started before the window and completed within it are counted.
   const chapterCompletionCandidates = new Map<
     string,
     {
       totalVideos: number;
       completedVideos: number;
-      completedAt: string | null;
+      lastCompletedAt: string | null;
       subjectId: string;
       chapterId: string;
     }
@@ -977,47 +1063,50 @@ function buildTimeline(
 
   for (const row of progressRows) {
     if (!allowedStudentIds.has(row.user_id)) continue;
-    if (!row.last_watched_at || row.last_watched_at < startIso) continue;
 
     const chapter = chapterByVideoId.get(row.video_id);
     if (!chapter) continue;
-
     if (filter && "subjectId" in filter && chapter.subjectId !== filter.subjectId) continue;
     if (filter && "chapterId" in filter && chapter.id !== filter.chapterId) continue;
 
-    const dateKey = row.last_watched_at.slice(0, 10);
-    const point = points.get(dateKey);
-    if (!point) continue;
+    // Timeline points: only within the window
+    if (row.last_watched_at && row.last_watched_at >= startIso) {
+      const dateKey = row.last_watched_at.slice(0, 10);
+      const point = points.get(dateKey);
+      if (point) {
+        point.activeStudents.add(row.user_id);
+        point.watchSessions += 1;
+      }
+    }
 
-    point.activeStudents.add(row.user_id);
-    point.watchSessions += 1;
+    // Chapter completion: track ALL completed videos regardless of window
     if (!row.completed) continue;
 
     const completionKey = `${row.user_id}:${chapter.id}`;
     const existing = chapterCompletionCandidates.get(completionKey) ?? {
       totalVideos: chapter.videoCount,
       completedVideos: 0,
-      completedAt: null,
+      lastCompletedAt: null,
       subjectId: chapter.subjectId,
       chapterId: chapter.id,
     };
 
     existing.completedVideos += 1;
-    if (!existing.completedAt || existing.completedAt < row.last_watched_at) {
-      existing.completedAt = row.last_watched_at;
+    if (row.last_watched_at && (!existing.lastCompletedAt || existing.lastCompletedAt < row.last_watched_at)) {
+      existing.lastCompletedAt = row.last_watched_at;
     }
     chapterCompletionCandidates.set(completionKey, existing);
   }
 
+  // Attribute completed chapters to the day of the last completed video (if within window)
   for (const candidate of Array.from(chapterCompletionCandidates.values())) {
-    if (candidate.totalVideos === 0 || candidate.completedVideos < candidate.totalVideos || !candidate.completedAt) {
+    if (candidate.totalVideos === 0 || candidate.completedVideos < candidate.totalVideos || !candidate.lastCompletedAt) {
       continue;
     }
+    // Only attribute to timeline if the completion date is within the window
+    if (candidate.lastCompletedAt < startIso) continue;
 
-    if (filter && "subjectId" in filter && candidate.subjectId !== filter.subjectId) continue;
-    if (filter && "chapterId" in filter && candidate.chapterId !== filter.chapterId) continue;
-
-    const point = points.get(candidate.completedAt.slice(0, 10));
+    const point = points.get(candidate.lastCompletedAt.slice(0, 10));
     if (!point) continue;
     point.completedChapters += 1;
   }
@@ -1162,10 +1251,10 @@ function buildDatasetRows(
           label: centre.name,
           subtitle: centre.location ? `${centre.location} · ${classCount} classes` : `${classCount} classes`,
           students: totalStudents,
-          activeStudents: 0,
-          completedChapters: 0,
+          activeStudents: stats?.activeStudents ?? 0,
+          completedChapters: stats?.uniqueChapters ?? 0,
           completionRate: 0,
-          avgWatchPercentage: 0,
+          avgWatchPercentage: stats?.avgQuizScore ?? 0,
           trackedChapters: 0,
           lastActivityAt: stats?.lastSyncAt ?? null,
           isOffline: true,
@@ -1274,7 +1363,7 @@ function buildDatasetRows(
       rows.push({
         id: subject.id,
         label: subject.name,
-        subtitle: `${subject.chapterCount} chapters`,
+        subtitle: `${summary.trackedChapters} chapter${summary.trackedChapters === 1 ? "" : "s"}`,
         students: summary.students,
         activeStudents: summary.activeStudents,
         completedChapters: summary.completedChapters,
@@ -1362,18 +1451,20 @@ async function buildAnalyticsDataset(viewer: AnalyticsViewer, request: Analytics
     if (centre?.mode === "offline") {
       const counts = (centre.offline_student_counts as Record<string, number> | null) ?? {};
       const totalStudents = Object.values(counts).reduce((sum, c) => sum + c, 0);
-      const offlineStatsMap = await fetchOfflineCentreStats(supabase, [normalized.centreId]);
+      const offlineStatsMap = await fetchOfflineCentreStats(supabase, [normalized.centreId], centresById);
       const stats = offlineStatsMap.get(normalized.centreId);
       const rows = buildDatasetRows(level, [], organizations, centres, normalized, organizationsById, new Map());
       const copy = getDatasetText(level, viewer, normalized, organizationsById, centresById, new Map());
 
-      // Build timeline from daily offline stats
+      // Build timeline from daily offline stats using proper fields
       const timeline: AnalyticsTimelinePoint[] = (stats?.dailyStats ?? []).map((day) => ({
         date: day.date,
         label: new Date(day.date).toLocaleDateString("en-IN", { day: "numeric", month: "short" }),
         activeStudents: 0,
-        watchSessions: day.videoPlays,
-        completedChapters: day.quizAttempts,
+        watchSessions: 0,
+        completedChapters: 0,
+        videoPlays: day.videoPlays,
+        quizAttempts: day.quizAttempts,
       }));
 
       perf.mark("offline-shortpath");
@@ -1384,10 +1475,10 @@ async function buildAnalyticsDataset(viewer: AnalyticsViewer, request: Analytics
         subtitle: copy.subtitle,
         summary: {
           students: totalStudents,
-          activeStudents: 0,
-          completedChapters: 0,
+          activeStudents: stats?.activeStudents ?? 0,
+          completedChapters: stats?.uniqueChapters ?? 0,
           completionRate: 0,
-          avgWatchPercentage: 0,
+          avgWatchPercentage: stats?.avgQuizScore ?? 0,
           trackedChapters: 0,
           videoPlays: stats?.totalVideoPlays ?? 0,
           quizAttempts: stats?.totalQuizAttempts ?? 0,
@@ -1397,6 +1488,7 @@ async function buildAnalyticsDataset(viewer: AnalyticsViewer, request: Analytics
         rows,
         timeline,
         inactiveStudents: [],
+        totalInactiveStudents: 0,
         emptyMessage: copy.emptyMessage,
       };
     }
@@ -1502,6 +1594,11 @@ async function buildAnalyticsDataset(viewer: AnalyticsViewer, request: Analytics
       chapterTotals: new Map(accessible.chapterTotals),
       subjectMeta: new Map(accessible.subjectMeta),
       chaptersBySubject: new Map(accessible.chaptersBySubject),
+      videoCountByChapter: new Map(
+        Array.from(accessible.chaptersBySubject.values())
+          .flat()
+          .map((c) => [c.id, c.videoCount] as const)
+      ),
       active7d: false,
       activeSubjectIds: new Set<string>(),
       activeChapterIds: new Set<string>(),
@@ -1632,18 +1729,22 @@ async function buildAnalyticsDataset(viewer: AnalyticsViewer, request: Analytics
     }
   }
   const offlineStatsMap = offlineCentreIds.length > 0
-    ? await fetchOfflineCentreStats(supabase, offlineCentreIds)
+    ? await fetchOfflineCentreStats(supabase, offlineCentreIds, centresById)
     : new Map<string, OfflineCentreStats>();
 
   // Aggregate offline stats across all centres for the summary
   let totalOfflineVideoPlays = 0;
   let totalOfflineQuizAttempts = 0;
+  let totalOfflineActiveStudents = 0;
+  let totalOfflineUniqueChapters = 0;
   let offlineQuizScoreSum = 0;
   let offlineQuizScoreCount = 0;
   let latestOfflineSync: string | null = null;
   for (const stats of Array.from(offlineStatsMap.values())) {
     totalOfflineVideoPlays += stats.totalVideoPlays;
     totalOfflineQuizAttempts += stats.totalQuizAttempts;
+    totalOfflineActiveStudents += stats.activeStudents;
+    totalOfflineUniqueChapters += stats.uniqueChapters;
     if (stats.avgQuizScore != null) {
       offlineQuizScoreSum += stats.avgQuizScore * stats.totalQuizAttempts;
       offlineQuizScoreCount += stats.totalQuizAttempts;
@@ -1656,6 +1757,8 @@ async function buildAnalyticsDataset(viewer: AnalyticsViewer, request: Analytics
   const summary: AnalyticsSummary = {
     ...baseSummary,
     students: baseSummary.students + offlineStudentTotal,
+    activeStudents: baseSummary.activeStudents + totalOfflineActiveStudents,
+    completedChapters: baseSummary.completedChapters + totalOfflineUniqueChapters,
     ...(offlineCentreIds.length > 0 && {
       videoPlays: totalOfflineVideoPlays,
       quizAttempts: totalOfflineQuizAttempts,
@@ -1674,11 +1777,13 @@ async function buildAnalyticsDataset(viewer: AnalyticsViewer, request: Analytics
     offlineStatsMap
   );
   const timeline = buildTimeline(progressRows, allowedStudentIds, chapterByVideoId, datasetFilter);
-  const inactiveStudents = buildStudentRows(
+  const allInactiveStudents = buildStudentRows(
     snapshotList.filter((snapshot) => !getScopedMetrics(snapshot, datasetFilter).active),
     centresById,
     datasetFilter
-  ).slice(0, 8);
+  );
+  const totalInactiveStudents = allInactiveStudents.length;
+  const inactiveStudents = allInactiveStudents.slice(0, 8);
 
   const copy = getDatasetText(level, viewer, normalized, organizationsById, centresById, subjectMetaById);
   const chapterViews =
@@ -1701,6 +1806,7 @@ async function buildAnalyticsDataset(viewer: AnalyticsViewer, request: Analytics
     rows,
     timeline,
     inactiveStudents,
+    totalInactiveStudents,
     students: level === "chapters" ? buildStudentRows(snapshotList, centresById, datasetFilter) : undefined,
     chapterViews,
     emptyMessage: copy.emptyMessage,

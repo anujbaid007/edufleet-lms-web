@@ -62,6 +62,8 @@ export type AnalyticsTimelinePoint = {
   activeStudents: number;
   watchSessions: number;
   completedChapters: number;
+  videoPlays?: number;
+  quizAttempts?: number;
 };
 
 export type AnalyticsStudentRow = {
@@ -112,6 +114,7 @@ export type AnalyticsChapterView = {
   lessonCount: number;
   students: AnalyticsStudentRow[];
   inactiveStudents: AnalyticsStudentRow[];
+  totalInactiveStudents: number;
   studentDetails: AnalyticsStudentDetail[];
 };
 
@@ -123,6 +126,7 @@ export type AnalyticsDataset = {
   rows: AnalyticsRow[];
   timeline: AnalyticsTimelinePoint[];
   inactiveStudents: AnalyticsStudentRow[];
+  totalInactiveStudents: number;
   students?: AnalyticsStudentRow[];
   chapterViews?: Record<string, AnalyticsChapterView>;
   emptyMessage: string;
