@@ -19,6 +19,7 @@ import {
   Menu,
   X,
   MoreHorizontal,
+  MessageSquareText,
 } from "lucide-react";
 import { useState } from "react";
 import { logout } from "@/lib/actions/auth";
@@ -36,6 +37,7 @@ const platformAdminLinks = [
   { href: "/admin/library", label: "Content Library", icon: Library },
   { href: "/admin/access", label: "Content Access", icon: Shield },
   { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/admin/contacts", label: "Contact Messages", icon: MessageSquareText },
 ];
 
 const orgAdminLinks = [
