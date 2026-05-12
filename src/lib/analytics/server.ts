@@ -384,6 +384,7 @@ async function fetchCentres(supabase: Supabase, request: AnalyticsRequest) {
 
     if (request.orgId) query = query.eq("org_id", request.orgId);
     if (request.centreId) query = query.eq("id", request.centreId);
+    if (request.centreMode) query = query.eq("mode", request.centreMode);
 
     return query;
   });
@@ -515,6 +516,93 @@ async function fetchVideoCountsByChapter(supabase: Supabase) {
     })),
     error: null,
   };
+}
+
+type OfflineCentreStatsRow = {
+  centre_id: string;
+  date: string;
+  video_id: string | null;
+  play_count: number;
+  quiz_id: string | null;
+  quiz_attempt_count: number;
+  quiz_avg_score: number | null;
+  synced_at: string;
+};
+
+type OfflineCentreStats = {
+  totalVideoPlays: number;
+  totalQuizAttempts: number;
+  avgQuizScore: number | null;
+  lastSyncAt: string | null;
+  dailyStats: { date: string; videoPlays: number; quizAttempts: number }[];
+};
+
+async function fetchOfflineCentreStats(
+  supabase: Supabase,
+  centreIds: string[]
+): Promise<Map<string, OfflineCentreStats>> {
+  const result = new Map<string, OfflineCentreStats>();
+  if (centreIds.length === 0) return result;
+
+  const rows = await fetchAllPages<OfflineCentreStatsRow>(async (from, to) => {
+    return supabase
+      .from("offline_centre_analytics")
+      .select("centre_id, date, video_id, play_count, quiz_id, quiz_attempt_count, quiz_avg_score, synced_at")
+      .in("centre_id", centreIds)
+      .order("date", { ascending: false })
+      .range(from, to);
+  });
+
+  // Group rows by centre
+  const byCentre = new Map<string, OfflineCentreStatsRow[]>();
+  for (const row of rows) {
+    const list = byCentre.get(row.centre_id) ?? [];
+    list.push(row);
+    byCentre.set(row.centre_id, list);
+  }
+
+  for (const [centreId, centreRows] of Array.from(byCentre.entries())) {
+    let totalVideoPlays = 0;
+    let totalQuizAttempts = 0;
+    let quizScoreSum = 0;
+    let quizScoreCount = 0;
+    let lastSyncAt: string | null = null;
+
+    const dailyMap = new Map<string, { videoPlays: number; quizAttempts: number }>();
+
+    for (const row of centreRows) {
+      if (row.video_id) {
+        totalVideoPlays += row.play_count;
+      }
+      if (row.quiz_id) {
+        totalQuizAttempts += row.quiz_attempt_count;
+        if (row.quiz_avg_score != null) {
+          quizScoreSum += row.quiz_avg_score * row.quiz_attempt_count;
+          quizScoreCount += row.quiz_attempt_count;
+        }
+      }
+      if (!lastSyncAt || row.synced_at > lastSyncAt) {
+        lastSyncAt = row.synced_at;
+      }
+
+      const day = dailyMap.get(row.date) ?? { videoPlays: 0, quizAttempts: 0 };
+      if (row.video_id) day.videoPlays += row.play_count;
+      if (row.quiz_id) day.quizAttempts += row.quiz_attempt_count;
+      dailyMap.set(row.date, day);
+    }
+
+    result.set(centreId, {
+      totalVideoPlays,
+      totalQuizAttempts,
+      avgQuizScore: quizScoreCount > 0 ? Math.round(quizScoreSum / quizScoreCount) : null,
+      lastSyncAt,
+      dailyStats: Array.from(dailyMap.entries())
+        .map(([date, stats]) => ({ date, ...stats }))
+        .sort((a, b) => a.date.localeCompare(b.date)),
+    });
+  }
+
+  return result;
 }
 
 function buildAccessibleContentFactory(
@@ -961,6 +1049,20 @@ function getDatasetText(
 
   if (level === "centres") {
     const orgName = request.orgId ? organizationsById.get(request.orgId)?.name ?? viewer.orgName : viewer.orgName;
+    if (request.centreMode === "online") {
+      return {
+        title: orgName ? `${orgName} Online Centres` : "Online Centres",
+        subtitle: "Centres with individual student accounts and full engagement tracking.",
+        emptyMessage: "No online centres are available in this scope yet.",
+      };
+    }
+    if (request.centreMode === "offline") {
+      return {
+        title: orgName ? `${orgName} Offline Centres` : "Offline Centres",
+        subtitle: "Pen drive based centres with class-wise student headcounts.",
+        emptyMessage: "No offline centres are available in this scope yet.",
+      };
+    }
     return {
       title: orgName ? `${orgName} Analytics` : "Centre Analytics",
       subtitle: "Track centre performance, compare engagement, and drill into class-wise outcomes.",
@@ -1008,7 +1110,8 @@ function buildDatasetRows(
   centres: CentreRow[],
   request: AnalyticsRequest,
   organizationsById: Map<string, OrganizationRow>,
-  subjectMetaById: Map<string, SubjectMeta>
+  subjectMetaById: Map<string, SubjectMeta>,
+  offlineStatsMap?: Map<string, OfflineCentreStats>
 ) {
   if (level === "organizations") {
     const centreCountByOrg = new Map<string, number>();
@@ -1053,6 +1156,7 @@ function buildDatasetRows(
         const counts = (centre.offline_student_counts as Record<string, number> | null) ?? {};
         const totalStudents = Object.values(counts).reduce((sum, c) => sum + c, 0);
         const classCount = Object.keys(counts).length;
+        const stats = offlineStatsMap?.get(centre.id);
         return {
           id: centre.id,
           label: centre.name,
@@ -1063,8 +1167,11 @@ function buildDatasetRows(
           completionRate: 0,
           avgWatchPercentage: 0,
           trackedChapters: 0,
-          lastActivityAt: null,
+          lastActivityAt: stats?.lastSyncAt ?? null,
           isOffline: true,
+          videoPlays: stats?.totalVideoPlays ?? 0,
+          quizAttempts: stats?.totalQuizAttempts ?? 0,
+          avgQuizScore: stats?.avgQuizScore ?? null,
         };
       }
 
@@ -1229,11 +1336,18 @@ async function buildAnalyticsDataset(viewer: AnalyticsViewer, request: Analytics
     level,
   });
 
-  const [organizations, centres, students] = await Promise.all([
+  const [organizations, centres, allStudents] = await Promise.all([
     fetchOrganizations(supabase, normalized),
     fetchCentres(supabase, normalized),
     fetchStudents(supabase, normalized),
   ]);
+  // When filtering by centreMode, only keep students from matching centres
+  const students = normalized.centreMode
+    ? (() => {
+        const centreIds = new Set(centres.map((c) => c.id));
+        return allStudents.filter((s) => s.centre_id && centreIds.has(s.centre_id));
+      })()
+    : allStudents;
   perf.record("organizationCount", organizations.length);
   perf.record("centreCount", centres.length);
   perf.record("studentCount", students.length);
@@ -1242,14 +1356,26 @@ async function buildAnalyticsDataset(viewer: AnalyticsViewer, request: Analytics
   const organizationsById = new Map(organizations.map((row) => [row.id, row]));
   const centresById = new Map(centres.map((row) => [row.id, row]));
 
-  // Fast path for offline centre drill-down: no student profiles exist, just headcounts
+  // Fast path for offline centre drill-down: no student profiles exist, just headcounts + synced analytics
   if (level === "classes" && normalized.centreId) {
     const centre = centresById.get(normalized.centreId);
     if (centre?.mode === "offline") {
       const counts = (centre.offline_student_counts as Record<string, number> | null) ?? {};
       const totalStudents = Object.values(counts).reduce((sum, c) => sum + c, 0);
+      const offlineStatsMap = await fetchOfflineCentreStats(supabase, [normalized.centreId]);
+      const stats = offlineStatsMap.get(normalized.centreId);
       const rows = buildDatasetRows(level, [], organizations, centres, normalized, organizationsById, new Map());
       const copy = getDatasetText(level, viewer, normalized, organizationsById, centresById, new Map());
+
+      // Build timeline from daily offline stats
+      const timeline: AnalyticsTimelinePoint[] = (stats?.dailyStats ?? []).map((day) => ({
+        date: day.date,
+        label: new Date(day.date).toLocaleDateString("en-IN", { day: "numeric", month: "short" }),
+        activeStudents: 0,
+        watchSessions: day.videoPlays,
+        completedChapters: day.quizAttempts,
+      }));
+
       perf.mark("offline-shortpath");
       perf.flush();
       return {
@@ -1263,9 +1389,13 @@ async function buildAnalyticsDataset(viewer: AnalyticsViewer, request: Analytics
           completionRate: 0,
           avgWatchPercentage: 0,
           trackedChapters: 0,
+          videoPlays: stats?.totalVideoPlays ?? 0,
+          quizAttempts: stats?.totalQuizAttempts ?? 0,
+          avgQuizScore: stats?.avgQuizScore ?? null,
+          lastSyncAt: stats?.lastSyncAt ?? null,
         },
         rows,
-        timeline: [],
+        timeline,
         inactiveStudents: [],
         emptyMessage: copy.emptyMessage,
       };
@@ -1487,17 +1617,52 @@ async function buildAnalyticsDataset(viewer: AnalyticsViewer, request: Analytics
     videosByChapter.set(video.chapter_id, list);
   }
   const baseSummary = buildSummary(snapshotList, datasetFilter);
-  // Add offline centre headcounts to the summary student total
+  // Add offline centre headcounts and offline analytics to the summary
   let offlineStudentTotal = 0;
+  const offlineCentreIds: string[] = [];
   if (level === "organizations" || level === "centres") {
     for (const centre of centres) {
-      if (centre.mode === "offline" && centre.offline_student_counts) {
-        const counts = centre.offline_student_counts as Record<string, number>;
-        offlineStudentTotal += Object.values(counts).reduce((sum, c) => sum + c, 0);
+      if (centre.mode === "offline") {
+        if (centre.offline_student_counts) {
+          const counts = centre.offline_student_counts as Record<string, number>;
+          offlineStudentTotal += Object.values(counts).reduce((sum, c) => sum + c, 0);
+        }
+        offlineCentreIds.push(centre.id);
       }
     }
   }
-  const summary = { ...baseSummary, students: baseSummary.students + offlineStudentTotal };
+  const offlineStatsMap = offlineCentreIds.length > 0
+    ? await fetchOfflineCentreStats(supabase, offlineCentreIds)
+    : new Map<string, OfflineCentreStats>();
+
+  // Aggregate offline stats across all centres for the summary
+  let totalOfflineVideoPlays = 0;
+  let totalOfflineQuizAttempts = 0;
+  let offlineQuizScoreSum = 0;
+  let offlineQuizScoreCount = 0;
+  let latestOfflineSync: string | null = null;
+  for (const stats of Array.from(offlineStatsMap.values())) {
+    totalOfflineVideoPlays += stats.totalVideoPlays;
+    totalOfflineQuizAttempts += stats.totalQuizAttempts;
+    if (stats.avgQuizScore != null) {
+      offlineQuizScoreSum += stats.avgQuizScore * stats.totalQuizAttempts;
+      offlineQuizScoreCount += stats.totalQuizAttempts;
+    }
+    if (stats.lastSyncAt && (!latestOfflineSync || stats.lastSyncAt > latestOfflineSync)) {
+      latestOfflineSync = stats.lastSyncAt;
+    }
+  }
+
+  const summary: AnalyticsSummary = {
+    ...baseSummary,
+    students: baseSummary.students + offlineStudentTotal,
+    ...(offlineCentreIds.length > 0 && {
+      videoPlays: totalOfflineVideoPlays,
+      quizAttempts: totalOfflineQuizAttempts,
+      avgQuizScore: offlineQuizScoreCount > 0 ? Math.round(offlineQuizScoreSum / offlineQuizScoreCount) : null,
+      lastSyncAt: latestOfflineSync,
+    }),
+  };
   const rows = buildDatasetRows(
     level,
     snapshotList,
@@ -1505,7 +1670,8 @@ async function buildAnalyticsDataset(viewer: AnalyticsViewer, request: Analytics
     centres,
     normalized,
     organizationsById,
-    subjectMetaById
+    subjectMetaById,
+    offlineStatsMap
   );
   const timeline = buildTimeline(progressRows, allowedStudentIds, chapterByVideoId, datasetFilter);
   const inactiveStudents = buildStudentRows(

@@ -255,6 +255,8 @@ function TrendChart({ dataset }: { dataset: AnalyticsDataset }) {
     return <p className="text-sm text-muted">No trend data yet.</p>;
   }
 
+  const isOffline = dataset.level === "classes" && dataset.rows.length > 0 && dataset.rows.every((r) => r.isOffline);
+
   return (
     <ResponsiveContainer width="100%" height={280}>
       <AreaChart data={dataset.timeline} margin={{ top: 8, right: 8, bottom: 8, left: 0 }}>
@@ -264,8 +266,8 @@ function TrendChart({ dataset }: { dataset: AnalyticsDataset }) {
             <stop offset="95%" stopColor="#E8871E" stopOpacity={0.04} />
           </linearGradient>
           <linearGradient id="activeStudentsFill" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="5%" stopColor="#2A9D8F" stopOpacity={0.25} />
-            <stop offset="95%" stopColor="#2A9D8F" stopOpacity={0.03} />
+            <stop offset="5%" stopColor={isOffline ? "#7c3aed" : "#2A9D8F"} stopOpacity={0.25} />
+            <stop offset="95%" stopColor={isOffline ? "#7c3aed" : "#2A9D8F"} stopOpacity={0.03} />
           </linearGradient>
         </defs>
         <CartesianGrid strokeDasharray="3 3" stroke="#eadbc8" />
@@ -286,17 +288,29 @@ function TrendChart({ dataset }: { dataset: AnalyticsDataset }) {
           fill="url(#watchSessionsFill)"
           strokeWidth={3}
           dot={false}
-          name="Watch sessions"
+          name={isOffline ? "Video plays" : "Watch sessions"}
         />
-        <Area
-          type="monotone"
-          dataKey="activeStudents"
-          stroke="#2A9D8F"
-          fill="url(#activeStudentsFill)"
-          strokeWidth={3}
-          dot={false}
-          name="Active students"
-        />
+        {isOffline ? (
+          <Area
+            type="monotone"
+            dataKey="completedChapters"
+            stroke="#7c3aed"
+            fill="url(#activeStudentsFill)"
+            strokeWidth={3}
+            dot={false}
+            name="Quiz attempts"
+          />
+        ) : (
+          <Area
+            type="monotone"
+            dataKey="activeStudents"
+            stroke="#2A9D8F"
+            fill="url(#activeStudentsFill)"
+            strokeWidth={3}
+            dot={false}
+            name="Active students"
+          />
+        )}
       </AreaChart>
     </ResponsiveContainer>
   );
@@ -308,8 +322,9 @@ function SummaryCards({ dataset }: { dataset: AnalyticsDataset }) {
 
   if (isOfflineCentreView) {
     const classCount = dataset.rows.length;
+    const hasAnalytics = (summary.videoPlays ?? 0) > 0 || (summary.quizAttempts ?? 0) > 0;
     return (
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div className={`grid grid-cols-1 gap-4 ${hasAnalytics ? "md:grid-cols-5" : "md:grid-cols-3"}`}>
         <ClayCard hover={false} className="relative !p-5">
           <div className="flex items-center gap-4">
             <div className="flex h-12 w-12 items-center justify-center rounded-clay-sm clay-surface shadow-clay-pill">
@@ -317,7 +332,7 @@ function SummaryCards({ dataset }: { dataset: AnalyticsDataset }) {
             </div>
             <div>
               <p className="text-2xl font-bold text-heading">{summary.students}</p>
-              <p className="text-xs text-muted">Total students (headcount)</p>
+              <p className="text-xs text-muted">Total students</p>
             </div>
           </div>
         </ClayCard>
@@ -334,17 +349,57 @@ function SummaryCards({ dataset }: { dataset: AnalyticsDataset }) {
           </div>
         </ClayCard>
 
-        <ClayCard hover={false} className="relative !p-5">
-          <div className="flex items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-clay-sm bg-amber-50 shadow-clay-pill">
-              <WifiOff className="h-6 w-6 text-amber-700" />
+        {hasAnalytics ? (
+          <>
+            <ClayCard hover={false} className="relative !p-5">
+              <div className="flex items-center gap-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-clay-sm bg-blue-50 shadow-clay-pill">
+                  <CirclePlay className="h-6 w-6 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-heading">{summary.videoPlays}</p>
+                  <p className="text-xs text-muted">Video plays</p>
+                </div>
+              </div>
+            </ClayCard>
+
+            <ClayCard hover={false} className="relative !p-5">
+              <div className="flex items-center gap-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-clay-sm bg-purple-50 shadow-clay-pill">
+                  <Target className="h-6 w-6 text-purple-600" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-heading">{summary.quizAttempts}</p>
+                  <p className="text-xs text-muted">Quiz attempts</p>
+                </div>
+              </div>
+            </ClayCard>
+
+            <ClayCard hover={false} className="relative !p-5">
+              <div className="flex items-center gap-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-clay-sm bg-green-50 shadow-clay-pill">
+                  <CheckCircle2 className="h-6 w-6 text-green-600" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-heading">{summary.avgQuizScore != null ? `${summary.avgQuizScore}%` : "—"}</p>
+                  <p className="text-xs text-muted">Avg quiz score</p>
+                </div>
+              </div>
+            </ClayCard>
+          </>
+        ) : (
+          <ClayCard hover={false} className="relative !p-5">
+            <div className="flex items-center gap-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-clay-sm bg-amber-50 shadow-clay-pill">
+                <WifiOff className="h-6 w-6 text-amber-700" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-heading">Pen drive delivery</p>
+                <p className="text-xs text-muted">Usage analytics will sync from Android TV app</p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm font-bold text-heading">Pen drive delivery</p>
-              <p className="text-xs text-muted">Usage analytics will sync from Android TV app</p>
-            </div>
-          </div>
-        </ClayCard>
+          </ClayCard>
+        )}
       </div>
     );
   }
@@ -527,29 +582,33 @@ function DrilldownRowCard({
       </div>
 
       {isOfflineClassRow ? (
-        <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3">
+        <div className="mt-4 grid grid-cols-2 gap-3">
           <div className="rounded-2xl bg-white/80 px-3 py-2 shadow-clay-pill">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Students</p>
             <p className="mt-1 text-base font-bold text-heading">{row.students}</p>
           </div>
-          <div className="col-span-1 md:col-span-2 rounded-2xl bg-amber-50/80 px-3 py-2 shadow-clay-pill">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-600">Usage analytics</p>
-            <p className="mt-1 text-sm text-amber-700">Awaiting first sync from Android TV app</p>
+          <div className="rounded-2xl bg-amber-50/80 px-3 py-2 shadow-clay-pill">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-600">Delivery</p>
+            <p className="mt-1 text-sm text-amber-700">Pen drive · Offline</p>
           </div>
         </div>
       ) : row.isOffline && dataset.level === "centres" ? (
-        <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3">
+        <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
           <div className="rounded-2xl bg-white/80 px-3 py-2 shadow-clay-pill">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Students</p>
             <p className="mt-1 text-base font-bold text-heading">{row.students}</p>
           </div>
           <div className="rounded-2xl bg-white/80 px-3 py-2 shadow-clay-pill">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Delivery</p>
-            <p className="mt-1 text-sm font-semibold text-heading">Pen drive</p>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Video plays</p>
+            <p className="mt-1 text-base font-bold text-heading">{row.videoPlays ?? 0}</p>
           </div>
-          <div className="rounded-2xl bg-amber-50/80 px-3 py-2 shadow-clay-pill">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-600">Usage</p>
-            <p className="mt-1 text-sm text-amber-700">Awaiting sync</p>
+          <div className="rounded-2xl bg-white/80 px-3 py-2 shadow-clay-pill">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Quiz attempts</p>
+            <p className="mt-1 text-base font-bold text-heading">{row.quizAttempts ?? 0}</p>
+          </div>
+          <div className="rounded-2xl bg-white/80 px-3 py-2 shadow-clay-pill">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Avg quiz score</p>
+            <p className="mt-1 text-base font-bold text-heading">{row.avgQuizScore != null ? `${row.avgQuizScore}%` : "—"}</p>
           </div>
         </div>
       ) : (
@@ -617,12 +676,14 @@ function DrilldownList({
   dataset,
   metric,
   onSelect,
+  onModeDrill,
   loadingRowId,
   selectedRowId,
 }: {
   dataset: AnalyticsDataset;
   metric: ComparisonMetric;
   onSelect: (row: AnalyticsRow) => void;
+  onModeDrill?: (mode: "online" | "offline") => void;
   loadingRowId: string | null;
   selectedRowId?: string | null;
 }) {
@@ -649,6 +710,16 @@ function DrilldownList({
       : 0;
 
     const offlineTotalStudents = offlineRows.reduce((sum, r) => sum + r.students, 0);
+    const offlineTotalVideoPlays = offlineRows.reduce((sum, r) => sum + (r.videoPlays ?? 0), 0);
+    const offlineTotalQuizAttempts = offlineRows.reduce((sum, r) => sum + (r.quizAttempts ?? 0), 0);
+    const offlineAvgQuizScore = (() => {
+      const withScores = offlineRows.filter((r) => r.avgQuizScore != null && (r.quizAttempts ?? 0) > 0);
+      if (withScores.length === 0) return null;
+      const weighted = withScores.reduce((sum, r) => sum + (r.avgQuizScore ?? 0) * (r.quizAttempts ?? 0), 0);
+      const totalAttempts = withScores.reduce((sum, r) => sum + (r.quizAttempts ?? 0), 0);
+      return totalAttempts > 0 ? Math.round(weighted / totalAttempts) : null;
+    })();
+    const hasOfflineAnalytics = offlineTotalVideoPlays > 0 || offlineTotalQuizAttempts > 0;
 
     return (
       <div className="space-y-6">
@@ -656,19 +727,30 @@ function DrilldownList({
         {hasOnline && hasOffline && (
           <ClayCard hover={false} className="!p-6">
             <h3 className="font-poppins text-lg font-bold text-heading mb-1">Online vs Offline Overview</h3>
-            <p className="text-sm text-muted mb-5">Side-by-side comparison of online and offline centre reach.</p>
+            <p className="text-sm text-muted mb-5">Click a card to drill into all centres of that type.</p>
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               {/* Online summary */}
-              <div className="rounded-2xl border border-green-200 bg-gradient-to-br from-green-50/80 to-white p-5">
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-100">
-                    <Wifi className="h-4 w-4 text-green-700" />
+              <button
+                type="button"
+                onClick={() => onModeDrill?.("online")}
+                className="rounded-2xl border border-green-200 bg-gradient-to-br from-green-50/80 to-white p-5 text-left transition hover:border-green-400 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-400/50"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-100">
+                      <Wifi className="h-4 w-4 text-green-700" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-heading">Online Centres</p>
+                      <p className="text-xs text-muted">{onlineRows.length} centre{onlineRows.length === 1 ? "" : "s"}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm font-bold text-heading">Online Centres</p>
-                    <p className="text-xs text-muted">{onlineRows.length} centre{onlineRows.length === 1 ? "" : "s"}</p>
-                  </div>
+                  {loadingRowId === "__mode_online" ? (
+                    <Loader2 className="h-4 w-4 animate-spin text-green-600" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4 text-green-600" />
+                  )}
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="rounded-xl bg-white/90 px-3 py-2 shadow-sm">
@@ -688,18 +770,29 @@ function DrilldownList({
                     <p className="text-xl font-bold text-heading">{onlineCompletedChapters}</p>
                   </div>
                 </div>
-              </div>
+              </button>
 
               {/* Offline summary */}
-              <div className="rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50/80 to-white p-5">
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-100">
-                    <WifiOff className="h-4 w-4 text-amber-700" />
+              <button
+                type="button"
+                onClick={() => onModeDrill?.("offline")}
+                className="rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50/80 to-white p-5 text-left transition hover:border-amber-400 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/50"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-100">
+                      <WifiOff className="h-4 w-4 text-amber-700" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-heading">Offline Centres</p>
+                      <p className="text-xs text-muted">{offlineRows.length} centre{offlineRows.length === 1 ? "" : "s"} · Pen drive delivery</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm font-bold text-heading">Offline Centres</p>
-                    <p className="text-xs text-muted">{offlineRows.length} centre{offlineRows.length === 1 ? "" : "s"} · Pen drive delivery</p>
-                  </div>
+                  {loadingRowId === "__mode_offline" ? (
+                    <Loader2 className="h-4 w-4 animate-spin text-amber-600" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4 text-amber-600" />
+                  )}
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="rounded-xl bg-white/90 px-3 py-2 shadow-sm">
@@ -707,19 +800,19 @@ function DrilldownList({
                     <p className="text-xl font-bold text-heading">{offlineTotalStudents}</p>
                   </div>
                   <div className="rounded-xl bg-white/90 px-3 py-2 shadow-sm">
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted">Active 7d</p>
-                    <p className="text-sm font-semibold text-amber-600 mt-1">Awaiting sync</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted">Video plays</p>
+                    <p className="text-xl font-bold text-heading">{hasOfflineAnalytics ? offlineTotalVideoPlays : <span className="text-sm font-semibold text-amber-600">—</span>}</p>
                   </div>
                   <div className="rounded-xl bg-white/90 px-3 py-2 shadow-sm">
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted">Completion</p>
-                    <p className="text-sm font-semibold text-amber-600 mt-1">Awaiting sync</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted">Quiz attempts</p>
+                    <p className="text-xl font-bold text-heading">{hasOfflineAnalytics ? offlineTotalQuizAttempts : <span className="text-sm font-semibold text-amber-600">—</span>}</p>
                   </div>
                   <div className="rounded-xl bg-white/90 px-3 py-2 shadow-sm">
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted">Chapters done</p>
-                    <p className="text-sm font-semibold text-amber-600 mt-1">Awaiting sync</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted">Avg quiz score</p>
+                    <p className="text-xl font-bold text-heading">{offlineAvgQuizScore != null ? `${offlineAvgQuizScore}%` : <span className="text-sm font-semibold text-amber-600">—</span>}</p>
                   </div>
                 </div>
-              </div>
+              </button>
             </div>
 
             {/* Student distribution bar */}
@@ -1360,6 +1453,42 @@ export function AnalyticsDashboard({
     setSelectedStudentId(null);
   }, [current.dataset.level, currentChapterView, selectedStudentId]);
 
+  const handleModeDrill = (mode: "online" | "offline") => {
+    const nextRequest: AnalyticsRequest = {
+      ...current.request,
+      centreMode: mode,
+      centreId: undefined,
+      classNum: undefined,
+      subjectId: undefined,
+    };
+    setLoadingRowId(`__mode_${mode}`);
+    setError(null);
+
+    startTransition(() => {
+      void getAnalyticsDatasetAction(nextRequest)
+        .then((dataset) => {
+          setHistory((previous) => [
+            ...previous,
+            {
+              label: mode === "online" ? "Online Centres" : "Offline Centres",
+              request: nextRequest,
+              dataset,
+            },
+          ]);
+          setLastUpdatedAt(new Date().toISOString());
+          setSelectedChapterId(null);
+          setSelectedStudentId(null);
+        })
+        .catch((caughtError) => {
+          const message = caughtError instanceof Error ? caughtError.message : "Failed to load analytics.";
+          setError(message);
+        })
+        .finally(() => {
+          setLoadingRowId(null);
+        });
+    });
+  };
+
   const handleDrill = (row: AnalyticsRow) => {
     if (current.dataset.level === "chapters") {
       setSelectedChapterId(row.id);
@@ -1462,8 +1591,16 @@ export function AnalyticsDashboard({
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.4fr_1fr]">
         <ClayCard hover={false} className="!p-6">
           <div className="mb-4">
-            <h3 className="font-poppins text-lg font-bold text-heading">Engagement trend</h3>
-            <p className="text-sm text-muted">Daily active students and watch sessions over the last 30 days.</p>
+            <h3 className="font-poppins text-lg font-bold text-heading">
+              {current.dataset.rows.every((r) => r.isOffline) && current.dataset.rows.length > 0
+                ? "Offline usage trend"
+                : "Engagement trend"}
+            </h3>
+            <p className="text-sm text-muted">
+              {current.dataset.rows.every((r) => r.isOffline) && current.dataset.rows.length > 0
+                ? "Daily video plays and quiz attempts synced from Android TV app."
+                : "Daily active students and watch sessions over the last 30 days."}
+            </p>
           </div>
           <TrendChart dataset={current.dataset} />
         </ClayCard>
@@ -1502,6 +1639,7 @@ export function AnalyticsDashboard({
         dataset={current.dataset}
         metric={comparisonMetric}
         onSelect={handleDrill}
+        onModeDrill={handleModeDrill}
         loadingRowId={loadingRowId}
         selectedRowId={current.dataset.level === "chapters" ? selectedChapterId : null}
       />

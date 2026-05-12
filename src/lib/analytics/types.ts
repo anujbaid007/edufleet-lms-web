@@ -11,6 +11,7 @@ export type AnalyticsLevel =
 export type AnalyticsRequest = {
   orgId?: string;
   centreId?: string;
+  centreMode?: "online" | "offline";
   classNum?: number;
   subjectId?: string;
 };
@@ -32,6 +33,10 @@ export type AnalyticsSummary = {
   completionRate: number;
   avgWatchPercentage: number;
   trackedChapters: number;
+  videoPlays?: number;
+  quizAttempts?: number;
+  avgQuizScore?: number | null;
+  lastSyncAt?: string | null;
 };
 
 export type AnalyticsRow = {
@@ -46,6 +51,9 @@ export type AnalyticsRow = {
   trackedChapters: number;
   lastActivityAt: string | null;
   isOffline?: boolean;
+  videoPlays?: number;
+  quizAttempts?: number;
+  avgQuizScore?: number | null;
 };
 
 export type AnalyticsTimelinePoint = {
