@@ -90,6 +90,39 @@ export type Database = {
           },
         ]
       }
+      contact_messages: {
+        Row: {
+          id: string
+          name: string
+          email: string
+          phone: string | null
+          organization: string | null
+          role: string | null
+          message: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          email: string
+          phone?: string | null
+          organization?: string | null
+          role?: string | null
+          message: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          email?: string
+          phone?: string | null
+          organization?: string | null
+          role?: string | null
+          message?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
       chapters: {
         Row: {
           board: string

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { Header } from "@/components/dashboard/header";
 import { ClayCard } from "@/components/ui/clay-card";
 
@@ -20,7 +21,8 @@ export default async function ContactMessagesPage() {
 
   if (!profile || profile.role !== "platform_admin") redirect("/admin");
 
-  const { data: messages, count } = await supabase
+  const adminClient = createAdminClient();
+  const { data: messages, count } = await adminClient
     .from("contact_messages")
     .select("*", { count: "exact" })
     .order("created_at", { ascending: false });
