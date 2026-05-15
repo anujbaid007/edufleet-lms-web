@@ -116,32 +116,59 @@ async function main() {
 
   // 2. Build manifest
   console.log("\n2/5  Building manifest...");
-  const { manifest, fileMappings } = buildManifest(chapters, videos, quizzes, questions, medium);
+  const { manifest, fileMappings, thumbnailMappings } = buildManifest(chapters, videos, quizzes, questions, medium);
   console.log(`     ${manifest.content.length} entries, drive_id: ${manifest.drive_id}`);
 
   // 3. Derive encryption key
   console.log("\n3/5  Deriving encryption key...");
   const key = deriveKey();
 
-  // 4. Download and encrypt videos
-  console.log(`\n4/5  Downloading and encrypting ${fileMappings.length} videos...`);
+  // 4. Download and encrypt videos (4 parallel, resume support)
   const outputDir = ensureOutputDir(output);
-  let downloaded = 0;
+  const { existsSync } = await import("fs");
+  const { join } = await import("path");
 
-  for (const mapping of fileMappings) {
-    downloaded++;
-    const progress = `[${downloaded}/${fileMappings.length}]`;
-    process.stdout.write(`     ${progress} ${mapping.s3Key}...`);
+  const remaining = fileMappings.filter((m) => !existsSync(join(outputDir, m.encryptedName)));
+  const skipped = fileMappings.length - remaining.length;
+  console.log(`\n4/5  Downloading and encrypting ${remaining.length} videos... (${skipped} already done)`);
 
-    try {
-      const videoData = await downloadFromS3(mapping.s3Key);
-      writeEncryptedVideo(videoData, mapping.encryptedName, key, outputDir);
-      console.log(` ${(videoData.length / 1024 / 1024).toFixed(1)} MB ✓`);
-    } catch (error) {
-      console.log(` FAILED`);
-      console.error(`     Error: ${error instanceof Error ? error.message : error}`);
-    }
+  let completed = skipped;
+  const PARALLEL = 4;
+
+  for (let i = 0; i < remaining.length; i += PARALLEL) {
+    const batch = remaining.slice(i, i + PARALLEL);
+    await Promise.all(batch.map(async (mapping) => {
+      completed++;
+      const progress = `[${completed}/${fileMappings.length}]`;
+      try {
+        const videoData = await downloadFromS3(mapping.s3Key);
+        writeEncryptedVideo(videoData, mapping.encryptedName, key, outputDir);
+        console.log(`     ${progress} ${mapping.s3Key} ${(videoData.length / 1024 / 1024).toFixed(1)} MB ✓`);
+      } catch (error) {
+        console.log(`     ${progress} ${mapping.s3Key} FAILED: ${error instanceof Error ? error.message : error}`);
+      }
+    }));
   }
+
+  // 4b. Download and encrypt thumbnails (using same manifest's thumbnail mappings)
+  const remainingThumbs = thumbnailMappings.filter((m) => !existsSync(join(outputDir, m.encryptedName)));
+  console.log(`\n4b/5 Downloading ${remainingThumbs.length} thumbnails...`);
+
+  let thumbDone = 0;
+  for (let i = 0; i < remainingThumbs.length; i += PARALLEL * 2) {
+    const batch = remainingThumbs.slice(i, i + PARALLEL * 2);
+    await Promise.all(batch.map(async (mapping) => {
+      thumbDone++;
+      try {
+        const data = await downloadFromS3(mapping.s3Key);
+        writeEncryptedVideo(data, mapping.encryptedName, key, outputDir);
+      } catch (_) {
+        // Thumbnail missing is not fatal — skip silently
+      }
+    }));
+    if (thumbDone % 50 === 0) console.log(`     ${thumbDone}/${remainingThumbs.length} thumbnails...`);
+  }
+  console.log(`     ${thumbDone} thumbnails done`);
 
   // 5. Write encrypted quizzes + manifest
   console.log("\n5/5  Writing quizzes and manifest...");
