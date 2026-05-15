@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "gen:types": "supabase gen types typescript --project-id pzmsyhohmsczevmihimr > src/lib/supabase/types.ts",
+    "pendrive:prepare": "tsx scripts/pendrive-prepare.ts",
     "import:mcq-quizzes": "tsx scripts/import-mcq-quizzes.ts",
     "generate:library-thumbnails": "tsx scripts/generate-library-thumbnails.ts",
     "package:hls": "tsx scripts/package-hls-video.ts",
