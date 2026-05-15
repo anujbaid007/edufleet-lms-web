@@ -12,7 +12,8 @@ ALTER TABLE public.profiles
 ADD COLUMN IF NOT EXISTS license_valid_until date;
 
 -- RPC function that resolves the effective licence expiry for a given user.
--- Returns { valid, expires_at, days_remaining }.
+-- Returns { valid, expires_at, days_remaining, content_key }.
+-- content_key (KEY_B) is fetched from Supabase Vault — only returned when valid.
 CREATE OR REPLACE FUNCTION public.validate_license(target_user_id uuid)
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -22,6 +23,7 @@ AS $$
 DECLARE
   v_profile  profiles%ROWTYPE;
   v_expiry   date;
+  v_key_b    text;
 BEGIN
   SELECT * INTO v_profile FROM profiles WHERE id = target_user_id;
 
@@ -44,12 +46,19 @@ BEGIN
 
   -- NULL = unlimited
   IF v_expiry IS NULL OR v_expiry >= current_date THEN
+    -- Fetch KEY_B from Vault
+    SELECT decrypted_secret INTO v_key_b
+      FROM vault.decrypted_secrets
+      WHERE name = 'content_key_b'
+      LIMIT 1;
+
     RETURN jsonb_build_object(
       'valid',          true,
       'expires_at',     v_expiry,
       'days_remaining', CASE WHEN v_expiry IS NULL THEN NULL
                              ELSE (v_expiry - current_date)
-                        END
+                        END,
+      'content_key',    v_key_b
     );
   END IF;
 
