@@ -404,7 +404,7 @@ async function fetchStudents(supabase: Supabase, request: AnalyticsRequest) {
     let query = supabase
       .from("profiles")
       .select("id, name, org_id, centre_id, class, board, medium, teacher_id, teacher_ids")
-      .eq("role", "student")
+      .in("role", ["student", "teacher"]) // Teachers generate progress for offline centres
       .eq("is_active", true)
       .order("name")
       .range(from, to);
