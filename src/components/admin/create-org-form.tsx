@@ -60,6 +60,15 @@ export function CreateOrgForm() {
             <option value="ngo">NGO</option>
           </select>
         </div>
+        <div className="w-44">
+          <label className="block text-sm font-semibold text-heading font-poppins mb-2">Licence Until</label>
+          <input
+            type="date"
+            name="license_valid_until"
+            className="clay-input w-full"
+          />
+          <p className="text-[11px] text-muted mt-1">Empty = no expiry</p>
+        </div>
         {error && <p className="w-full text-sm text-red-500">{error}</p>}
         <ClayButton type="submit" loading={loading} size="sm">Create</ClayButton>
       </form>

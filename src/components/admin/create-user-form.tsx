@@ -124,11 +124,20 @@ export function CreateUserForm({
         </button>
       </div>
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <ClayInput id="user-name" name="name" label="Full Name" placeholder="Student/teacher name" required />
           <ClayInput id="user-email" name="email" type="email" label="Email (Login ID)" placeholder="user@example.com" required />
           <ClayInput id="user-phone" name="phone" label="Phone" placeholder="Phone number" />
           <ClayInput id="user-password" name="password" type="text" label="Password" placeholder="Initial password" required />
+          <div>
+            <label className="block text-sm font-semibold text-heading font-poppins mb-2">Licence Until</label>
+            <input
+              type="date"
+              name="license_valid_until"
+              className="clay-input w-full"
+            />
+            <p className="text-[11px] text-muted mt-1">Empty = inherit</p>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

@@ -8,6 +8,14 @@ import { Building2, MapPin, Wifi, WifiOff } from "lucide-react";
 
 export const metadata = { title: "Centres" };
 
+function LicenceBadge({ date }: { date: string | null }) {
+  if (!date) return null;
+  const days = Math.ceil((new Date(date).getTime() - Date.now()) / 86_400_000);
+  if (days < 0) return <span className="px-2 py-0.5 text-[11px] bg-red-100 text-red-600 rounded-full font-medium">Expired</span>;
+  if (days <= 30) return <span className="px-2 py-0.5 text-[11px] bg-amber-100 text-amber-700 rounded-full font-medium">Expires {date}</span>;
+  return <span className="px-2 py-0.5 text-[11px] bg-emerald-100 text-emerald-700 rounded-full font-medium">Until {date}</span>;
+}
+
 export default async function CentresPage() {
   const supabase = await createClient();
   const { data: { session } } = await supabase.auth.getSession();
@@ -25,7 +33,7 @@ export default async function CentresPage() {
 
   const [{ data: orgs }, { data: centres }, { data: users }] = await Promise.all([
     supabase.from("organizations").select("id, name").eq("is_active", true).order("name"),
-    supabase.from("centres").select("id, name, location, is_active, org_id, mode, offline_student_counts, organizations(name)").order("name"),
+    supabase.from("centres").select("id, name, location, is_active, org_id, mode, offline_student_counts, license_valid_until, organizations(name, license_valid_until)").order("name"),
     supabase.from("profiles").select("id, centre_id").eq("is_active", true),
   ]);
 
@@ -35,11 +43,15 @@ export default async function CentresPage() {
     userCountByCentre.set(user.centre_id, (userCountByCentre.get(user.centre_id) ?? 0) + 1);
   }
 
-  const centreStats = (centres ?? []).map((centre) => ({
-    ...centre,
-    orgName: (centre.organizations as unknown as { name: string } | null)?.name ?? "—",
-    userCount: userCountByCentre.get(centre.id) ?? 0,
-  }));
+  const centreStats = (centres ?? []).map((centre) => {
+    const org = centre.organizations as unknown as { name: string; license_valid_until: string | null } | null;
+    return {
+      ...centre,
+      orgName: org?.name ?? "—",
+      effectiveLicence: centre.license_valid_until ?? org?.license_valid_until ?? null,
+      userCount: userCountByCentre.get(centre.id) ?? 0,
+    };
+  });
 
   const centresByOrg = new Map<
     string,
@@ -106,6 +118,7 @@ export default async function CentresPage() {
                               {!centre.is_active && (
                                 <span className="px-2 py-0.5 text-xs bg-red-100 text-red-600 rounded-full font-medium">Inactive</span>
                               )}
+                              <LicenceBadge date={centre.effectiveLicence} />
                             </div>
                             <p className="text-xs text-muted mt-0.5">
                               {centre.location || "No location"}

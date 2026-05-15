@@ -31,6 +31,17 @@ export async function login(formData: FormData) {
 
   if (!profile) return { error: "Profile not found. Contact your administrator." };
 
+  // Check licence validity (cascades: profile → centre → org)
+  if (profile.role !== "platform_admin") {
+    const { data: licenceResult } = await supabase.rpc("validate_license", {
+      target_user_id: user.id,
+    });
+    if (licenceResult && !licenceResult.valid) {
+      await supabase.auth.signOut({ scope: "local" });
+      return { error: "Your licence has expired. Contact your administrator." };
+    }
+  }
+
   if (
     profile.role === "platform_admin" ||
     profile.role === "org_admin" ||

@@ -20,6 +20,7 @@ interface UserData {
   board: string | null;
   medium: string | null;
   is_active: boolean;
+  license_valid_until: string | null;
 }
 
 interface TreeNode {
@@ -74,6 +75,12 @@ function UserRow({
             {!u.is_active && (
               <span className="px-2 py-0.5 text-[10px] bg-red-100 text-red-600 rounded-full font-medium">Inactive</span>
             )}
+            {u.license_valid_until && (() => {
+              const days = Math.ceil((new Date(u.license_valid_until).getTime() - Date.now()) / 86_400_000);
+              if (days < 0) return <span className="px-2 py-0.5 text-[10px] bg-red-100 text-red-600 rounded-full font-medium">Licence expired</span>;
+              if (days <= 30) return <span className="px-2 py-0.5 text-[10px] bg-amber-100 text-amber-700 rounded-full font-medium">Licence {u.license_valid_until}</span>;
+              return <span className="px-2 py-0.5 text-[10px] bg-emerald-100 text-emerald-700 rounded-full font-medium">Until {u.license_valid_until}</span>;
+            })()}
           </div>
           <p className="mt-1 text-xs text-muted">
             {u.email}

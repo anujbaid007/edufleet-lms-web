@@ -97,6 +97,15 @@ export function CreateCentreForm({ organizations, defaultOrgId }: CreateCentreFo
             <ClayInput id="centre-location" name="location" label="Location" placeholder="Optional" />
           </div>
           <div className="w-44">
+            <label className="block text-sm font-semibold text-heading font-poppins mb-2">Licence Until</label>
+            <input
+              type="date"
+              name="license_valid_until"
+              className="clay-input w-full"
+            />
+            <p className="text-[11px] text-muted mt-1">Empty = inherit from org</p>
+          </div>
+          <div className="w-44">
             <label className="block text-sm font-semibold text-heading font-poppins mb-2">Mode</label>
             <div className="flex rounded-2xl border border-orange-primary/20 overflow-hidden h-[42px]">
               <button

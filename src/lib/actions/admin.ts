@@ -13,12 +13,14 @@ export async function createOrganization(formData: FormData) {
   const supabase = await createClient();
   const name = formData.get("name") as string;
   const type = formData.get("type") as "csr" | "ngo";
+  const licenseRaw = formData.get("license_valid_until") as string;
+  const license_valid_until = licenseRaw || null;
 
   if (!name || !type) return { error: "Name and type are required" };
 
   const { error } = await supabase
     .from("organizations")
-    .insert({ name, type });
+    .insert({ name, type, license_valid_until });
 
   if (error) return { error: error.message };
   revalidatePath("/admin/orgs");
@@ -30,10 +32,12 @@ export async function updateOrganization(id: string, formData: FormData) {
   const name = formData.get("name") as string;
   const type = formData.get("type") as "csr" | "ngo";
   const isActive = formData.get("is_active") === "true";
+  const licenseRaw = formData.get("license_valid_until") as string;
+  const license_valid_until = licenseRaw || null;
 
   const { error } = await supabase
     .from("organizations")
-    .update({ name, type, is_active: isActive })
+    .update({ name, type, is_active: isActive, license_valid_until })
     .eq("id", id);
 
   if (error) return { error: error.message };
@@ -66,11 +70,14 @@ export async function createCentre(formData: FormData) {
     ? JSON.parse(offlineStudentCountsRaw)
     : null;
 
+  const licenseRaw = formData.get("license_valid_until") as string;
+  const license_valid_until = licenseRaw || null;
+
   if (!name || !orgId) return { error: "Name and organization are required" };
 
   const { error } = await supabase
     .from("centres")
-    .insert({ name, org_id: orgId, location, mode, offline_student_counts: offlineStudentCounts });
+    .insert({ name, org_id: orgId, location, mode, offline_student_counts: offlineStudentCounts, license_valid_until });
 
   if (error) return { error: error.message };
   revalidatePath("/admin/centres");
@@ -88,9 +95,12 @@ export async function updateCentre(id: string, formData: FormData) {
     ? JSON.parse(offlineStudentCountsRaw)
     : null;
 
+  const licenseRaw = formData.get("license_valid_until") as string;
+  const license_valid_until = licenseRaw || null;
+
   const { error } = await supabase
     .from("centres")
-    .update({ name, location, is_active: isActive, mode, offline_student_counts: offlineStudentCounts })
+    .update({ name, location, is_active: isActive, mode, offline_student_counts: offlineStudentCounts, license_valid_until })
     .eq("id", id);
 
   if (error) return { error: error.message };
@@ -135,6 +145,8 @@ export async function createUser(formData: FormData) {
   const board = (formData.get("board") as string) || null;
   const medium = (formData.get("medium") as string) || null;
   const phone = (formData.get("phone") as string) || null;
+  const licenseRaw = formData.get("license_valid_until") as string;
+  const license_valid_until = licenseRaw || null;
 
   if (!email || !password || !name || !role) {
     return { error: "Email, password, name, and role are required" };
@@ -173,6 +185,7 @@ export async function createUser(formData: FormData) {
       board,
       medium,
       phone,
+      license_valid_until,
     })
     .eq("id", authData.user.id);
 
@@ -203,6 +216,8 @@ export async function updateUser(id: string, formData: FormData) {
   const medium = (formData.get("medium") as string) || null;
   const phone = (formData.get("phone") as string) || null;
   const isActive = formData.get("is_active") === "true";
+  const licenseRaw = formData.get("license_valid_until") as string;
+  const license_valid_until = licenseRaw || null;
 
   // Update auth fields (email, password) if provided
   const email = (formData.get("email") as string) || null;
@@ -232,6 +247,7 @@ export async function updateUser(id: string, formData: FormData) {
       medium,
       phone,
       is_active: isActive,
+      license_valid_until,
     })
     .eq("id", id);
 

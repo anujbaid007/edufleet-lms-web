@@ -61,6 +61,7 @@ export type Database = {
           id: string
           is_active: boolean
           last_offline_sync_at: string | null
+          license_valid_until: string | null
           location: string | null
           mode: string
           name: string
@@ -72,6 +73,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           last_offline_sync_at?: string | null
+          license_valid_until?: string | null
           location?: string | null
           mode?: string
           name: string
@@ -83,6 +85,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           last_offline_sync_at?: string | null
+          license_valid_until?: string | null
           location?: string | null
           mode?: string
           name?: string
@@ -326,6 +329,7 @@ export type Database = {
           created_at: string
           id: string
           is_active: boolean
+          license_valid_until: string | null
           logo_url: string | null
           name: string
           type: Database["public"]["Enums"]["org_type"]
@@ -334,6 +338,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          license_valid_until?: string | null
           logo_url?: string | null
           name: string
           type: Database["public"]["Enums"]["org_type"]
@@ -342,6 +347,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          license_valid_until?: string | null
           logo_url?: string | null
           name?: string
           type?: Database["public"]["Enums"]["org_type"]
@@ -358,6 +364,7 @@ export type Database = {
           created_at: string
           id: string
           is_active: boolean
+          license_valid_until: string | null
           medium: string | null
           name: string
           org_id: string | null
@@ -375,6 +382,7 @@ export type Database = {
           created_at?: string
           id: string
           is_active?: boolean
+          license_valid_until?: string | null
           medium?: string | null
           name: string
           org_id?: string | null
@@ -392,6 +400,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          license_valid_until?: string | null
           medium?: string | null
           name?: string
           org_id?: string | null
