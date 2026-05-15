@@ -58,7 +58,7 @@ const comparisonMetricOptions: Array<{
   label: string;
   unit?: string;
 }> = [
-  { key: "students", label: "Students" },
+  { key: "students", label: "Learners" },
   { key: "activeStudents", label: "Active 7d" },
   { key: "completionRate", label: "Completion Rate", unit: "%" },
   { key: "completedChapters", label: "Completed Chapters" },
@@ -326,7 +326,7 @@ function TrendChart({ dataset }: { dataset: AnalyticsDataset }) {
               fill="url(#activeStudentsFill)"
               strokeWidth={3}
               dot={false}
-              name="Active students"
+              name="Active learners"
             />
           </>
         )}
@@ -349,7 +349,7 @@ function SummaryCards({ dataset }: { dataset: AnalyticsDataset }) {
             </div>
             <div>
               <p className="text-2xl font-bold text-heading">{summary.students}</p>
-              <p className="text-xs text-muted">Total students</p>
+              <p className="text-xs text-muted">Total learners</p>
             </div>
           </div>
         </ClayCard>
@@ -416,8 +416,8 @@ function SummaryCards({ dataset }: { dataset: AnalyticsDataset }) {
       <ClayCard hover={false} className="relative !p-5">
         <MetricInfo
           className="absolute right-4 top-4"
-          label="Students in scope"
-          description="Total students included in the current analytics view after applying organization, centre, class, and subject filters."
+          label="Learners in scope"
+          description="Total learners included in the current analytics view after applying organization, centre, class, and subject filters."
         />
         <div className="flex items-center gap-4">
           <div className="flex h-12 w-12 items-center justify-center rounded-clay-sm clay-surface shadow-clay-pill">
@@ -425,7 +425,7 @@ function SummaryCards({ dataset }: { dataset: AnalyticsDataset }) {
           </div>
           <div>
             <p className="text-2xl font-bold text-heading">{summary.students}</p>
-            <p className="text-xs text-muted">Students in scope</p>
+            <p className="text-xs text-muted">Learners in scope</p>
           </div>
         </div>
       </ClayCard>
@@ -434,7 +434,7 @@ function SummaryCards({ dataset }: { dataset: AnalyticsDataset }) {
         <MetricInfo
           className="absolute right-4 top-4"
           label="Active in last 7 days"
-          description="Students in the current scope who watched at least one lesson in the last 7 days."
+          description="Learners in the current scope who watched at least one lesson in the last 7 days."
         />
         <div className="flex items-center gap-4">
           <div className="flex h-12 w-12 items-center justify-center rounded-clay-sm bg-emerald-50 shadow-clay-pill">
@@ -1314,7 +1314,7 @@ function AlertsPanel({
                 <div>
                   <h3 className="font-poppins text-lg font-bold text-heading">Drop-off alerts</h3>
                   <p className="text-sm text-muted">
-                    Students who have gone quiet or never started in the current scope.
+                    Learners who have gone quiet or never started in the current scope.
                     {totalCount > rows.length && (
                       <span className="ml-1 font-medium text-orange-primary">Showing {rows.length} of {totalCount}.</span>
                     )}
@@ -1329,7 +1329,7 @@ function AlertsPanel({
 
             <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
               <div className="rounded-2xl bg-red-50/70 px-4 py-3 shadow-clay-pill">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Students at risk</p>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Learners at risk</p>
                 <p className="mt-1 text-2xl font-bold text-heading">{totalCount}</p>
               </div>
               <div className="rounded-2xl bg-orange-50/70 px-4 py-3 shadow-clay-pill">
