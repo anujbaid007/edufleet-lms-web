@@ -103,7 +103,7 @@ export function AdminSidebar({ userRole, userName }: AdminSidebarProps) {
   const mobileQuickLinks = getMobileQuickLinks(userRole);
 
   const isLinkActive = (href: string) =>
-    pathname === href || (href !== "/admin" && pathname.startsWith(href));
+    pathname === href || (href !== "/admin" && pathname.startsWith(href) && !pathname.startsWith(href + "-"));
 
   return (
     <>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { ClayCard } from "@/components/ui/clay-card";
 import { ProgressRing } from "@/components/ui/progress-ring";
 import {
@@ -9,19 +9,57 @@ import {
 } from "recharts";
 import {
   BookOpenCheck, Activity, Target, Award, ChevronRight, Wifi, WifiOff,
-  CheckCircle2, AlertTriangle,
+  CheckCircle2, AlertTriangle, Loader2,
 } from "lucide-react";
 import type {
   ImpactDashboard, CentreStats, SubjectStats, ChapterStats,
 } from "@/lib/analytics-v2/server";
+import { loadImpactDashboardAction } from "@/lib/analytics-v2/server";
 
-// ─── Main Component ───
+type DrillLevel = "platform" | "centre" | "subject";
 
-export function ImpactDashboardClient({ data }: { data: ImpactDashboard }) {
-  const [selectedCentreId, setSelectedCentreId] = useState<string | null>(null);
-  const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
+type DrillState = {
+  level: DrillLevel;
+  centreId?: string;
+  centreName?: string;
+  subjectId?: string;
+  subjectName?: string;
+};
 
-  const selectedCentre = selectedCentreId ? data.centres.find((c) => c.id === selectedCentreId) : null;
+export function ImpactDashboardClient({ data: initialData }: { data: ImpactDashboard }) {
+  const [data, setData] = useState(initialData);
+  const [drill, setDrill] = useState<DrillState>({ level: "platform" });
+  const [isPending, startTransition] = useTransition();
+
+  function drillIntoCentre(centre: CentreStats) {
+    startTransition(async () => {
+      const result = await loadImpactDashboardAction({ centreId: centre.id });
+      setData(result);
+      setDrill({ level: "centre", centreId: centre.id, centreName: centre.name });
+    });
+  }
+
+  function drillIntoSubject(subject: SubjectStats) {
+    startTransition(async () => {
+      const result = await loadImpactDashboardAction({ centreId: drill.centreId, subjectId: subject.id });
+      setData(result);
+      setDrill({ ...drill, level: "subject", subjectId: subject.id, subjectName: subject.name });
+    });
+  }
+
+  function goBack(toLevel: DrillLevel) {
+    startTransition(async () => {
+      if (toLevel === "platform") {
+        const result = await loadImpactDashboardAction();
+        setData(result);
+        setDrill({ level: "platform" });
+      } else if (toLevel === "centre") {
+        const result = await loadImpactDashboardAction({ centreId: drill.centreId });
+        setData(result);
+        setDrill({ level: "centre", centreId: drill.centreId, centreName: drill.centreName });
+      }
+    });
+  }
 
   return (
     <div className="space-y-6">
@@ -29,31 +67,32 @@ export function ImpactDashboardClient({ data }: { data: ImpactDashboard }) {
       <div className="flex items-center gap-2 text-sm">
         <button
           type="button"
-          onClick={() => { setSelectedCentreId(null); setSelectedSubjectId(null); }}
-          className={`rounded-full px-3 py-1 font-medium transition ${!selectedCentreId ? "bg-orange-primary/10 text-orange-primary" : "text-muted hover:text-heading"}`}
+          onClick={() => goBack("platform")}
+          className={`rounded-full px-3 py-1 font-medium transition ${drill.level === "platform" ? "bg-orange-primary/10 text-orange-primary" : "text-muted hover:text-heading"}`}
         >
           Overview
         </button>
-        {selectedCentre && (
+        {drill.centreName && (
           <>
             <ChevronRight className="h-4 w-4 text-muted" />
             <button
               type="button"
-              onClick={() => setSelectedSubjectId(null)}
-              className={`rounded-full px-3 py-1 font-medium transition ${!selectedSubjectId ? "bg-orange-primary/10 text-orange-primary" : "text-muted hover:text-heading"}`}
+              onClick={() => goBack("centre")}
+              className={`rounded-full px-3 py-1 font-medium transition ${drill.level === "centre" ? "bg-orange-primary/10 text-orange-primary" : "text-muted hover:text-heading"}`}
             >
-              {selectedCentre.name}
+              {drill.centreName}
             </button>
           </>
         )}
-        {selectedSubjectId && data.subjects && (
+        {drill.subjectName && (
           <>
             <ChevronRight className="h-4 w-4 text-muted" />
             <span className="rounded-full bg-orange-primary/10 px-3 py-1 font-medium text-orange-primary">
-              {data.subjects.find((s) => s.id === selectedSubjectId)?.name}
+              {drill.subjectName}
             </span>
           </>
         )}
+        {isPending && <Loader2 className="ml-2 h-4 w-4 animate-spin text-orange-primary" />}
       </div>
 
       {/* Header */}
@@ -65,14 +104,19 @@ export function ImpactDashboardClient({ data }: { data: ImpactDashboard }) {
       </div>
 
       {/* Level routing */}
-      {!selectedCentreId ? (
-        <PlatformView data={data} onSelectCentre={setSelectedCentreId} />
-      ) : !selectedSubjectId && data.subjects ? (
-        <CentreView centre={selectedCentre!} subjects={data.subjects} onSelectSubject={setSelectedSubjectId} />
-      ) : selectedSubjectId && data.chapters ? (
-        <SubjectView chapters={data.chapters} />
-      ) : (
-        <PlatformView data={data} onSelectCentre={setSelectedCentreId} />
+      {drill.level === "platform" && (
+        <PlatformView data={data} onSelectCentre={drillIntoCentre} />
+      )}
+      {drill.level === "centre" && data.subjects && (
+        <CentreView
+          centre={data.centres[0] ?? null}
+          subjects={data.subjects}
+          onSelectSubject={drillIntoSubject}
+          data={data}
+        />
+      )}
+      {drill.level === "subject" && data.chapters && (
+        <SubjectView chapters={data.chapters} data={data} />
       )}
     </div>
   );
@@ -80,10 +124,9 @@ export function ImpactDashboardClient({ data }: { data: ImpactDashboard }) {
 
 // ─── Level 1: Platform Overview ───
 
-function PlatformView({ data, onSelectCentre }: { data: ImpactDashboard; onSelectCentre: (id: string) => void }) {
+function PlatformView({ data, onSelectCentre }: { data: ImpactDashboard; onSelectCentre: (c: CentreStats) => void }) {
   return (
     <>
-      {/* Overview Cards */}
       <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
         <MetricCard icon={<BookOpenCheck className="h-6 w-6 text-orange-primary" />} value={`${data.completedChapters}/${data.totalChapters}`} label="Chapters Completed" />
         <MetricCard icon={<ProgressRing percentage={data.completionRate} size={48} strokeWidth={5}><span className="text-xs font-bold">{data.completionRate}%</span></ProgressRing>} value="" label="Completion Rate" />
@@ -91,7 +134,6 @@ function PlatformView({ data, onSelectCentre }: { data: ImpactDashboard; onSelec
         <MetricCard icon={<Award className="h-6 w-6 text-purple-600" />} value={data.avgQuizScore != null ? `${data.avgQuizScore}%` : "—"} label={`Avg Quiz Score (${data.totalQuizAttempts} attempts)`} />
       </div>
 
-      {/* Daily Activity Chart */}
       <ClayCard hover={false} className="!p-6">
         <h3 className="mb-4 font-poppins text-lg font-bold text-heading">Daily Activity (30 days)</h3>
         <ResponsiveContainer width="100%" height={240}>
@@ -106,7 +148,6 @@ function PlatformView({ data, onSelectCentre }: { data: ImpactDashboard; onSelec
         </ResponsiveContainer>
       </ClayCard>
 
-      {/* Mastery Distribution + Needs Attention */}
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <ClayCard hover={false} className="!p-6">
           <h3 className="mb-4 font-poppins text-lg font-bold text-heading">Quiz Mastery Distribution</h3>
@@ -148,7 +189,6 @@ function PlatformView({ data, onSelectCentre }: { data: ImpactDashboard; onSelec
         </ClayCard>
       </div>
 
-      {/* Centre Ranking */}
       <ClayCard hover={false} className="!p-6">
         <h3 className="mb-4 font-poppins text-lg font-bold text-heading">Centre Performance</h3>
         <div className="overflow-x-auto">
@@ -170,7 +210,7 @@ function PlatformView({ data, onSelectCentre }: { data: ImpactDashboard; onSelec
                 <tr
                   key={centre.id}
                   className="cursor-pointer border-b border-orange-primary/5 transition hover:bg-orange-50/40"
-                  onClick={() => onSelectCentre(centre.id)}
+                  onClick={() => onSelectCentre(centre)}
                 >
                   <td className="py-3 pr-4">
                     <p className="font-semibold text-heading">{centre.name}</p>
@@ -210,36 +250,36 @@ function PlatformView({ data, onSelectCentre }: { data: ImpactDashboard; onSelec
 
 // ─── Level 2: Centre View ───
 
-function CentreView({ centre, subjects, onSelectSubject }: {
-  centre: CentreStats;
+function CentreView({ centre, subjects, onSelectSubject, data }: {
+  centre: CentreStats | null;
   subjects: SubjectStats[];
-  onSelectSubject: (id: string) => void;
+  onSelectSubject: (s: SubjectStats) => void;
+  data: ImpactDashboard;
 }) {
   return (
     <>
-      {/* Centre header */}
-      <div className="flex items-center gap-3">
-        {centre.mode === "offline" ? (
-          <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700"><WifiOff className="h-3.5 w-3.5" /> Offline</span>
-        ) : (
-          <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-1 text-xs font-semibold text-green-700"><Wifi className="h-3.5 w-3.5" /> Online</span>
-        )}
-        {centre.lastSyncAt && (
-          <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
-            Last sync: {new Date(centre.lastSyncAt).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
-          </span>
-        )}
-      </div>
+      {centre && (
+        <div className="flex items-center gap-3">
+          {centre.mode === "offline" ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700"><WifiOff className="h-3.5 w-3.5" /> Offline</span>
+          ) : (
+            <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-1 text-xs font-semibold text-green-700"><Wifi className="h-3.5 w-3.5" /> Online</span>
+          )}
+          {centre.lastSyncAt && (
+            <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+              Last sync: {new Date(centre.lastSyncAt).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+            </span>
+          )}
+        </div>
+      )}
 
-      {/* Overview */}
       <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-        <MetricCard icon={<BookOpenCheck className="h-6 w-6 text-orange-primary" />} value={`${centre.completedChapters}/${centre.totalChapters}`} label="Chapters Done" />
-        <MetricCard icon={<ProgressRing percentage={centre.completionRate} size={48} strokeWidth={5}><span className="text-xs font-bold">{centre.completionRate}%</span></ProgressRing>} value="" label="Completion Rate" />
-        <MetricCard icon={<Target className="h-6 w-6 text-blue-600" />} value={`${centre.watchedLessons}/${centre.totalLessons}`} label="Lessons Watched" />
-        <MetricCard icon={<Award className="h-6 w-6 text-purple-600" />} value={centre.avgQuizScore != null ? `${centre.avgQuizScore}%` : "—"} label={`Quiz Score (${centre.quizAttempts} attempts)`} />
+        <MetricCard icon={<BookOpenCheck className="h-6 w-6 text-orange-primary" />} value={`${data.completedChapters}/${data.totalChapters}`} label="Chapters Done" />
+        <MetricCard icon={<ProgressRing percentage={data.completionRate} size={48} strokeWidth={5}><span className="text-xs font-bold">{data.completionRate}%</span></ProgressRing>} value="" label="Completion Rate" />
+        <MetricCard icon={<Target className="h-6 w-6 text-blue-600" />} value={`${data.activeLearners}/${data.totalLearners}`} label="Learners Active (7d)" />
+        <MetricCard icon={<Award className="h-6 w-6 text-purple-600" />} value={data.avgQuizScore != null ? `${data.avgQuizScore}%` : "—"} label={`Quiz Score (${data.totalQuizAttempts} attempts)`} />
       </div>
 
-      {/* Subject Progress */}
       <ClayCard hover={false} className="!p-6">
         <h3 className="mb-4 font-poppins text-lg font-bold text-heading">Subject-wise Progress</h3>
         <div className="space-y-3">
@@ -247,45 +287,24 @@ function CentreView({ centre, subjects, onSelectSubject }: {
             <div
               key={subject.id}
               className="flex cursor-pointer items-center gap-4 rounded-clay border border-orange-primary/10 bg-white/80 px-4 py-3 transition hover:border-orange-primary/20 hover:bg-orange-50/40"
-              onClick={() => onSelectSubject(subject.id)}
+              onClick={() => onSelectSubject(subject)}
             >
               <div className="min-w-0 flex-1">
                 <p className="font-semibold text-heading">{subject.name}</p>
                 <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-orange-primary/10">
-                  <div
-                    className="h-full rounded-full"
-                    style={{
-                      width: `${subject.completionRate}%`,
-                      background: subject.completionRate === 100 ? "#22C55E" : "#E8871E",
-                    }}
-                  />
+                  <div className="h-full rounded-full" style={{ width: `${subject.completionRate}%`, background: subject.completionRate === 100 ? "#22C55E" : "#E8871E" }} />
                 </div>
               </div>
-
               <div className="grid grid-cols-4 gap-6 text-center text-xs">
-                <div>
-                  <p className="font-bold text-heading">{subject.completedChapters}/{subject.totalChapters}</p>
-                  <p className="text-muted">Chapters</p>
-                </div>
-                <div>
-                  <p className="font-bold" style={{ color: subject.completionRate === 100 ? "#22C55E" : "#E8871E" }}>{subject.completionRate}%</p>
-                  <p className="text-muted">Complete</p>
-                </div>
-                <div>
-                  <p className="font-bold text-heading">{subject.quizAttempts}</p>
-                  <p className="text-muted">Attempts</p>
-                </div>
-                <div>
-                  <p className="font-bold" style={{ color: subject.bestQuizScore != null && subject.bestQuizScore >= 80 ? "#22C55E" : subject.bestQuizScore != null && subject.bestQuizScore >= 50 ? "#E8871E" : "#EF4444" }}>
-                    {subject.bestQuizScore != null ? `${subject.bestQuizScore}%` : "—"}
-                  </p>
-                  <p className="text-muted">Best Score</p>
-                </div>
+                <div><p className="font-bold text-heading">{subject.completedChapters}/{subject.totalChapters}</p><p className="text-muted">Chapters</p></div>
+                <div><p className="font-bold" style={{ color: subject.completionRate === 100 ? "#22C55E" : "#E8871E" }}>{subject.completionRate}%</p><p className="text-muted">Complete</p></div>
+                <div><p className="font-bold text-heading">{subject.quizAttempts}</p><p className="text-muted">Attempts</p></div>
+                <div><p className="font-bold" style={{ color: (subject.bestQuizScore ?? 0) >= 80 ? "#22C55E" : (subject.bestQuizScore ?? 0) >= 50 ? "#E8871E" : "#EF4444" }}>{subject.bestQuizScore != null ? `${subject.bestQuizScore}%` : "—"}</p><p className="text-muted">Best Score</p></div>
               </div>
-
               <ChevronRight className="h-4 w-4 shrink-0 text-muted" />
             </div>
           ))}
+          {subjects.length === 0 && <p className="text-sm text-muted">No subject data available for this centre.</p>}
         </div>
       </ClayCard>
     </>
@@ -294,54 +313,61 @@ function CentreView({ centre, subjects, onSelectSubject }: {
 
 // ─── Level 3: Subject/Chapter View ───
 
-function SubjectView({ chapters }: { chapters: ChapterStats[] }) {
+function SubjectView({ chapters, data }: { chapters: ChapterStats[]; data: ImpactDashboard }) {
   return (
-    <ClayCard hover={false} className="!p-6">
-      <h3 className="mb-4 font-poppins text-lg font-bold text-heading">Chapter Progress</h3>
-      <div className="space-y-4">
-        {chapters.map((chapter) => (
-          <div key={chapter.id} className="rounded-clay border border-orange-primary/10 bg-white/80 px-4 py-4">
-            <div className="flex items-center gap-3">
-              <div className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-bold ${chapter.isComplete ? "bg-emerald-100 text-emerald-600" : "bg-orange-50 text-orange-primary"}`}>
-                {chapter.isComplete ? "✓" : chapter.chapterNo}
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="font-semibold text-heading">{chapter.title}</p>
-                <p className="text-xs text-muted">
-                  {chapter.completedLessons}/{chapter.totalLessons} lessons
-                  {chapter.quizAttempts > 0 && ` · ${chapter.quizAttempts} quiz attempt${chapter.quizAttempts > 1 ? "s" : ""}`}
-                  {chapter.bestQuizScore != null && ` · Best: ${chapter.bestQuizScore}%`}
-                </p>
-              </div>
-              <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${chapter.isComplete ? "bg-emerald-100 text-emerald-700" : chapter.completedLessons > 0 ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-500"}`}>
-                {chapter.isComplete ? "Complete" : chapter.completedLessons > 0 ? "In Progress" : "Not Started"}
-              </span>
-            </div>
-
-            {/* Lesson breakdown */}
-            {chapter.lessons.length > 0 && (
-              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-                {chapter.lessons.map((lesson) => (
-                  <div key={lesson.id} className={`rounded-lg border px-3 py-2 text-xs ${lesson.completed ? "border-emerald-200 bg-emerald-50/50" : lesson.watchedPercentage > 0 ? "border-orange-200 bg-orange-50/50" : "border-slate-100"}`}>
-                    <p className="font-medium text-heading truncate">{lesson.title}</p>
-                    <div className="mt-1 flex items-center justify-between">
-                      <span className="text-muted">{Math.floor(lesson.durationSeconds / 60)}:{String(lesson.durationSeconds % 60).padStart(2, "0")}</span>
-                      {lesson.completed ? (
-                        <span className="text-emerald-600 font-semibold">Done</span>
-                      ) : lesson.watchedPercentage > 0 ? (
-                        <span className="text-orange-primary font-semibold">{lesson.watchedPercentage}%</span>
-                      ) : (
-                        <span className="text-slate-400">—</span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        ))}
+    <>
+      <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+        <MetricCard icon={<BookOpenCheck className="h-6 w-6 text-orange-primary" />} value={`${data.completedChapters}/${data.totalChapters}`} label="Chapters Done" />
+        <MetricCard icon={<ProgressRing percentage={data.completionRate} size={48} strokeWidth={5}><span className="text-xs font-bold">{data.completionRate}%</span></ProgressRing>} value="" label="Completion Rate" />
+        <MetricCard icon={<Target className="h-6 w-6 text-blue-600" />} value={`${chapters.reduce((s, c) => s + c.completedLessons, 0)}/${chapters.reduce((s, c) => s + c.totalLessons, 0)}`} label="Lessons Watched" />
+        <MetricCard icon={<Award className="h-6 w-6 text-purple-600" />} value={data.bestQuizScore != null ? `${data.bestQuizScore}%` : "—"} label={`Best Quiz Score (${data.totalQuizAttempts} attempts)`} />
       </div>
-    </ClayCard>
+
+      <ClayCard hover={false} className="!p-6">
+        <h3 className="mb-4 font-poppins text-lg font-bold text-heading">Chapter Progress</h3>
+        <div className="space-y-4">
+          {chapters.map((chapter) => (
+            <div key={chapter.id} className="rounded-clay border border-orange-primary/10 bg-white/80 px-4 py-4">
+              <div className="flex items-center gap-3">
+                <div className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-bold ${chapter.isComplete ? "bg-emerald-100 text-emerald-600" : "bg-orange-50 text-orange-primary"}`}>
+                  {chapter.isComplete ? "✓" : chapter.chapterNo}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold text-heading">{chapter.title}</p>
+                  <p className="text-xs text-muted">
+                    {chapter.completedLessons}/{chapter.totalLessons} lessons
+                    {chapter.quizAttempts > 0 && ` · ${chapter.quizAttempts} quiz attempt${chapter.quizAttempts > 1 ? "s" : ""}`}
+                    {chapter.bestQuizScore != null && ` · Best: ${chapter.bestQuizScore}%`}
+                  </p>
+                </div>
+                <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${chapter.isComplete ? "bg-emerald-100 text-emerald-700" : chapter.completedLessons > 0 ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-500"}`}>
+                  {chapter.isComplete ? "Complete" : chapter.completedLessons > 0 ? "In Progress" : "Not Started"}
+                </span>
+              </div>
+              {chapter.lessons.length > 0 && (
+                <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+                  {chapter.lessons.map((lesson) => (
+                    <div key={lesson.id} className={`rounded-lg border px-3 py-2 text-xs ${lesson.completed ? "border-emerald-200 bg-emerald-50/50" : lesson.watchedPercentage > 0 ? "border-orange-200 bg-orange-50/50" : "border-slate-100"}`}>
+                      <p className="font-medium text-heading truncate">{lesson.title}</p>
+                      <div className="mt-1 flex items-center justify-between">
+                        <span className="text-muted">{Math.floor(lesson.durationSeconds / 60)}:{String(lesson.durationSeconds % 60).padStart(2, "0")}</span>
+                        {lesson.completed ? (
+                          <span className="text-emerald-600 font-semibold">Done</span>
+                        ) : lesson.watchedPercentage > 0 ? (
+                          <span className="text-orange-primary font-semibold">{lesson.watchedPercentage}%</span>
+                        ) : (
+                          <span className="text-slate-400">—</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </ClayCard>
+    </>
   );
 }
 

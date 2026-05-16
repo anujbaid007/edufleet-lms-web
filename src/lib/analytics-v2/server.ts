@@ -2,6 +2,16 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 
+/** Server action for client-side drill-down */
+export async function loadImpactDashboardAction(options?: {
+  orgId?: string;
+  centreId?: string;
+  classNum?: number;
+  subjectId?: string;
+}): Promise<ImpactDashboard> {
+  return loadImpactDashboard(options);
+}
+
 // ─── Types ───
 
 export type CentreStats = {
