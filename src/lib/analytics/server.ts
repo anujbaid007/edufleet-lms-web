@@ -1377,10 +1377,11 @@ function buildDatasetRows(
   }
 
   if (level === "classes") {
-    // Offline centre: build rows from offline_student_counts
-    if (request.centreId) {
+    // Offline centre class rows — DISABLED: standard path now handles teachers
+    // The teacher's video_progress drives real analytics through the normal pipeline.
+    if (false as boolean) {
       const centre = centres.find((c) => c.id === request.centreId);
-      if (centre?.mode === "offline" && centre.offline_student_counts) {
+      if (centre?.mode === "offline" && centre?.offline_student_counts) {
         const counts = centre.offline_student_counts as Record<string, number>;
         return Object.entries(counts)
           .map(([classKey, count]) => ({ classNum: Number(classKey), count }))
@@ -1534,14 +1535,15 @@ async function buildAnalyticsDataset(viewer: AnalyticsViewer, request: Analytics
   const organizationsById = new Map(organizations.map((row) => [row.id, row]));
   const centresById = new Map(centres.map((row) => [row.id, row]));
 
-  // Fast path for offline centre drill-down: no student profiles exist, just headcounts + synced analytics
-  if (level === "classes" && normalized.centreId) {
-    const centre = centresById.get(normalized.centreId);
+  // Fast path for offline centre drill-down — DISABLED: teachers now have real video_progress
+  // The standard analytics pipeline includes teachers and computes stats from video_progress.
+  if (false as boolean) {
+    const centre = centresById.get(normalized.centreId!);
     if (centre?.mode === "offline") {
       const counts = (centre.offline_student_counts as Record<string, number> | null) ?? {};
       const totalStudents = Object.values(counts).reduce((sum, c) => sum + c, 0);
-      const offlineStatsMap = await fetchOfflineCentreStats(supabase, [normalized.centreId], centresById);
-      const stats = offlineStatsMap.get(normalized.centreId);
+      const offlineStatsMap = await fetchOfflineCentreStats(supabase, [normalized.centreId!], centresById);
+      const stats = offlineStatsMap.get(normalized.centreId!);
       const copy = getDatasetText(level, viewer, normalized, organizationsById, centresById, new Map());
 
       // Collect classes from student headcounts + boards/media from played content
