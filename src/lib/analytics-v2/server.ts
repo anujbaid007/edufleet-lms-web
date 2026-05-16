@@ -100,7 +100,7 @@ export async function loadImpactDashboard(options?: {
   const supabase = createAdminClient();
   const now = new Date();
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
-  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  // const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
   // 1. Fetch centres
   let centreQuery = supabase
@@ -112,8 +112,6 @@ export async function loadImpactDashboard(options?: {
 
   const { data: centres } = await centreQuery;
   const centreList = centres ?? [];
-  const centreIds = centreList.map((c) => c.id);
-
   // 2. Fetch learners (students + teachers for offline)
   let learnerQuery = supabase
     .from("profiles")
@@ -128,7 +126,7 @@ export async function loadImpactDashboard(options?: {
   const learnerIds = learnerList.map((l) => l.id);
 
   // 3. Fetch video progress for all learners
-  let progressRows: Array<{
+  const progressRows: Array<{
     user_id: string;
     video_id: string;
     watched_percentage: number;
@@ -146,7 +144,7 @@ export async function loadImpactDashboard(options?: {
   }
 
   // 4. Fetch quiz attempts
-  let quizRows: Array<{
+  const quizRows: Array<{
     id: string;
     quiz_id: string;
     user_id: string;
@@ -205,7 +203,6 @@ export async function loadImpactDashboard(options?: {
     chapterToQuiz.set(q.chapter_id, q.id);
   }
 
-  const chapterById = new Map(chapterList.map((c) => [c.id, c]));
   const learnerByCentreId = new Map<string, typeof learnerList>();
   for (const l of learnerList) {
     if (!l.centre_id) continue;

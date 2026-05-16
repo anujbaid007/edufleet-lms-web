@@ -4,12 +4,12 @@ import { useState } from "react";
 import { ClayCard } from "@/components/ui/clay-card";
 import { ProgressRing } from "@/components/ui/progress-ring";
 import {
-  Area, AreaChart, Bar, BarChart, CartesianGrid, Cell,
+  Area, AreaChart, CartesianGrid,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 import {
   BookOpenCheck, Activity, Target, Award, ChevronRight, Wifi, WifiOff,
-  TrendingUp, CheckCircle2, AlertTriangle,
+  CheckCircle2, AlertTriangle,
 } from "lucide-react";
 import type {
   ImpactDashboard, CentreStats, SubjectStats, ChapterStats,
@@ -68,7 +68,7 @@ export function ImpactDashboardClient({ data }: { data: ImpactDashboard }) {
       {!selectedCentreId ? (
         <PlatformView data={data} onSelectCentre={setSelectedCentreId} />
       ) : !selectedSubjectId && data.subjects ? (
-        <CentreView centre={selectedCentre!} subjects={data.subjects} onSelectSubject={setSelectedSubjectId} dailyActivity={data.dailyActivity} />
+        <CentreView centre={selectedCentre!} subjects={data.subjects} onSelectSubject={setSelectedSubjectId} />
       ) : selectedSubjectId && data.chapters ? (
         <SubjectView chapters={data.chapters} />
       ) : (
@@ -210,11 +210,10 @@ function PlatformView({ data, onSelectCentre }: { data: ImpactDashboard; onSelec
 
 // ─── Level 2: Centre View ───
 
-function CentreView({ centre, subjects, onSelectSubject, dailyActivity }: {
+function CentreView({ centre, subjects, onSelectSubject }: {
   centre: CentreStats;
   subjects: SubjectStats[];
   onSelectSubject: (id: string) => void;
-  dailyActivity: Array<{ date: string; lessonsWatched: number; quizAttempts: number }>;
 }) {
   return (
     <>
