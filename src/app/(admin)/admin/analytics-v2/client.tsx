@@ -15,6 +15,7 @@ import type {
   ImpactDashboard, CentreStats, SubjectStats, ChapterStats,
 } from "@/lib/analytics-v2/server";
 import { loadImpactDashboardAction } from "@/lib/analytics-v2/server";
+import { generateImpactReport } from "@/lib/analytics-v2/pdf-report";
 
 type DrillLevel = "platform" | "centre" | "subject";
 
@@ -26,7 +27,7 @@ type DrillState = {
   subjectName?: string;
 };
 
-export function ImpactDashboardClient({ data: initialData }: { data: ImpactDashboard }) {
+export function ImpactDashboardClient({ data: initialData, userName }: { data: ImpactDashboard; userName: string }) {
   const [data, setData] = useState(initialData);
   const [drill, setDrill] = useState<DrillState>({ level: "platform" });
   const [isPending, startTransition] = useTransition();
@@ -96,11 +97,25 @@ export function ImpactDashboardClient({ data: initialData }: { data: ImpactDashb
       </div>
 
       {/* Header */}
-      <div>
-        <h1 className="font-poppins text-2xl font-bold text-heading">Impact Analytics</h1>
-        <p className="mt-1 text-sm text-muted">
-          {data.scopeLabel} · Updated {new Date(data.generatedAt).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
-        </p>
+      <div className="flex items-end justify-between">
+        <div>
+          <h1 className="font-poppins text-2xl font-bold text-heading">Impact Analytics</h1>
+          <p className="mt-1 text-sm text-muted">
+            {data.scopeLabel} · Updated {new Date(data.generatedAt).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            const orgName = data.centres[0]?.orgName ?? data.scopeLabel;
+            const centreName = drill.centreName;
+            generateImpactReport(data, userName, orgName, centreName);
+          }}
+          className="inline-flex items-center gap-2 rounded-clay-sm bg-orange-primary px-4 py-2.5 text-sm font-semibold text-white shadow-clay-orange transition hover:brightness-105"
+        >
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+          Download Report
+        </button>
       </div>
 
       {/* Level routing */}

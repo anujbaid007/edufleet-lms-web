@@ -12,7 +12,7 @@ export default async function ImpactAnalyticsPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role, org_id, centre_id")
+    .select("role, org_id, centre_id, name")
     .eq("id", session.user.id)
     .single();
 
@@ -26,5 +26,5 @@ export default async function ImpactAnalyticsPage() {
     centreId: profile.role === "centre_admin" ? profile.centre_id ?? undefined : undefined,
   });
 
-  return <ImpactDashboardClient data={dashboard} />;
+  return <ImpactDashboardClient data={dashboard} userName={profile.name ?? "Admin"} />;
 }
