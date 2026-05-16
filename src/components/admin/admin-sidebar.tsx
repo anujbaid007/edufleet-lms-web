@@ -12,6 +12,7 @@ import {
   Shield,
   Upload,
   BarChart3,
+  TrendingUp,
   Library,
   LogOut,
   ChevronLeft,
@@ -37,6 +38,7 @@ const platformAdminLinks = [
   { href: "/admin/library", label: "Content Library", icon: Library },
   { href: "/admin/access", label: "Content Access", icon: Shield },
   { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/admin/analytics-v2", label: "Impact Analytics", icon: TrendingUp },
   { href: "/admin/contacts", label: "Contact Messages", icon: MessageSquareText },
 ];
 
@@ -48,6 +50,7 @@ const orgAdminLinks = [
   { href: "/admin/access", label: "Content Access", icon: Shield },
   { href: "/admin/bulk", label: "Bulk Upload", icon: Upload },
   { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/admin/analytics-v2", label: "Impact Analytics", icon: TrendingUp },
 ];
 
 const centreAdminLinks = [
@@ -56,6 +59,7 @@ const centreAdminLinks = [
   { href: "/admin/library", label: "Content Library", icon: Library },
   { href: "/admin/bulk", label: "Bulk Upload", icon: Upload },
   { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/admin/analytics-v2", label: "Impact Analytics", icon: TrendingUp },
 ];
 
 function getLinks(role: string) {
