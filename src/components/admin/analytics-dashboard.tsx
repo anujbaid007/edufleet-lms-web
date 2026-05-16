@@ -1621,6 +1621,16 @@ export function AnalyticsDashboard({
               <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-muted shadow-[inset_0_0_0_1px_rgba(232,135,30,0.08)]">
                 Completion is based on accessible chapters in the current scope
               </span>
+              {current.dataset.rows.some((r) => r.isOffline) && (() => {
+                const latestSync = current.dataset.rows
+                  .filter((r) => r.lastActivityAt)
+                  .reduce<string | null>((latest, r) => (!latest || (r.lastActivityAt && r.lastActivityAt > latest)) ? r.lastActivityAt : latest, null);
+                return latestSync ? (
+                  <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 shadow-[inset_0_0_0_1px_rgba(34,197,94,0.15)]">
+                    Last synced from TV: {new Date(latestSync).toLocaleString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                ) : null;
+              })()}
 
               {modeFilterLevel && (
                 <div className="ml-auto flex items-center gap-1 rounded-full bg-white p-1 shadow-[inset_0_0_0_1px_rgba(232,135,30,0.15)]">
