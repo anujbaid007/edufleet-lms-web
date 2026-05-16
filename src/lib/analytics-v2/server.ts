@@ -76,6 +76,21 @@ export type DailyActivity = {
   quizAttempts: number;
 };
 
+export type OrgStats = {
+  id: string;
+  name: string;
+  type: string;
+  centreCount: number;
+  learnerCount: number;
+  activeLearners: number;
+  totalChapters: number;
+  completedChapters: number;
+  completionRate: number;
+  quizAttempts: number;
+  avgQuizScore: number | null;
+  lastActivityAt: string | null;
+};
+
 export type ImpactDashboard = {
   // Overview
   totalLearners: number;
@@ -87,6 +102,8 @@ export type ImpactDashboard = {
   avgQuizScore: number | null;
   bestQuizScore: number | null;
   masteryDistribution: { mastery: number; proficient: number; developing: number; needs_practice: number };
+  // Organizations
+  organizations: OrgStats[];
   // Centres
   centres: CentreStats[];
   // Timeline
@@ -355,6 +372,52 @@ export async function loadImpactDashboard(options?: {
 
   centreStats.sort((a, b) => b.completionRate - a.completionRate);
 
+  // ─── Org Stats ───
+
+  const orgMap = new Map<string, { id: string; name: string; type: string }>();
+  for (const centre of centreList) {
+    const org = centre.organizations as unknown as { name: string } | null;
+    if (!orgMap.has(centre.org_id)) {
+      orgMap.set(centre.org_id, { id: centre.org_id, name: org?.name ?? "—", type: "ngo" });
+    }
+  }
+
+  // Also fetch org type
+  const { data: orgRows } = await supabase.from("organizations").select("id, name, type").eq("is_active", true);
+  for (const org of orgRows ?? []) {
+    orgMap.set(org.id, { id: org.id, name: org.name, type: org.type });
+  }
+
+  const orgStats: OrgStats[] = Array.from(orgMap.values()).map((org) => {
+    const orgCentres = centreStats.filter((c) => c.orgName === org.name || centreList.find((cl) => cl.id === c.id)?.org_id === org.id);
+    const orgLearners = orgCentres.reduce((s, c) => s + c.learnerCount, 0);
+    const orgActive = orgCentres.reduce((s, c) => s + c.activeLearners, 0);
+    const orgCompleted = orgCentres.reduce((s, c) => s + c.completedChapters, 0);
+    const orgTotal = orgCentres.length > 0 ? orgCentres[0].totalChapters : 0; // chapters are same across centres
+    const orgQuizAttempts = orgCentres.reduce((s, c) => s + c.quizAttempts, 0);
+    const orgQuizScoreSum = orgCentres.reduce((s, c) => s + (c.avgQuizScore ?? 0) * c.quizAttempts, 0);
+    const orgLastActivity = orgCentres.reduce<string | null>(
+      (latest, c) => (!latest || (c.lastActivityAt && c.lastActivityAt > latest)) ? c.lastActivityAt : latest, null
+    );
+
+    return {
+      id: org.id,
+      name: org.name,
+      type: org.type,
+      centreCount: orgCentres.length,
+      learnerCount: orgLearners,
+      activeLearners: orgActive,
+      totalChapters: orgTotal,
+      completedChapters: orgCompleted,
+      completionRate: orgTotal > 0 ? Math.round((orgCompleted / orgTotal) * 100) : 0,
+      quizAttempts: orgQuizAttempts,
+      avgQuizScore: orgQuizAttempts > 0 ? Math.round(orgQuizScoreSum / orgQuizAttempts) : null,
+      lastActivityAt: orgLastActivity,
+    };
+  });
+
+  orgStats.sort((a, b) => b.completionRate - a.completionRate);
+
   // ─── Subject Stats (when drilled into a centre or class) ───
 
   let subjectStats: SubjectStats[] | undefined;
@@ -470,6 +533,7 @@ export async function loadImpactDashboard(options?: {
     avgQuizScore: quizRows.length > 0 ? Math.round(quizScoreSum / quizRows.length) : null,
     bestQuizScore: bestQuiz,
     masteryDistribution: masteryDist,
+    organizations: orgStats,
     centres: centreStats,
     dailyActivity: Array.from(dailyMap.values()).sort((a, b) => a.date.localeCompare(b.date)),
     subjects: subjectStats,
