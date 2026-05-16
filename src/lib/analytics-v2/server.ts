@@ -22,6 +22,16 @@ export type CentreSubjectBreakdown = {
   avgQuizScore: number | null;
 };
 
+export type CentreClassBreakdown = {
+  classNum: number;
+  label: string;
+  totalChapters: number;
+  completedChapters: number;
+  completionRate: number;
+  avgQuizScore: number | null;
+  subjects: CentreSubjectBreakdown[];
+};
+
 export type CentreStats = {
   id: string;
   name: string;
@@ -40,6 +50,7 @@ export type CentreStats = {
   bestQuizScore: number | null;
   masteryDistribution: { mastery: number; proficient: number; developing: number; needs_practice: number };
   subjectBreakdown: CentreSubjectBreakdown[];
+  classBreakdown: CentreClassBreakdown[];
   lastActivityAt: string | null;
   lastSyncAt: string | null;
 };
@@ -399,6 +410,55 @@ export async function loadImpactDashboard(options?: {
       avgQuizScore: s.quizAttempts > 0 ? Math.round(s.quizScoreSum / s.quizAttempts) : null,
     }));
 
+    // Per-centre class → subject breakdown
+    const classSubjMap = new Map<number, Map<string, { name: string; total: number; completed: number; quizAttempts: number; quizScoreSum: number }>>();
+    for (const chapter of trackableChapters) {
+      const subj = chapter.subjects as unknown as { id: string; name: string; display_order: number } | null;
+      if (!subj) continue;
+      const cls = chapter.class;
+      if (!classSubjMap.has(cls)) classSubjMap.set(cls, new Map());
+      const sMap = classSubjMap.get(cls)!;
+      const entry = sMap.get(subj.id) ?? { name: subj.name, total: 0, completed: 0, quizAttempts: 0, quizScoreSum: 0 };
+      entry.total++;
+      const chVids = videosByChapter.get(chapter.id) ?? [];
+      let allDone = true;
+      for (const v of chVids) {
+        if (!centreProgress.some((p) => p.video_id === v.id && p.completed)) allDone = false;
+      }
+      if (allDone && chVids.length > 0) entry.completed++;
+      const qid = chapterToQuiz.get(chapter.id);
+      if (qid) {
+        const att = centreQuizzes.filter((q) => q.quiz_id === qid);
+        entry.quizAttempts += att.length;
+        entry.quizScoreSum += att.reduce((s, a) => s + a.percent, 0);
+      }
+      sMap.set(subj.id, entry);
+    }
+    const classBreakdown: CentreClassBreakdown[] = Array.from(classSubjMap.entries())
+      .sort(([a], [b]) => a - b)
+      .map(([cls, sMap]) => {
+        const subjects = Array.from(sMap.values()).map((s) => ({
+          name: s.name,
+          totalChapters: s.total,
+          completedChapters: s.completed,
+          completionRate: s.total > 0 ? Math.round((s.completed / s.total) * 100) : 0,
+          avgQuizScore: s.quizAttempts > 0 ? Math.round(s.quizScoreSum / s.quizAttempts) : null,
+        }));
+        const total = subjects.reduce((s, sub) => s + sub.totalChapters, 0);
+        const completed = subjects.reduce((s, sub) => s + sub.completedChapters, 0);
+        const quizAtt = Array.from(sMap.values()).reduce((s, sub) => s + sub.quizAttempts, 0);
+        const quizSum = Array.from(sMap.values()).reduce((s, sub) => s + sub.quizScoreSum, 0);
+        return {
+          classNum: cls,
+          label: cls === 0 ? "KG" : `Class ${cls}`,
+          totalChapters: total,
+          completedChapters: completed,
+          completionRate: total > 0 ? Math.round((completed / total) * 100) : 0,
+          avgQuizScore: quizAtt > 0 ? Math.round(quizSum / quizAtt) : null,
+          subjects,
+        };
+      });
+
     return {
       id: centre.id,
       name: centre.name,
@@ -417,6 +477,7 @@ export async function loadImpactDashboard(options?: {
       bestQuizScore: centreBestQuiz,
       masteryDistribution: centreMastery,
       subjectBreakdown,
+      classBreakdown,
       lastActivityAt: lastActivity,
       lastSyncAt: lastActivity, // For offline centres, this is the last synced data
     };

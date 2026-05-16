@@ -638,8 +638,9 @@ export async function generateImpactReport(
   // ═══════════════════════════════════════════
 
   if (data.centres.length > 1) {
+    // Page A: Centre Comparison — Completion Rate
     newPage();
-    let cy = sectionHeader("Centre Comparison", 25);
+    let cy = sectionHeader("Centre Comparison — Completion", 25);
 
     doc.setFontSize(9);
     doc.setTextColor(MUTED);
@@ -657,6 +658,54 @@ export async function generateImpactReport(
       }));
 
     cy = drawHorizontalBars(cy, centreItems, 100);
+
+    addFooter();
+
+    // Page B: Centre Comparison — Students & Quiz
+    newPage();
+    let sy = sectionHeader("Centre Comparison — Students", 25);
+
+    doc.setFontSize(9);
+    doc.setTextColor(MUTED);
+    doc.text("Learner count per centre", margin, sy);
+    sy += 6;
+
+    const studentItems = [...data.centres]
+      .sort((a, b) => b.learnerCount - a.learnerCount)
+      .map((c) => ({
+        label: c.name,
+        value: c.learnerCount,
+        annotation: `${c.activeLearners} active`,
+        color: BLUE,
+      }));
+
+    sy = drawHorizontalBars(sy, studentItems);
+
+    // Quiz score comparison below if space allows
+    if (sy + 60 < pageHeight - 20) {
+      sy += 8;
+      doc.setFontSize(14);
+      doc.setTextColor(HEADING);
+      doc.text("Quiz Score Comparison", margin, sy);
+      sy += 3;
+      doc.setFontSize(9);
+      doc.setTextColor(MUTED);
+      doc.text("Average quiz score per centre", margin, sy);
+      sy += 6;
+
+      const quizItems = [...data.centres]
+        .filter((c) => c.avgQuizScore != null)
+        .sort((a, b) => (b.avgQuizScore ?? 0) - (a.avgQuizScore ?? 0))
+        .map((c) => ({
+          label: c.name,
+          value: c.avgQuizScore ?? 0,
+          suffix: "%",
+          annotation: `${c.quizAttempts} attempts`,
+          color: PURPLE,
+        }));
+
+      sy = drawHorizontalBars(sy, quizItems, 100);
+    }
 
     addFooter();
   }
@@ -792,8 +841,54 @@ export async function generateImpactReport(
       cy += 7;
     }
 
-    // Subject Breakdown Table
-    if (centre.subjectBreakdown && centre.subjectBreakdown.length > 0) {
+    // Class-wise Subject Breakdown
+    if (centre.classBreakdown && centre.classBreakdown.length > 0) {
+      for (const cls of centre.classBreakdown) {
+        if (cls.subjects.length === 0) continue;
+
+        // Check if we need a new page
+        const neededHeight = 20 + cls.subjects.length * 10;
+        if (cy + neededHeight > pageHeight - 25) {
+          addFooter();
+          newPage();
+          doc.setFontSize(14);
+          doc.setTextColor(HEADING);
+          doc.text(`${centre.name} (continued)`, margin, 25);
+          cy = 33;
+        }
+
+        cy += 4;
+        doc.setFontSize(10);
+        doc.setTextColor(HEADING);
+        doc.text(`${cls.label}`, margin, cy);
+        doc.setFontSize(8);
+        doc.setTextColor(MUTED);
+        doc.text(`${cls.completionRate}% complete · ${cls.completedChapters}/${cls.totalChapters} chapters${cls.avgQuizScore != null ? ` · Quiz: ${cls.avgQuizScore}%` : ""}`, margin + doc.getTextWidth(cls.label + "  ") + 2, cy);
+        cy += 3;
+
+        autoTable(doc, {
+          startY: cy,
+          margin: { left: margin, right: margin },
+          head: [["Subject", "Chapters", "Completion", "Avg Quiz"]],
+          body: cls.subjects.map((s: CentreSubjectBreakdown) => [
+            s.name,
+            `${s.completedChapters}/${s.totalChapters}`,
+            `${s.completionRate}%`,
+            s.avgQuizScore != null ? `${s.avgQuizScore}%` : "—",
+          ]),
+          headStyles: { fillColor: ORANGE, textColor: "#FFFFFF", fontStyle: "bold", fontSize: 7.5 },
+          bodyStyles: { fontSize: 7.5, textColor: HEADING },
+          alternateRowStyles: { fillColor: "#FFF5EB" },
+          styles: { cellPadding: 2 },
+        });
+
+        // Get table end position
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        cy = (doc as any).lastAutoTable?.finalY ?? cy + neededHeight;
+        cy += 2;
+      }
+    } else if (centre.subjectBreakdown && centre.subjectBreakdown.length > 0) {
+      // Fallback: flat subject table if no class breakdown
       cy += 4;
       doc.setFontSize(11);
       doc.setTextColor(HEADING);
