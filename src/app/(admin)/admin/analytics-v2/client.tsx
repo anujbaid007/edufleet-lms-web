@@ -145,11 +145,17 @@ export function ImpactDashboardClient({ data: initialData, userName }: { data: I
         <button
           type="button"
           onClick={async () => {
-            // Always download full org-level report regardless of current drill
-            const orgId = drill.orgId ?? data.organizations[0]?.id;
-            const reportData = orgId ? await loadImpactDashboardAction({ orgId }) : data;
-            const orgName = drill.orgName ?? data.organizations[0]?.name ?? data.scopeLabel;
-            await generateImpactReport(reportData, userName, orgName, drill.centreName);
+            if (drill.level === "platform") {
+              // Platform report: full data with all organizations
+              const reportData = await loadImpactDashboardAction();
+              await generateImpactReport(reportData, userName, "All Organizations", undefined, "platform");
+            } else {
+              // Org-level report (or deeper drill)
+              const orgId = drill.orgId ?? data.organizations[0]?.id;
+              const reportData = orgId ? await loadImpactDashboardAction({ orgId }) : data;
+              const orgName = drill.orgName ?? data.organizations[0]?.name ?? data.scopeLabel;
+              await generateImpactReport(reportData, userName, orgName, drill.centreName, "org");
+            }
           }}
           className="inline-flex items-center gap-2 rounded-clay-sm bg-orange-primary px-4 py-2.5 text-sm font-semibold text-white shadow-clay-orange transition hover:brightness-105"
         >
