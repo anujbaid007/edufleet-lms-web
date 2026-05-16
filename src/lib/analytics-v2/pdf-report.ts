@@ -2,7 +2,7 @@
 
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import type { ImpactDashboard } from "./server";
+import type { ImpactDashboard, CentreSubjectBreakdown } from "./server";
 
 const ORANGE = "#E8871E";
 const HEADING = "#2D2117";
@@ -10,7 +10,21 @@ const MUTED = "#9C8B7A";
 const GREEN = "#22C55E";
 const CREAM = "#FFF9F1";
 
-export function generateImpactReport(
+async function loadLogoDataUrl(): Promise<string | null> {
+  try {
+    const res = await fetch("/logo.png");
+    const blob = await res.blob();
+    return await new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+}
+
+export async function generateImpactReport(
   data: ImpactDashboard,
   userName: string,
   orgName: string,
@@ -24,6 +38,9 @@ export function generateImpactReport(
   const now = new Date();
   const dateStr = now.toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });
   const timeStr = now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+
+  // Pre-load the logo image
+  const logoDataUrl = await loadLogoDataUrl();
 
   // ─── Helper functions ───
 
@@ -65,12 +82,12 @@ export function generateImpactReport(
   doc.setFillColor(CREAM);
   doc.rect(0, 0, pageWidth, pageHeight, "F");
 
-  // Logo text
-  doc.setFontSize(36);
-  doc.setTextColor(HEADING);
-  doc.text("edu", pageWidth / 2 - 18, 70, { align: "center" });
-  doc.setTextColor(ORANGE);
-  doc.text("fleet", pageWidth / 2 + 18, 70, { align: "center" });
+  // Logo image centered on cover
+  if (logoDataUrl) {
+    const logoW = 70; // mm
+    const logoH = logoW * (768 / 1366); // preserve aspect ratio
+    doc.addImage(logoDataUrl, "PNG", (pageWidth - logoW) / 2, 45, logoW, logoH);
+  }
 
   // Title
   doc.setFontSize(28);
@@ -303,6 +320,43 @@ export function generateImpactReport(
       doc.setTextColor(MUTED);
       doc.text("No quiz attempts", margin, cy);
       cy += 7;
+    }
+
+    // Subject Breakdown Table
+    if (centre.subjectBreakdown && centre.subjectBreakdown.length > 0) {
+      cy += 8;
+      doc.setFontSize(11);
+      doc.setTextColor(HEADING);
+      doc.text("Subject Breakdown", margin, cy);
+      cy += 4;
+
+      autoTable(doc, {
+        startY: cy,
+        margin: { left: margin, right: margin },
+        head: [["Subject", "Chapters", "Completion", "Avg Quiz Score"]],
+        body: centre.subjectBreakdown.map((s: CentreSubjectBreakdown) => [
+          s.name,
+          `${s.completedChapters}/${s.totalChapters}`,
+          `${s.completionRate}%`,
+          s.avgQuizScore != null ? `${s.avgQuizScore}%` : "—",
+        ]),
+        headStyles: {
+          fillColor: ORANGE,
+          textColor: "#FFFFFF",
+          fontStyle: "bold",
+          fontSize: 8,
+        },
+        bodyStyles: {
+          fontSize: 8,
+          textColor: HEADING,
+        },
+        alternateRowStyles: {
+          fillColor: "#FFF5EB",
+        },
+        styles: {
+          cellPadding: 2.5,
+        },
+      });
     }
 
     addFooter(pageNum);

@@ -17,7 +17,7 @@ import type {
 import { loadImpactDashboardAction } from "@/lib/analytics-v2/server";
 import { generateImpactReport } from "@/lib/analytics-v2/pdf-report";
 
-type DrillLevel = "platform" | "org" | "centre" | "subject";
+type DrillLevel = "platform" | "org" | "centre" | "class" | "subject";
 
 type DrillState = {
   level: DrillLevel;
@@ -25,6 +25,8 @@ type DrillState = {
   orgName?: string;
   centreId?: string;
   centreName?: string;
+  classNum?: number;
+  className?: string;
   subjectId?: string;
   subjectName?: string;
 };
@@ -50,9 +52,17 @@ export function ImpactDashboardClient({ data: initialData, userName }: { data: I
     });
   }
 
+  function drillIntoClass(cls: import("@/lib/analytics-v2/server").ClassStats) {
+    startTransition(async () => {
+      const result = await loadImpactDashboardAction({ centreId: drill.centreId, classNum: cls.classNum });
+      setData(result);
+      setDrill({ ...drill, level: "class", classNum: cls.classNum, className: cls.label });
+    });
+  }
+
   function drillIntoSubject(subject: SubjectStats) {
     startTransition(async () => {
-      const result = await loadImpactDashboardAction({ centreId: drill.centreId, subjectId: subject.id });
+      const result = await loadImpactDashboardAction({ centreId: drill.centreId, classNum: drill.classNum, subjectId: subject.id });
       setData(result);
       setDrill({ ...drill, level: "subject", subjectId: subject.id, subjectName: subject.name });
     });
@@ -71,7 +81,11 @@ export function ImpactDashboardClient({ data: initialData, userName }: { data: I
       } else if (toLevel === "centre") {
         const result = await loadImpactDashboardAction({ centreId: drill.centreId });
         setData(result);
-        setDrill({ ...drill, level: "centre" });
+        setDrill({ level: "centre", orgId: drill.orgId, orgName: drill.orgName, centreId: drill.centreId, centreName: drill.centreName });
+      } else if (toLevel === "class") {
+        const result = await loadImpactDashboardAction({ centreId: drill.centreId, classNum: drill.classNum });
+        setData(result);
+        setDrill({ ...drill, level: "class", subjectId: undefined, subjectName: undefined });
       }
     });
   }
@@ -102,6 +116,15 @@ export function ImpactDashboardClient({ data: initialData, userName }: { data: I
             </button>
           </>
         )}
+        {drill.className && (
+          <>
+            <ChevronRight className="h-4 w-4 text-muted" />
+            <button type="button" onClick={() => goBack("class")}
+              className={`rounded-full px-3 py-1 font-medium transition ${drill.level === "class" ? "bg-orange-primary/10 text-orange-primary" : "text-muted hover:text-heading"}`}>
+              {drill.className}
+            </button>
+          </>
+        )}
         {drill.subjectName && (
           <>
             <ChevronRight className="h-4 w-4 text-muted" />
@@ -121,10 +144,12 @@ export function ImpactDashboardClient({ data: initialData, userName }: { data: I
         </div>
         <button
           type="button"
-          onClick={() => {
-            const orgName = data.centres[0]?.orgName ?? data.scopeLabel;
-            const centreName = drill.centreName;
-            generateImpactReport(data, userName, orgName, centreName);
+          onClick={async () => {
+            // Always download full org-level report regardless of current drill
+            const orgId = drill.orgId ?? data.organizations[0]?.id;
+            const reportData = orgId ? await loadImpactDashboardAction({ orgId }) : data;
+            const orgName = drill.orgName ?? data.organizations[0]?.name ?? data.scopeLabel;
+            await generateImpactReport(reportData, userName, orgName, drill.centreName);
           }}
           className="inline-flex items-center gap-2 rounded-clay-sm bg-orange-primary px-4 py-2.5 text-sm font-semibold text-white shadow-clay-orange transition hover:brightness-105"
         >
@@ -140,9 +165,16 @@ export function ImpactDashboardClient({ data: initialData, userName }: { data: I
       {drill.level === "org" && (
         <OrgView data={data} onSelectCentre={drillIntoCentre} />
       )}
-      {drill.level === "centre" && data.subjects && (
+      {drill.level === "centre" && data.classes && (
         <CentreView
           centre={data.centres[0] ?? null}
+          classes={data.classes}
+          onSelectClass={drillIntoClass}
+          data={data}
+        />
+      )}
+      {drill.level === "class" && data.subjects && (
+        <ClassView
           subjects={data.subjects}
           onSelectSubject={drillIntoSubject}
           data={data}
@@ -344,10 +376,10 @@ function OrgView({ data, onSelectCentre }: { data: ImpactDashboard; onSelectCent
 
 // ─── Level 3: Centre View ───
 
-function CentreView({ centre, subjects, onSelectSubject, data }: {
+function CentreView({ centre, classes, onSelectClass, data }: {
   centre: CentreStats | null;
-  subjects: SubjectStats[];
-  onSelectSubject: (s: SubjectStats) => void;
+  classes: import("@/lib/analytics-v2/server").ClassStats[];
+  onSelectClass: (c: import("@/lib/analytics-v2/server").ClassStats) => void;
   data: ImpactDashboard;
 }) {
   return (
@@ -375,14 +407,60 @@ function CentreView({ centre, subjects, onSelectSubject, data }: {
       </div>
 
       <ClayCard hover={false} className="!p-6">
+        <h3 className="mb-4 font-poppins text-lg font-bold text-heading">Class-wise Progress</h3>
+        <div className="space-y-3">
+          {classes.map((cls) => (
+            <div
+              key={cls.classNum}
+              className="flex cursor-pointer items-center gap-4 rounded-clay border border-orange-primary/10 bg-white/80 px-4 py-3 transition hover:border-orange-primary/20 hover:bg-orange-50/40"
+              onClick={() => onSelectClass(cls)}
+            >
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-50 text-lg font-bold text-orange-primary">
+                {cls.classNum === 0 ? "K" : cls.classNum}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold text-heading">{cls.label}</p>
+                <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-orange-primary/10">
+                  <div className="h-full rounded-full" style={{ width: `${cls.completionRate}%`, background: cls.completionRate === 100 ? "#22C55E" : "#E8871E" }} />
+                </div>
+              </div>
+              <div className="grid grid-cols-4 gap-6 text-center text-xs">
+                <div><p className="font-bold text-heading">{cls.completedChapters}/{cls.totalChapters}</p><p className="text-muted">Chapters</p></div>
+                <div><p className="font-bold" style={{ color: cls.completionRate === 100 ? "#22C55E" : "#E8871E" }}>{cls.completionRate}%</p><p className="text-muted">Complete</p></div>
+                <div><p className="font-bold text-heading">{cls.watchedLessons}/{cls.totalLessons}</p><p className="text-muted">Lessons</p></div>
+                <div><p className="font-bold text-heading">{cls.avgQuizScore != null ? `${cls.avgQuizScore}%` : "—"}</p><p className="text-muted">Quiz Avg</p></div>
+              </div>
+              <ChevronRight className="h-4 w-4 shrink-0 text-muted" />
+            </div>
+          ))}
+          {classes.length === 0 && <p className="text-sm text-muted">No class data available for this centre.</p>}
+        </div>
+      </ClayCard>
+    </>
+  );
+}
+
+// ─── Level 3: Class View (shows subjects) ───
+
+function ClassView({ subjects, onSelectSubject, data }: {
+  subjects: SubjectStats[];
+  onSelectSubject: (s: SubjectStats) => void;
+  data: ImpactDashboard;
+}) {
+  return (
+    <>
+      <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+        <MetricCard icon={<BookOpenCheck className="h-6 w-6 text-orange-primary" />} value={`${data.completedChapters}/${data.totalChapters}`} label="Chapters Done" />
+        <MetricCard icon={<ProgressRing percentage={data.completionRate} size={48} strokeWidth={5}><span className="text-xs font-bold">{data.completionRate}%</span></ProgressRing>} value="" label="Completion Rate" />
+        <MetricCard icon={<Activity className="h-6 w-6 text-emerald-600" />} value={`${data.activeLearners}/${data.totalLearners}`} label="Active Learners (7d)" />
+        <MetricCard icon={<Award className="h-6 w-6 text-purple-600" />} value={data.avgQuizScore != null ? `${data.avgQuizScore}%` : "—"} label={`Quiz Score (${data.totalQuizAttempts} attempts)`} />
+      </div>
+
+      <ClayCard hover={false} className="!p-6">
         <h3 className="mb-4 font-poppins text-lg font-bold text-heading">Subject-wise Progress</h3>
         <div className="space-y-3">
           {subjects.map((subject) => (
-            <div
-              key={subject.id}
-              className="flex cursor-pointer items-center gap-4 rounded-clay border border-orange-primary/10 bg-white/80 px-4 py-3 transition hover:border-orange-primary/20 hover:bg-orange-50/40"
-              onClick={() => onSelectSubject(subject)}
-            >
+            <div key={subject.id} className="flex cursor-pointer items-center gap-4 rounded-clay border border-orange-primary/10 bg-white/80 px-4 py-3 transition hover:border-orange-primary/20 hover:bg-orange-50/40" onClick={() => onSelectSubject(subject)}>
               <div className="min-w-0 flex-1">
                 <p className="font-semibold text-heading">{subject.name}</p>
                 <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-orange-primary/10">
@@ -398,14 +476,13 @@ function CentreView({ centre, subjects, onSelectSubject, data }: {
               <ChevronRight className="h-4 w-4 shrink-0 text-muted" />
             </div>
           ))}
-          {subjects.length === 0 && <p className="text-sm text-muted">No subject data available for this centre.</p>}
         </div>
       </ClayCard>
     </>
   );
 }
 
-// ─── Level 3: Subject/Chapter View ───
+// ─── Level 4: Subject/Chapter View ───
 
 function SubjectView({ chapters, data }: { chapters: ChapterStats[]; data: ImpactDashboard }) {
   return (

@@ -14,6 +14,14 @@ export async function loadImpactDashboardAction(options?: {
 
 // ─── Types ───
 
+export type CentreSubjectBreakdown = {
+  name: string;
+  totalChapters: number;
+  completedChapters: number;
+  completionRate: number;
+  avgQuizScore: number | null;
+};
+
 export type CentreStats = {
   id: string;
   name: string;
@@ -31,8 +39,21 @@ export type CentreStats = {
   avgQuizScore: number | null;
   bestQuizScore: number | null;
   masteryDistribution: { mastery: number; proficient: number; developing: number; needs_practice: number };
+  subjectBreakdown: CentreSubjectBreakdown[];
   lastActivityAt: string | null;
   lastSyncAt: string | null;
+};
+
+export type ClassStats = {
+  classNum: number;
+  label: string;
+  totalChapters: number;
+  completedChapters: number;
+  completionRate: number;
+  totalLessons: number;
+  watchedLessons: number;
+  quizAttempts: number;
+  avgQuizScore: number | null;
 };
 
 export type SubjectStats = {
@@ -109,6 +130,7 @@ export type ImpactDashboard = {
   // Timeline
   dailyActivity: DailyActivity[];
   // Drill-down data (optional)
+  classes?: ClassStats[];
   subjects?: SubjectStats[];
   chapters?: ChapterStats[];
   // Meta
@@ -348,6 +370,35 @@ export async function loadImpactDashboard(options?: {
       (latest, p) => (!latest || p.last_watched_at > latest ? p.last_watched_at : latest), null
     );
 
+    // Per-centre subject breakdown
+    const subjMap = new Map<string, { name: string; total: number; completed: number; quizAttempts: number; quizScoreSum: number }>();
+    for (const chapter of trackableChapters) {
+      const subj = chapter.subjects as unknown as { id: string; name: string; display_order: number } | null;
+      if (!subj) continue;
+      const entry = subjMap.get(subj.id) ?? { name: subj.name, total: 0, completed: 0, quizAttempts: 0, quizScoreSum: 0 };
+      entry.total++;
+      const chapterVids = videosByChapter.get(chapter.id) ?? [];
+      let allVidsDone = true;
+      for (const v of chapterVids) {
+        if (!centreProgress.some((p) => p.video_id === v.id && p.completed)) allVidsDone = false;
+      }
+      if (allVidsDone && chapterVids.length > 0) entry.completed++;
+      const qId = chapterToQuiz.get(chapter.id);
+      if (qId) {
+        const attempts = centreQuizzes.filter((q) => q.quiz_id === qId);
+        entry.quizAttempts += attempts.length;
+        entry.quizScoreSum += attempts.reduce((s, a) => s + a.percent, 0);
+      }
+      subjMap.set(subj.id, entry);
+    }
+    const subjectBreakdown: CentreSubjectBreakdown[] = Array.from(subjMap.values()).map((s) => ({
+      name: s.name,
+      totalChapters: s.total,
+      completedChapters: s.completed,
+      completionRate: s.total > 0 ? Math.round((s.completed / s.total) * 100) : 0,
+      avgQuizScore: s.quizAttempts > 0 ? Math.round(s.quizScoreSum / s.quizAttempts) : null,
+    }));
+
     return {
       id: centre.id,
       name: centre.name,
@@ -365,6 +416,7 @@ export async function loadImpactDashboard(options?: {
       avgQuizScore: centreQuizzes.length > 0 ? Math.round(centreQuizScoreSum / centreQuizzes.length) : null,
       bestQuizScore: centreBestQuiz,
       masteryDistribution: centreMastery,
+      subjectBreakdown,
       lastActivityAt: lastActivity,
       lastSyncAt: lastActivity, // For offline centres, this is the last synced data
     };
@@ -418,10 +470,56 @@ export async function loadImpactDashboard(options?: {
 
   orgStats.sort((a, b) => b.completionRate - a.completionRate);
 
+  // ─── Class Stats (when drilled into a centre) ───
+
+  let classStats: ClassStats[] | undefined;
+  if (options?.centreId && !options?.classNum && !options?.subjectId) {
+    const classMap = new Map<number, { total: number; completed: number; lessons: number; watched: number; quizAttempts: number; quizScoreSum: number }>();
+
+    for (const chapter of chapterList) {
+      const vids = videosByChapter.get(chapter.id) ?? [];
+      if (vids.length === 0) continue;
+      const cls = chapter.class;
+      const entry = classMap.get(cls) ?? { total: 0, completed: 0, lessons: 0, watched: 0, quizAttempts: 0, quizScoreSum: 0 };
+      entry.total++;
+      entry.lessons += vids.length;
+
+      let allDone = true;
+      for (const v of vids) {
+        if (progressRows.some((p) => p.video_id === v.id && p.watched_percentage > 0)) entry.watched++;
+        if (!progressRows.some((p) => p.video_id === v.id && p.completed)) allDone = false;
+      }
+      if (allDone) entry.completed++;
+
+      const quizId = chapterToQuiz.get(chapter.id);
+      if (quizId) {
+        const attempts = quizRows.filter((q) => q.quiz_id === quizId);
+        entry.quizAttempts += attempts.length;
+        entry.quizScoreSum += attempts.reduce((s, a) => s + a.percent, 0);
+      }
+
+      classMap.set(cls, entry);
+    }
+
+    classStats = Array.from(classMap.entries())
+      .sort(([a], [b]) => a - b)
+      .map(([cls, d]) => ({
+        classNum: cls,
+        label: cls === 0 ? "KG" : `Class ${cls}`,
+        totalChapters: d.total,
+        completedChapters: d.completed,
+        completionRate: d.total > 0 ? Math.round((d.completed / d.total) * 100) : 0,
+        totalLessons: d.lessons,
+        watchedLessons: d.watched,
+        quizAttempts: d.quizAttempts,
+        avgQuizScore: d.quizAttempts > 0 ? Math.round(d.quizScoreSum / d.quizAttempts) : null,
+      }));
+  }
+
   // ─── Subject Stats (when drilled into a centre or class) ───
 
   let subjectStats: SubjectStats[] | undefined;
-  if (options?.centreId || options?.classNum !== undefined) {
+  if (options?.classNum !== undefined) {
     const subjectMap = new Map<string, { id: string; name: string; order: number; chapters: typeof chapterList }>();
     for (const chapter of chapterList) {
       const subj = chapter.subjects as unknown as { id: string; name: string; display_order: number } | null;
@@ -536,6 +634,7 @@ export async function loadImpactDashboard(options?: {
     organizations: orgStats,
     centres: centreStats,
     dailyActivity: Array.from(dailyMap.values()).sort((a, b) => a.date.localeCompare(b.date)),
+    classes: classStats,
     subjects: subjectStats,
     chapters: chapterStats,
     generatedAt: now.toISOString(),
