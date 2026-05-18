@@ -38,6 +38,7 @@ export type ChapterItem = {
   videoCount: number;
   classNum: number;
   medium: string;
+  contentType: string;
   subjectName: string;
   videos: ChapterVideo[];
 };

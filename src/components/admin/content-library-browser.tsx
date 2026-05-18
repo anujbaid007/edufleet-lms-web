@@ -42,6 +42,7 @@ export type LibraryChapterCard = {
   classNum: number;
   board: string;
   medium: string;
+  contentType: string;
   videoCount: number;
   previewVideo: {
     id: string;

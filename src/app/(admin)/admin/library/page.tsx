@@ -20,6 +20,7 @@ type ChapterRow = {
   title: string;
   title_hindi: string | null;
   subject_id: string;
+  content_type: string;
   subjects: { name: string } | null;
 };
 
@@ -67,7 +68,7 @@ const loadContentLibraryData = unstable_cache(
         chapterRanges.map(([from, to]) =>
           admin
             .from("chapters")
-            .select("id, class, board, medium, chapter_no, title, title_hindi, subject_id, subjects(name)")
+            .select("id, class, board, medium, chapter_no, title, title_hindi, subject_id, content_type, subjects(name)")
             .order("class")
             .order("chapter_no")
             .range(from, to)
@@ -114,6 +115,7 @@ const loadContentLibraryData = unstable_cache(
           videoCount: chapterVideos.length,
           classNum: chapter.class,
           medium: chapter.medium,
+          contentType: chapter.content_type ?? "regular",
           subjectName,
           videos: chapterVideos.map((video) => ({
             id: video.id,
@@ -140,6 +142,7 @@ const loadContentLibraryData = unstable_cache(
           classNum: chapter.class,
           board: chapter.board,
           medium: chapter.medium,
+          contentType: chapter.content_type ?? "regular",
           videoCount: chapterVideos.length,
           previewVideo: {
             id: chapterVideos[0].id,
@@ -198,7 +201,7 @@ const loadContentLibraryData = unstable_cache(
       },
     };
   },
-  ["admin-content-library-data-v5"],
+  ["admin-content-library-data-v6"],
   { revalidate: 3600 }
 );
 

@@ -459,6 +459,8 @@ async function packageVariant(params: {
           "veryfast",
           "-crf",
           "23",
+          "-vf",
+          "scale=-2:1080",
           "-c:a",
           "aac",
           "-b:a",
