@@ -33,7 +33,7 @@ export default async function CentresPage() {
 
   const [{ data: orgs }, { data: centres }, { data: users }] = await Promise.all([
     supabase.from("organizations").select("id, name").eq("is_active", true).order("name"),
-    supabase.from("centres").select("id, name, location, is_active, org_id, mode, offline_student_counts, license_valid_until, organizations(name, license_valid_until)").order("name"),
+    supabase.from("centres").select("id, name, location, is_active, org_id, mode, offline_student_counts, license_valid_until, organizations(name, license_valid_until)").eq("is_demo", false).order("name"),
     supabase.from("profiles").select("id, centre_id").eq("is_active", true),
   ]);
 

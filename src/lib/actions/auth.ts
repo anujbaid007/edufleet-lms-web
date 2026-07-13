@@ -25,11 +25,16 @@ export async function login(formData: FormData) {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role, is_demo")
+    .select("role, is_demo, is_active")
     .eq("id", user.id)
     .single();
 
   if (!profile) return { error: "Profile not found. Contact your administrator." };
+
+  if (profile.is_demo && profile.is_active === false) {
+    await supabase.auth.signOut({ scope: "local" });
+    return { error: "This demo login has been deactivated - contact Admin" };
+  }
 
   // Check licence validity (cascades: profile → centre → org)
   if (profile.role !== "platform_admin") {

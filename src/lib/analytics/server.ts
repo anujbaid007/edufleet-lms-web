@@ -373,6 +373,7 @@ async function fetchOrganizations(supabase: Supabase, request: AnalyticsRequest)
       .from("organizations")
       .select("id, name")
       .eq("is_active", true)
+      .eq("is_demo", false)
       .order("name")
       .range(from, to);
 
@@ -388,6 +389,7 @@ async function fetchCentres(supabase: Supabase, request: AnalyticsRequest) {
       .from("centres")
       .select("id, name, org_id, location, mode, offline_student_counts")
       .eq("is_active", true)
+      .eq("is_demo", false)
       .order("name")
       .range(from, to);
 
@@ -406,6 +408,7 @@ async function fetchStudents(supabase: Supabase, request: AnalyticsRequest) {
       .select("id, name, org_id, centre_id, class, board, medium, teacher_id, teacher_ids")
       .in("role", ["student", "teacher"]) // Teachers generate progress for offline centres
       .eq("is_active", true)
+      .eq("is_demo", false)
       .order("name")
       .range(from, to);
 

@@ -40,11 +40,11 @@ export default async function AdminOverviewPage() {
     { count: completedCount },
   ] = await Promise.all([
     isPlatform
-      ? supabase.from("organizations").select("id", { count: "exact", head: true })
+      ? supabase.from("organizations").select("id", { count: "exact", head: true }).eq("is_demo", false)
       : Promise.resolve({ count: isOrg ? 1 : 0 }),
-    supabase.from("centres").select("id", { count: "exact", head: true }),
-    supabase.from("profiles").select("id", { count: "exact", head: true }).eq("is_active", true),
-    supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role", "student").eq("is_active", true),
+    supabase.from("centres").select("id", { count: "exact", head: true }).eq("is_demo", false),
+    supabase.from("profiles").select("id", { count: "exact", head: true }).eq("is_active", true).eq("is_demo", false),
+    supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role", "student").eq("is_active", true).eq("is_demo", false),
     supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role", "teacher").eq("is_active", true),
     supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role", "org_admin").eq("is_active", true),
     supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role", "centre_admin").eq("is_active", true),

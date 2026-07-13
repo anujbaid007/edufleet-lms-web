@@ -94,6 +94,7 @@ export default async function UsersPage({
       "id, name, role, org_id, centre_id, class, classes, board, medium, is_active, teacher_id, teacher_ids, phone, created_at, license_valid_until",
       { count: "exact" }
     )
+    .eq("is_demo", false)
     .order("name");
 
   if (selectedRole) usersQuery = usersQuery.eq("role", selectedRole);
