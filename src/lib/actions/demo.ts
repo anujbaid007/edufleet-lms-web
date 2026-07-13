@@ -20,7 +20,11 @@ function generateDemoPassword(): string {
 
 function addMonthsISODate(months: number): string {
   const d = new Date();
+  const day = d.getDate();
+  d.setDate(1);                         // avoid overflow while changing month
   d.setMonth(d.getMonth() + months);
+  const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  d.setDate(Math.min(day, lastDay));    // clamp to end of target month
   return d.toISOString().slice(0, 10); // YYYY-MM-DD
 }
 
@@ -60,12 +64,18 @@ export async function createDemoUser(formData: FormData) {
   const email = ((formData.get("email") as string) || "").trim();
   const phone = ((formData.get("phone") as string) || "").trim() || null;
   const licenseMonths = Number(formData.get("license_months")) === 2 ? 2 : 1;
-  const classNum = Number(formData.get("class"));
 
   if (!clientName || !email) return { error: "Client name and email are required" };
+
+  const classRaw = formData.get("class");
+  if (classRaw === null || classRaw === "") return { error: "Select a valid class" };
+  const classNum = Number(classRaw);
   if (!Number.isInteger(classNum) || classNum < 0 || classNum > 12) {
     return { error: "Select a valid class" };
   }
+
+  const classOptions = await getDemoClassOptions();
+  if (!classOptions.includes(classNum)) return { error: "Selected class has no content" };
 
   const admin = createAdminClient();
 
