@@ -8,16 +8,6 @@ const DEMO_BOARD = "CBSE";
 const DEMO_MEDIUM = "English";
 const DEMO_NAME = "Student Demo";
 
-function generateDemoPassword(): string {
-  // Readable 10-char password, no ambiguous chars.
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
-  let out = "";
-  for (let i = 0; i < 10; i++) {
-    out += chars[Math.floor(Math.random() * chars.length)];
-  }
-  return out;
-}
-
 function addMonthsISODate(months: number): string {
   const d = new Date();
   const day = d.getDate();
@@ -67,6 +57,9 @@ export async function createDemoUser(formData: FormData) {
 
   if (!clientName || !email) return { error: "Client name and email are required" };
 
+  const password = ((formData.get("password") as string) || "");
+  if (password.length < 6) return { error: "Password must be at least 6 characters" };
+
   const classRaw = formData.get("class");
   if (classRaw === null || classRaw === "") return { error: "Select a valid class" };
   const classNum = Number(classRaw);
@@ -98,8 +91,7 @@ export async function createDemoUser(formData: FormData) {
     return { error: centreError?.message ?? "Failed to create demo centre" };
   }
 
-  // 3. Auth user.
-  const password = generateDemoPassword();
+  // 3. Auth user (password chosen by the admin).
   const { data: authData, error: authError } = await admin.auth.admin.createUser({
     email,
     password,

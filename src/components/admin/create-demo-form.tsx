@@ -54,7 +54,7 @@ export function CreateDemoForm({ classOptions }: { classOptions: number[] }) {
           <h3 className="font-poppins font-bold text-heading text-sm">Demo login created</h3>
           <button onClick={reset} className="text-muted hover:text-heading"><X className="w-4 h-4" /></button>
         </div>
-        <p className="text-xs text-muted mb-3">Copy and share these credentials now — the password is shown only once.</p>
+        <p className="text-xs text-muted mb-3">Copy and share these credentials with the client.</p>
         <div className="rounded-clay-sm bg-cream/70 p-3 text-sm">
           <p><span className="text-muted">Email:</span> <span className="font-semibold">{creds.email}</span></p>
           <p><span className="text-muted">Password:</span> <span className="font-mono font-semibold">{creds.password}</span></p>
@@ -84,7 +84,7 @@ export function CreateDemoForm({ classOptions }: { classOptions: number[] }) {
           <ClayInput id="demo-email" name="email" type="email" label="Client Email (Login ID)" placeholder="client@example.com" required />
           <ClayInput id="demo-phone" name="phone" label="Client Phone" placeholder="Phone number" />
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-semibold text-heading font-poppins mb-2">License Validity</label>
             <select name="license_months" className="clay-input w-full" defaultValue="1">
@@ -100,6 +100,18 @@ export function CreateDemoForm({ classOptions }: { classOptions: number[] }) {
                 <option key={c} value={c}>{classLabel(c)}</option>
               ))}
             </select>
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-heading font-poppins mb-2">Password</label>
+            <input
+              type="text"
+              name="password"
+              required
+              minLength={6}
+              placeholder="Set a login password"
+              className="clay-input w-full"
+            />
+            <p className="text-[11px] text-muted mt-1">Min 6 characters. Shared with the client.</p>
           </div>
         </div>
         {error && <p className="text-sm text-red-500">{error}</p>}
