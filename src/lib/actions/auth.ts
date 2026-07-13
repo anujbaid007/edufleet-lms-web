@@ -25,7 +25,7 @@ export async function login(formData: FormData) {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role")
+    .select("role, is_demo")
     .eq("id", user.id)
     .single();
 
@@ -38,7 +38,11 @@ export async function login(formData: FormData) {
     });
     if (licenceResult && !licenceResult.valid) {
       await supabase.auth.signOut({ scope: "local" });
-      return { error: "Your licence has expired. Contact your administrator." };
+      return {
+        error: profile.is_demo
+          ? "Demo Licence Validity Expired - contact Admin"
+          : "Your licence has expired. Contact your administrator.",
+      };
     }
   }
 
