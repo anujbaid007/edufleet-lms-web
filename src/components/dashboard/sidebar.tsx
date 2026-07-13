@@ -200,7 +200,7 @@ export function Sidebar({
         </div>
 
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-          {isDemo && demoClassOptions.length > 0 && (
+          {isDemo && !collapsed && demoClassOptions.length > 0 && (
             <DemoClassSwitcher currentClass={demoCurrentClass} options={demoClassOptions} />
           )}
           {navLinks.map((link) => {
