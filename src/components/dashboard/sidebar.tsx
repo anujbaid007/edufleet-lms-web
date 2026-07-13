@@ -17,17 +17,22 @@ import {
   X,
   MoreHorizontal,
   Languages,
+  TrendingUp,
 } from "lucide-react";
 import { useState } from "react";
 import { logout } from "@/lib/actions/auth";
 import Image from "next/image";
 import { useLanguage } from "@/context/language-context";
 import type { Lang } from "@/lib/i18n";
+import { DemoClassSwitcher } from "@/components/dashboard/demo-class-switcher";
 
 interface SidebarProps {
   userRole: string;
   userName: string;
   mobileSlot?: React.ReactNode;
+  isDemo?: boolean;
+  demoCurrentClass?: number | null;
+  demoClassOptions?: number[];
 }
 
 type DashboardLink = {
@@ -58,7 +63,14 @@ function isQuizActive(pathname: string) {
   );
 }
 
-export function Sidebar({ userRole, userName, mobileSlot }: SidebarProps) {
+export function Sidebar({
+  userRole,
+  userName,
+  mobileSlot,
+  isDemo = false,
+  demoCurrentClass = null,
+  demoClassOptions = [],
+}: SidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -82,6 +94,10 @@ export function Sidebar({ userRole, userName, mobileSlot }: SidebarProps) {
   ] satisfies DashboardLink[];
 
   const links = userRole === "teacher" ? teacherLinks : studentLinks;
+
+  const navLinks: DashboardLink[] = isDemo
+    ? [...links, { href: "/dashboard/impact", label: "Impact Analytics", icon: TrendingUp }]
+    : links;
 
   const isLinkActive = (link: DashboardLink) =>
     link.isActive
@@ -184,7 +200,10 @@ export function Sidebar({ userRole, userName, mobileSlot }: SidebarProps) {
         </div>
 
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-          {links.map((link) => {
+          {isDemo && demoClassOptions.length > 0 && (
+            <DemoClassSwitcher currentClass={demoCurrentClass} options={demoClassOptions} />
+          )}
+          {navLinks.map((link) => {
             const isActive = isLinkActive(link);
             return (
               <Link
@@ -262,7 +281,7 @@ export function Sidebar({ userRole, userName, mobileSlot }: SidebarProps) {
 
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-orange-primary/10 bg-[rgba(253,248,243,0.96)] px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 backdrop-blur-xl lg:hidden">
         <div className="grid grid-cols-5 gap-1">
-          {links.slice(0, 4).map((link) => {
+          {navLinks.slice(0, 4).map((link) => {
             const isActive = isLinkActive(link);
 
             return (

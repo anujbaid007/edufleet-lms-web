@@ -5,6 +5,7 @@ import { ProfileDrawer } from "@/components/dashboard/profile-drawer";
 import { MissAshaChat } from "@/components/asha/miss-asha-chat";
 import { LanguageProvider } from "@/context/language-context";
 import type { Lang } from "@/lib/i18n";
+import { getDemoClassOptions } from "@/lib/actions/demo";
 
 export default async function DashboardLayout({
   children,
@@ -21,7 +22,7 @@ export default async function DashboardLayout({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role, name, org_id, centre_id, class, board, medium, phone, avatar_url, ui_language")
+    .select("role, name, org_id, centre_id, class, board, medium, phone, avatar_url, ui_language, is_demo")
     .eq("id", user.id)
     .single();
 
@@ -35,6 +36,8 @@ export default async function DashboardLayout({
       ? supabase.from("centres").select("name").eq("id", profile.centre_id).single()
       : Promise.resolve({ data: null }),
   ]);
+
+  const demoClassOptions = profile.is_demo ? await getDemoClassOptions() : [];
 
   const drawerProps = {
     userId: user.id,
@@ -60,6 +63,9 @@ export default async function DashboardLayout({
           userRole={profile.role}
           userName={profile.name}
           mobileSlot={<ProfileDrawer {...drawerProps} compact />}
+          isDemo={profile.is_demo}
+          demoCurrentClass={profile.class}
+          demoClassOptions={demoClassOptions}
         />
         <main className="px-4 pb-28 pt-24 transition-all duration-300 sm:px-6 sm:pb-32 lg:ml-64 lg:px-8 lg:pb-10 lg:pt-8">
           <div className="mb-4 hidden justify-end lg:mb-6 lg:flex">
