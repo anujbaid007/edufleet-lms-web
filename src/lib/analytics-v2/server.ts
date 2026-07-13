@@ -545,6 +545,7 @@ export async function loadImpactDashboard(options?: {
 
   // Also fetch org type
   let orgListQuery = supabase.from("organizations").select("id, name, type").eq("is_active", true);
+  if (options?.orgId) orgListQuery = orgListQuery.eq("id", options.orgId);
   if (!includeDemo) orgListQuery = orgListQuery.eq("is_demo", false);
   const { data: orgRows } = await orgListQuery;
   for (const org of orgRows ?? []) {
