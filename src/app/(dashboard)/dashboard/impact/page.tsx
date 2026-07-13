@@ -31,8 +31,8 @@ export default async function DemoImpactPage() {
         <div>
           <p className="text-sm font-semibold text-heading">Admin view — Impact Analytics</p>
           <p className="text-xs text-body">
-            This is exactly how EduFleet admins see analytics: a live view of every student&apos;s
-            progress across all of your organisation&apos;s centres and classes.
+            This is exactly how your organisation&apos;s admins see analytics: a live view of every
+            student&apos;s progress across all your centres and classes.
           </p>
         </div>
       </div>
