@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { Info } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { loadImpactDashboard } from "@/lib/analytics-v2/server";
 import { ImpactDashboardClient } from "@/app/(admin)/admin/analytics-v2/client";
@@ -23,5 +24,19 @@ export default async function DemoImpactPage() {
   }
 
   const dashboard = await loadImpactDashboard({ orgId: profile.org_id, includeDemo: true });
-  return <ImpactDashboardClient data={dashboard} userName={profile.name ?? "Demo"} />;
+  return (
+    <div className="space-y-4">
+      <div className="flex items-start gap-3 rounded-clay-sm border border-orange-primary/20 bg-orange-50/60 px-4 py-3">
+        <Info className="mt-0.5 h-5 w-5 shrink-0 text-orange-primary" />
+        <div>
+          <p className="text-sm font-semibold text-heading">Admin view — Impact Analytics</p>
+          <p className="text-xs text-body">
+            This is exactly how EduFleet admins see analytics: a live view of every student&apos;s
+            progress across all of your organisation&apos;s centres and classes.
+          </p>
+        </div>
+      </div>
+      <ImpactDashboardClient data={dashboard} userName={profile.name ?? "Demo"} />
+    </div>
+  );
 }
