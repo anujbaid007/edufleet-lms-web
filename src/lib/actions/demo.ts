@@ -8,9 +8,8 @@ const DEMO_BOARD = "CBSE";
 const DEMO_MEDIUM = "English";
 const DEMO_NAME = "Student Demo";
 
-// Demo users may only access classes we have presentable content for.
-const DEMO_MIN_CLASS = 6;
-const DEMO_MAX_CLASS = 12;
+// Demo users may only access the classes we have presentable content for.
+const DEMO_ALLOWED_CLASSES = [6, 9, 10, 11, 12];
 
 function addMonthsISODate(months: number): string {
   const d = new Date();
@@ -22,7 +21,7 @@ function addMonthsISODate(months: number): string {
   return d.toISOString().slice(0, 10); // YYYY-MM-DD
 }
 
-/** Classes with demo content, limited to the presentable demo range (6-12), ascending. */
+/** Classes with demo content, limited to the allowed demo classes, ascending. */
 export async function getDemoClassOptions(): Promise<number[]> {
   const admin = createAdminClient();
   const { data } = await admin
@@ -30,8 +29,7 @@ export async function getDemoClassOptions(): Promise<number[]> {
     .select("class")
     .eq("board", DEMO_BOARD)
     .eq("medium", DEMO_MEDIUM)
-    .gte("class", DEMO_MIN_CLASS)
-    .lte("class", DEMO_MAX_CLASS);
+    .in("class", DEMO_ALLOWED_CLASSES);
   const set = new Set<number>();
   for (const row of data ?? []) {
     if (typeof row.class === "number") set.add(row.class);
