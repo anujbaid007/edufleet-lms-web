@@ -25,9 +25,14 @@ export default async function AdminDemoPage() {
     getDemoClassOptions(),
   ]);
 
-  // Emails live in auth.users — fetch via admin API.
-  const { data: authList } = await admin.auth.admin.listUsers({ perPage: 1000 });
-  const emailById = new Map((authList?.users ?? []).map((u) => [u.id, u.email ?? null]));
+  // Emails live in auth.users — fetch per demo profile (bounded by demo count).
+  const emailEntries = await Promise.all(
+    (demoProfiles ?? []).map(async (p) => {
+      const { data } = await admin.auth.admin.getUserById(p.id);
+      return [p.id, data.user?.email ?? null] as const;
+    })
+  );
+  const emailById = new Map<string, string | null>(emailEntries);
 
   const rows: DemoUserRow[] = (demoProfiles ?? []).map((p) => ({
     id: p.id,
