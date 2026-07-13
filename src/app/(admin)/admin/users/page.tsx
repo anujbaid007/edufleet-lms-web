@@ -111,8 +111,8 @@ export default async function UsersPage({
     { data: teacherProfiles },
   ] = await Promise.all([
     usersQuery.range(from, to),
-    supabase.from("organizations").select("id, name").eq("is_active", true).order("name"),
-    supabase.from("centres").select("id, name, org_id").eq("is_active", true).order("name"),
+    supabase.from("organizations").select("id, name").eq("is_active", true).eq("is_demo", false).order("name"),
+    supabase.from("centres").select("id, name, org_id").eq("is_active", true).eq("is_demo", false).order("name"),
     supabase.from("profiles").select("id, name, centre_id").eq("role", "teacher").eq("is_active", true).order("name"),
   ]);
   perf.record("pagedUserCount", pagedUsers?.length ?? 0);

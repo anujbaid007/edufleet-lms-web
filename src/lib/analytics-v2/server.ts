@@ -1,15 +1,59 @@
 "use server";
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 
-/** Server action for client-side drill-down */
+/** Server action for client-side drill-down. Scopes strictly to the caller. */
 export async function loadImpactDashboardAction(options?: {
   orgId?: string;
   centreId?: string;
   classNum?: number;
   subjectId?: string;
 }): Promise<ImpactDashboard> {
-  return loadImpactDashboard(options);
+  const auth = await createClient();
+  const { data: { user } } = await auth.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+
+  const admin = createAdminClient();
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("role, org_id, centre_id, is_demo")
+    .eq("id", user.id)
+    .single();
+  if (!profile) throw new Error("No profile");
+
+  const { role, org_id, centre_id, is_demo } = profile;
+
+  // Demo users: locked to their own org, demo data included, org can't be overridden.
+  if (is_demo) {
+    if (!org_id) throw new Error("Demo user has no org");
+    let centreId = options?.centreId;
+    if (centreId) {
+      const { data: c } = await admin.from("centres").select("id").eq("id", centreId).eq("org_id", org_id).maybeSingle();
+      if (!c) centreId = undefined; // ignore centres outside the demo org
+    }
+    return loadImpactDashboard({ orgId: org_id, centreId, classNum: options?.classNum, subjectId: options?.subjectId, includeDemo: true });
+  }
+
+  // Real admins: exclude demo data; lock scope to their level.
+  if (role === "platform_admin") {
+    return loadImpactDashboard({ ...options, includeDemo: false });
+  }
+  if (role === "org_admin") {
+    if (!org_id) throw new Error("Org admin has no org");
+    let centreId = options?.centreId;
+    if (centreId) {
+      const { data: c } = await admin.from("centres").select("id").eq("id", centreId).eq("org_id", org_id).maybeSingle();
+      if (!c) centreId = undefined;
+    }
+    return loadImpactDashboard({ orgId: org_id, centreId, classNum: options?.classNum, subjectId: options?.subjectId, includeDemo: false });
+  }
+  if (role === "centre_admin") {
+    if (!centre_id) throw new Error("Centre admin has no centre");
+    return loadImpactDashboard({ centreId: centre_id, classNum: options?.classNum, subjectId: options?.subjectId, includeDemo: false });
+  }
+
+  throw new Error("Forbidden");
 }
 
 // ─── Types ───
@@ -156,8 +200,10 @@ export async function loadImpactDashboard(options?: {
   centreId?: string;
   classNum?: number;
   subjectId?: string;
+  includeDemo?: boolean;
 }): Promise<ImpactDashboard> {
   const supabase = createAdminClient();
+  const includeDemo = options?.includeDemo ?? false;
   const now = new Date();
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
   // const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
@@ -167,6 +213,7 @@ export async function loadImpactDashboard(options?: {
     .from("centres")
     .select("id, name, org_id, mode, location, offline_student_counts, organizations(name)")
     .eq("is_active", true);
+  if (!includeDemo) centreQuery = centreQuery.eq("is_demo", false);
   if (options?.orgId) centreQuery = centreQuery.eq("org_id", options.orgId);
   if (options?.centreId) centreQuery = centreQuery.eq("id", options.centreId);
 
@@ -178,6 +225,7 @@ export async function loadImpactDashboard(options?: {
     .select("id, name, org_id, centre_id, class, board, medium, role")
     .in("role", ["student", "teacher"])
     .eq("is_active", true);
+  if (!includeDemo) learnerQuery = learnerQuery.eq("is_demo", false);
   if (options?.orgId) learnerQuery = learnerQuery.eq("org_id", options.orgId);
   if (options?.centreId) learnerQuery = learnerQuery.eq("centre_id", options.centreId);
 
@@ -496,7 +544,9 @@ export async function loadImpactDashboard(options?: {
   }
 
   // Also fetch org type
-  const { data: orgRows } = await supabase.from("organizations").select("id, name, type").eq("is_active", true);
+  let orgListQuery = supabase.from("organizations").select("id, name, type").eq("is_active", true);
+  if (!includeDemo) orgListQuery = orgListQuery.eq("is_demo", false);
+  const { data: orgRows } = await orgListQuery;
   for (const org of orgRows ?? []) {
     orgMap.set(org.id, { id: org.id, name: org.name, type: org.type });
   }

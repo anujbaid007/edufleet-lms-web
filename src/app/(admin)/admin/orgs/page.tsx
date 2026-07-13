@@ -30,7 +30,7 @@ export default async function OrgsPage() {
   const isPlatform = profile?.role === "platform_admin";
 
   const [{ data: orgs }, { data: centres }, { data: users }] = await Promise.all([
-    supabase.from("organizations").select("id, name, type, is_active, created_at, license_valid_until").order("name"),
+    supabase.from("organizations").select("id, name, type, is_active, created_at, license_valid_until").eq("is_demo", false).order("name"),
     supabase.from("centres").select("id, org_id"),
     supabase.from("profiles").select("id, org_id").eq("is_active", true),
   ]);
