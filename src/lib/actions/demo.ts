@@ -9,7 +9,7 @@ const DEMO_MEDIUM = "English";
 const DEMO_NAME = "Student Demo";
 
 // Demo users may only access the classes we have presentable content for.
-const DEMO_ALLOWED_CLASSES = [6, 9, 10, 11, 12];
+const DEMO_ALLOWED_CLASSES = [6, 7, 8, 9, 10, 11, 12];
 
 function addMonthsISODate(months: number): string {
   const d = new Date();
