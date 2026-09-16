@@ -14,43 +14,41 @@ export default async function SubjectPage({ params }: { params: { id: string } }
   if (!session) redirect("/login");
   const userId = session.user.id;
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("class, board, medium, org_id")
-    .eq("id", userId)
-    .single();
+  // Profile and subject are independent — fetch together.
+  const [{ data: profile }, { data: subject }] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("class, board, medium, org_id")
+      .eq("id", userId)
+      .single(),
+    supabase
+      .from("subjects")
+      .select("id, name")
+      .eq("id", params.id)
+      .single(),
+  ]);
 
   if (!profile) redirect("/login");
-
-  // Get subject
-  const { data: subject } = await supabase
-    .from("subjects")
-    .select("id, name")
-    .eq("id", params.id)
-    .single();
-
   if (!subject) redirect("/dashboard");
 
-  // Get chapters for this subject matching user's class/board/medium
-  const { data: allChapters } = await supabase
-    .from("chapters")
-    .select("id, title, chapter_no")
-    .eq("subject_id", subject.id)
-    .eq("class", profile.class ?? 0)
-    .eq("board", profile.board ?? "CBSE")
-    .eq("medium", profile.medium ?? "English")
-    .order("chapter_no");
+  // Chapters for this subject and the org's content restrictions are independent — fetch together.
+  const [{ data: allChapters }, { data: restrictions }] = await Promise.all([
+    supabase
+      .from("chapters")
+      .select("id, title, chapter_no")
+      .eq("subject_id", params.id)
+      .eq("class", profile.class ?? 0)
+      .eq("board", profile.board ?? "CBSE")
+      .eq("medium", profile.medium ?? "English")
+      .order("chapter_no"),
+    profile.org_id
+      ? supabase.from("content_restrictions").select("chapter_id").eq("org_id", profile.org_id)
+      : Promise.resolve({ data: [] as Array<{ chapter_id: string }> }),
+  ]);
 
   // Filter out content-restricted chapters
-  let chapters = allChapters ?? [];
-  if (profile.org_id) {
-    const { data: restrictions } = await supabase
-      .from("content_restrictions")
-      .select("chapter_id")
-      .eq("org_id", profile.org_id);
-    const blockedIds = new Set(restrictions?.map((r) => r.chapter_id) ?? []);
-    chapters = chapters.filter((c) => !blockedIds.has(c.id));
-  }
+  const blockedIds = new Set((restrictions ?? []).map((r) => r.chapter_id));
+  const chapters = (allChapters ?? []).filter((c) => !blockedIds.has(c.id));
 
   const chapterIds = chapters.map((c) => c.id);
 
