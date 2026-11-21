@@ -21,19 +21,31 @@ export default async function ChapterPage({ params }: { params: { id: string } }
   if (!session) redirect("/login");
   const userId = session.user.id;
 
-  const { data: chapter } = await supabase
-    .from("chapters")
-    .select("id, title, title_hindi, class, medium, chapter_no, subject_id, subjects(id, name)")
-    .eq("id", params.id)
-    .single();
+  // Chapter meta, its videos and the published quiz all key off params.id — fetch together.
+  const [
+    { data: chapter },
+    { data: videos },
+    { data: quiz, error: quizError },
+  ] = await Promise.all([
+    supabase
+      .from("chapters")
+      .select("id, title, title_hindi, class, medium, chapter_no, subject_id, subjects(id, name)")
+      .eq("id", params.id)
+      .single(),
+    supabase
+      .from("videos")
+      .select("id, title, duration_seconds, sort_order")
+      .eq("chapter_id", params.id)
+      .order("sort_order"),
+    supabase
+      .from("chapter_quizzes")
+      .select("id, question_count")
+      .eq("chapter_id", params.id)
+      .eq("is_published", true)
+      .maybeSingle(),
+  ]);
 
   if (!chapter) redirect("/dashboard");
-
-  const { data: videos } = await supabase
-    .from("videos")
-    .select("id, title, duration_seconds, sort_order")
-    .eq("chapter_id", chapter.id)
-    .order("sort_order");
 
   const videoIds = videos?.map((v) => v.id) ?? [];
   const { data: progress } = videoIds.length > 0
@@ -50,12 +62,6 @@ export default async function ChapterPage({ params }: { params: { id: string } }
   const subjectName = subjectMeta?.name ?? "Subject";
   const subjectId = subjectMeta?.id ?? "";
 
-  const { data: quiz, error: quizError } = await supabase
-    .from("chapter_quizzes")
-    .select("id, question_count")
-    .eq("chapter_id", chapter.id)
-    .eq("is_published", true)
-    .maybeSingle();
   const activeQuiz = isQuizSchemaUnavailableError(quizError) ? null : quiz;
   const fallbackQuiz = !activeQuiz
     ? await getFallbackQuizMeta({

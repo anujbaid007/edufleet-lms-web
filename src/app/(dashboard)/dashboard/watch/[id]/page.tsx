@@ -20,21 +20,21 @@ export default async function WatchPage({ params }: { params: { id: string } }) 
   if (!session) redirect("/login");
   const userId = session.user.id;
 
-  // Get user's medium preference
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("medium")
-    .eq("id", userId)
-    .single();
+  // Medium preference and the video itself are independent — fetch together.
+  const [{ data: profile }, { data: video }] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("medium")
+      .eq("id", userId)
+      .single(),
+    supabase
+      .from("videos")
+      .select("id, title, title_hindi, s3_key, s3_key_hindi, duration_seconds, duration_seconds_hindi, chapter_id, sort_order")
+      .eq("id", params.id)
+      .single(),
+  ]);
 
   const isHindi = profile?.medium === "Hindi";
-
-  // Get the video with its chapter
-  const { data: video } = await supabase
-    .from("videos")
-    .select("id, title, title_hindi, s3_key, s3_key_hindi, duration_seconds, duration_seconds_hindi, chapter_id, sort_order")
-    .eq("id", params.id)
-    .single();
 
   if (!video) redirect("/dashboard");
 
@@ -43,21 +43,31 @@ export default async function WatchPage({ params }: { params: { id: string } }) 
   const playbackVariant = (isHindi && video.s3_key_hindi) ? "hindi" : "default";
   const videoDuration = (isHindi && video.duration_seconds_hindi) ? video.duration_seconds_hindi : video.duration_seconds;
 
-  // Get chapter info
-  const { data: chapter } = await supabase
-    .from("chapters")
-    .select("id, title, title_hindi, chapter_no, class, medium, subject_id, subjects(id, name)")
-    .eq("id", video.chapter_id)
-    .single();
+  // Chapter meta, playlist and quiz all key off video.chapter_id — fetch together.
+  const [
+    { data: chapter },
+    { data: chapterVideos },
+    { data: quiz, error: quizError },
+  ] = await Promise.all([
+    supabase
+      .from("chapters")
+      .select("id, title, title_hindi, chapter_no, class, medium, subject_id, subjects(id, name)")
+      .eq("id", video.chapter_id)
+      .single(),
+    supabase
+      .from("videos")
+      .select("id, title, title_hindi, duration_seconds, duration_seconds_hindi, sort_order")
+      .eq("chapter_id", video.chapter_id)
+      .order("sort_order"),
+    supabase
+      .from("chapter_quizzes")
+      .select("id, question_count")
+      .eq("chapter_id", video.chapter_id)
+      .eq("is_published", true)
+      .maybeSingle(),
+  ]);
 
   if (!chapter) redirect("/dashboard");
-
-  // Get all videos in this chapter (for playlist)
-  const { data: chapterVideos } = await supabase
-    .from("videos")
-    .select("id, title, title_hindi, duration_seconds, duration_seconds_hindi, sort_order")
-    .eq("chapter_id", chapter.id)
-    .order("sort_order");
 
   // Get progress for all chapter videos
   const chapterVideoIds = chapterVideos?.map((v) => v.id) ?? [];
@@ -76,12 +86,6 @@ export default async function WatchPage({ params }: { params: { id: string } }) 
   const subjectName = subjectMeta?.name ?? "";
   const subjectId = subjectMeta?.id ?? "";
 
-  const { data: quiz, error: quizError } = await supabase
-    .from("chapter_quizzes")
-    .select("id, question_count")
-    .eq("chapter_id", chapter.id)
-    .eq("is_published", true)
-    .maybeSingle();
   const activeQuiz = isQuizSchemaUnavailableError(quizError) ? null : quiz;
   const fallbackQuiz = !activeQuiz
     ? await getFallbackQuizMeta({
