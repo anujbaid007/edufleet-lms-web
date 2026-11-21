@@ -22,6 +22,7 @@ import {
   MoreHorizontal,
   MessageSquareText,
   Sparkles,
+  KeyRound,
 } from "lucide-react";
 import { useState } from "react";
 import { logout } from "@/lib/actions/auth";
@@ -42,6 +43,7 @@ const platformAdminLinks = [
   { href: "/admin/analytics-v2", label: "Impact Analytics", icon: TrendingUp },
   { href: "/admin/contacts", label: "Contact Messages", icon: MessageSquareText },
   { href: "/admin/demo", label: "Demo Links", icon: Sparkles },
+  { href: "/admin/editor-keys", label: "LFX Editor Keys", icon: KeyRound },
 ];
 
 const orgAdminLinks = [
